@@ -1,6 +1,8 @@
-import React, { useState, useRef, useCallback, MouseEvent, useEffect } from 'react';
+import React, { useState, useRef, useCallback, MouseEvent, useEffect, useMemo } from 'react';
 import { SequenceChord } from '../types';
 import * as Tone from 'tone';
+import { SpeakerIcon } from './icons/SpeakerIcon';
+import { SpeakerOffIcon } from './icons/SpeakerOffIcon';
 
 interface SequencerProps {
   sequence: SequenceChord[];
@@ -8,12 +10,17 @@ interface SequencerProps {
   onUpdateChord: (id: string, newProps: Partial<SequenceChord>) => void;
   onRemoveChord: (id: string) => void;
   onChordDoubleClick: (chord: SequenceChord) => void;
-  onChordMouseDown: (chordName: string) => void;
+  onPlayChord: (chordName: string) => void;
+  onChordSelect: (id: string, e: MouseEvent) => void;
+  onDeselect: () => void;
   onChordMouseUp: () => void;
   playheadPosition: number; // in beats
   playingChordId: string | null;
+  selectedChordIds: Set<string>;
   bars: 4 | 8;
   onSeek: (positionInBeats: number) => void;
+  isClickMuted: boolean;
+  onMuteToggle: () => void;
 }
 
 const DEFAULT_CHORD_DURATION = 8; // A half note (8 * 16th steps)
@@ -22,6 +29,18 @@ const RULER_HEIGHT = 24; // Corresponds to h-6 in tailwind
 const CHORD_BLOCK_HEIGHT = 68; // 10px taller
 const TRACK_VERTICAL_PADDING = 4; // Reduced padding for more chord height
 
+// A pure component for the playhead to help with rendering consistency.
+const Playhead: React.FC<{ position: number; trackPadding: number }> = React.memo(({ position, trackPadding }) => (
+    <div
+        className="absolute top-0 w-0.5 bg-red-500 z-20 pointer-events-none"
+        style={{
+            left: `${position + trackPadding}px`,
+            height: `100%`,
+        }}
+    />
+));
+Playhead.displayName = 'Playhead';
+
 // --- ChordBlock Component ---
 interface ChordBlockProps {
   chord: SequenceChord;
@@ -29,13 +48,20 @@ interface ChordBlockProps {
   onUpdate: (id: string, newProps: Partial<SequenceChord>) => void;
   onRemove: (id: string) => void;
   onDoubleClick: (chord: SequenceChord) => void;
-  onChordMouseDown: (chordName: string) => void;
+  onPlayChord: (chordName: string) => void;
+  onChordSelect: (id: string, e: MouseEvent<HTMLDivElement>) => void;
   onChordMouseUp: () => void;
   playingChordId: string | null;
+  isSelected: boolean;
   bars: 4 | 8;
+  isOverlappingOnTop: boolean;
+  isClickMuted: boolean;
 }
 
-const ChordBlock: React.FC<ChordBlockProps> = ({ chord, stepWidth, onUpdate, onRemove, onDoubleClick, onChordMouseDown, onChordMouseUp, playingChordId, bars }) => {
+const ChordBlock: React.FC<ChordBlockProps> = ({ 
+  chord, stepWidth, onUpdate, onRemove, onDoubleClick, onPlayChord, onChordSelect, onChordMouseUp, 
+  playingChordId, isSelected, bars, isOverlappingOnTop, isClickMuted 
+}) => {
   const [visualDragState, setVisualDragState] = useState<{ left: number, width: number } | null>(null);
   
   const dragStateRef = useRef<{
@@ -50,8 +76,12 @@ const ChordBlock: React.FC<ChordBlockProps> = ({ chord, stepWidth, onUpdate, onR
 
   const handleMouseDown = useCallback((e: MouseEvent<HTMLDivElement>) => {
     if (e.button !== 0) return; // Only for left-click.
+    
+    onChordSelect(chord.id, e);
+    if (!isClickMuted) {
+      onPlayChord(chord.chordName);
+    }
 
-    onChordMouseDown(chord.chordName); // Play sound on click down
     e.preventDefault();
     e.stopPropagation();
 
@@ -66,57 +96,66 @@ const ChordBlock: React.FC<ChordBlockProps> = ({ chord, stepWidth, onUpdate, onR
     };
 
     const handleMouseMove = (moveEvent: globalThis.MouseEvent) => {
-      if (!dragStateRef.current || stepWidth === 0) return;
-      moveEvent.preventDefault();
+        if (!dragStateRef.current || stepWidth === 0) return;
+        moveEvent.preventDefault();
 
-      const isPrecise = moveEvent.ctrlKey;
-      const dx = moveEvent.clientX - dragStateRef.current.startX;
-      
-      if (dragStateRef.current.isResizing) {
-        let newWidthPx = dragStateRef.current.originalWidthPx + dx;
-        if (!isPrecise) { // Default: snap during drag
-            const widthInSteps = Math.max(1, Math.round(newWidthPx / stepWidth));
-            newWidthPx = widthInSteps * stepWidth;
+        const isPrecise = moveEvent.ctrlKey;
+        const dx = moveEvent.clientX - dragStateRef.current.startX;
+
+        if (dragStateRef.current.isResizing) {
+            let newWidthPx = dragStateRef.current.originalWidthPx + dx;
+            if (!isPrecise) {
+                const widthInSteps = Math.max(1, Math.round(newWidthPx / stepWidth));
+                newWidthPx = widthInSteps * stepWidth;
+            }
+
+            const clampedWidth = Math.max(stepWidth, newWidthPx);
+            const maxDurationPx = (TOTAL_STEPS - chord.start) * stepWidth;
+            setVisualDragState({ left: dragStateRef.current.originalStartPx, width: Math.min(clampedWidth, maxDurationPx) });
+
+        } else { // Moving
+            let newLeftPx = dragStateRef.current.originalStartPx + dx;
+            if (!isPrecise) {
+                const leftInSteps = Math.round(newLeftPx / stepWidth);
+                newLeftPx = leftInSteps * stepWidth;
+            }
+
+            const maxStartPx = (64 - chord.duration) * stepWidth;
+            setVisualDragState({ left: Math.max(0, Math.min(newLeftPx, maxStartPx)), width: dragStateRef.current.originalWidthPx });
         }
-        const clampedWidth = Math.max(stepWidth, newWidthPx);
-        const maxDurationPx = (TOTAL_STEPS - chord.start) * stepWidth;
-        setVisualDragState({ left: dragStateRef.current.originalStartPx, width: Math.min(clampedWidth, maxDurationPx) });
-      } else { // Moving
-        let newLeftPx = dragStateRef.current.originalStartPx + dx;
-        if (!isPrecise) { // Default: snap during drag
-            const leftInSteps = Math.round(newLeftPx / stepWidth);
-            newLeftPx = leftInSteps * stepWidth;
-        }
-        const maxStartPx = (64 - chord.duration) * stepWidth;
-        setVisualDragState({ left: Math.max(0, Math.min(newLeftPx, maxStartPx)), width: dragStateRef.current.originalWidthPx });
-      }
     };
 
     const handleMouseUp = (upEvent: globalThis.MouseEvent) => {
       onChordMouseUp(); // Stop sound on mouse up
 
       if (dragStateRef.current && stepWidth > 0) {
-          const isPreciseOnRelease = upEvent.ctrlKey;
+          const isPrecise = upEvent.ctrlKey;
           const laneBaseStep = Math.floor(chord.start / 64) * 64;
           const finalDx = upEvent.clientX - dragStateRef.current.startX;
 
           if (dragStateRef.current.isResizing) {
               const newWidthPx = Math.max(stepWidth, dragStateRef.current.originalWidthPx + finalDx);
-              let newDuration = isPreciseOnRelease
-                ? newWidthPx / stepWidth
-                : Math.round(newWidthPx / stepWidth);
-                
+              let newDuration: number;
+              if (isPrecise) {
+                  newDuration = newWidthPx / stepWidth;
+              } else {
+                  newDuration = Math.round(newWidthPx / stepWidth);
+              }
+              
               newDuration = Math.max(1, Math.min(TOTAL_STEPS - chord.start, newDuration));
               if (newDuration !== chord.duration) {
                   onUpdate(chord.id, { duration: newDuration });
               }
           } else { // Moving
               const newLeftPx = dragStateRef.current.originalStartPx + finalDx;
-              let newStartSteps = isPreciseOnRelease
-                ? newLeftPx / stepWidth
-                : Math.round(newLeftPx / stepWidth);
-                
-              newStartSteps = Math.max(0, Math.min(64 - (isPreciseOnRelease ? chord.duration : Math.round(chord.duration)), newStartSteps));
+              let newStartSteps: number;
+              if (isPrecise) {
+                  newStartSteps = newLeftPx / stepWidth;
+              } else {
+                  newStartSteps = Math.round(newLeftPx / stepWidth);
+              }
+              
+              newStartSteps = Math.max(0, Math.min(64 - chord.duration, newStartSteps));
               const finalStart = laneBaseStep + newStartSteps;
 
               if (finalStart !== chord.start) {
@@ -128,13 +167,12 @@ const ChordBlock: React.FC<ChordBlockProps> = ({ chord, stepWidth, onUpdate, onR
       dragStateRef.current = null;
       setVisualDragState(null);
       window.removeEventListener('mousemove', handleMouseMove);
-// FIX: Correctly remove the 'mouseup' event listener to finalize the drag operation.
       window.removeEventListener('mouseup', handleMouseUp);
     };
 
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
-}, [chord.id, chord.start, chord.duration, stepWidth, onUpdate, onChordMouseDown, onChordMouseUp, chord.chordName, TOTAL_STEPS]);
+}, [chord, stepWidth, onUpdate, onPlayChord, onChordSelect, onChordMouseUp, TOTAL_STEPS, isClickMuted]);
 
   const startInLanePx = (chord.start % 64) * stepWidth;
   const widthPx = chord.duration * stepWidth;
@@ -142,9 +180,10 @@ const ChordBlock: React.FC<ChordBlockProps> = ({ chord, stepWidth, onUpdate, onR
   return (
     <div
       data-has-context-menu="true"
-      className={`absolute rounded-md flex items-center justify-center text-white text-xs font-medium select-none shadow-lg transition-colors duration-150 z-10 chord-block
-        bg-indigo-600 border border-indigo-400
+      className={`absolute rounded-md flex items-center justify-center text-white text-xs font-medium select-none shadow-lg transition-all duration-150 z-10 chord-block border
+        ${isSelected ? 'bg-indigo-500 border-yellow-400' : 'bg-indigo-600 border-indigo-400'}
         ${isCurrentlyPlaying ? 'ring-2 ring-sky-400' : ''}
+        ${isOverlappingOnTop ? 'opacity-60' : ''}
         cursor-grab active:cursor-grabbing
       `}
       style={{
@@ -155,9 +194,8 @@ const ChordBlock: React.FC<ChordBlockProps> = ({ chord, stepWidth, onUpdate, onR
         touchAction: 'none',
       }}
       onMouseDown={handleMouseDown}
-      onContextMenu={(e) => { if (!e.ctrlKey) { e.preventDefault(); onRemove(chord.id); } }}
       onDoubleClick={() => onDoubleClick(chord)}
-      title={`${chord.chordName}\nDrag to move. Drag right edge to resize.\nHold CTRL for precise control.\nRight-click to delete.\nDouble-click to edit.`}
+      title={`${chord.chordName}\nDrag to move (snaps to grid).\nDrag edge to resize (snaps to grid).\nHold Ctrl for precise control.\nDouble-click to edit. Delete to remove.`}
     >
       <span className="truncate px-2 pointer-events-none">{chord.chordName}</span>
       <div className={`resize-handle absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize`} />
@@ -169,7 +207,8 @@ const ChordBlock: React.FC<ChordBlockProps> = ({ chord, stepWidth, onUpdate, onR
 // --- Sequencer Component ---
 export const Sequencer: React.FC<SequencerProps> = ({
   sequence, onAddChord, onUpdateChord, onRemoveChord, onChordDoubleClick,
-  onChordMouseDown, onChordMouseUp, playheadPosition, playingChordId, bars, onSeek
+  onPlayChord, onChordSelect, onDeselect, onChordMouseUp, playheadPosition, 
+  playingChordId, selectedChordIds, bars, onSeek, isClickMuted, onMuteToggle
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [dragOverStep, setDragOverStep] = useState<number | null>(null);
@@ -180,6 +219,24 @@ export const Sequencer: React.FC<SequencerProps> = ({
   const BEAT_COUNT = BAR_COUNT * 4;
   const SUBDIVISION = 4;
   const TOTAL_STEPS = BEAT_COUNT * SUBDIVISION;
+
+  const sequenceWithOverlapInfo = useMemo(() => {
+    return sequence.map((chord, i, allChords) => {
+        let isOverlappingOnTop = false;
+        for (let j = 0; j < allChords.length; j++) {
+            if (i === j) continue;
+            const otherChord = allChords[j];
+            const overlaps = (chord.start < otherChord.start + otherChord.duration) && (otherChord.start < chord.start + chord.duration);
+            // This chord is on top if it comes later in the array and overlaps
+            if (overlaps && j < i) {
+                isOverlappingOnTop = true;
+                break;
+            }
+        }
+        return { ...chord, isOverlappingOnTop };
+    });
+  }, [sequence]);
+
 
   useEffect(() => {
     const calculateWidth = () => {
@@ -223,6 +280,9 @@ export const Sequencer: React.FC<SequencerProps> = ({
   const handleDragLeave = () => setDragOverStep(null);
   
   const handleTrackClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!(e.target as HTMLElement).closest('.chord-block')) {
+      onDeselect();
+    }
     if (stepWidth <= 0 || (e.target as HTMLElement).closest('.chord-block')) return;
 
     const rect = e.currentTarget.getBoundingClientRect();
@@ -233,7 +293,7 @@ export const Sequencer: React.FC<SequencerProps> = ({
     const positionInBeats = positionInSteps / SUBDIVISION;
     
     onSeek(Math.max(0, Math.min(BEAT_COUNT, positionInBeats)));
-  }, [stepWidth, onSeek, BEAT_COUNT]);
+  }, [stepWidth, onSeek, BEAT_COUNT, onDeselect]);
 
   const playheadLane = is8BarMode && playheadPosition >= 16 ? 1 : 0;
   const playheadLeftInLane = (playheadPosition % 16) * beatWidth;
@@ -253,7 +313,7 @@ export const Sequencer: React.FC<SequencerProps> = ({
 
   const renderRuler = (barOffset = 0) => (
     <div 
-      className="flex h-6 items-end cursor-default"
+      className="flex h-6 items-end cursor-default flex-grow"
       style={{ paddingLeft: `${TRACK_PADDING}px`, paddingRight: `${TRACK_PADDING}px` }}
       onClick={handleTrackClick}
       data-lane={barOffset > 0 ? 1 : 0}
@@ -266,63 +326,81 @@ export const Sequencer: React.FC<SequencerProps> = ({
       ))}
     </div>
   );
-  
-  const renderPlayhead = () => (
-    stepWidth > 0 && playheadLeftInLane <= gridWidth ? (
-      <div className="absolute top-0 w-0.5 bg-red-500 z-20 pointer-events-none"
-        style={{
-          left: `${playheadLeftInLane + TRACK_PADDING}px`,
-          height: `100%`,
-        }}
-      />
-    ) : null
-  );
 
-  return (
-    <div className="w-full flex flex-col p-2 min-w-[600px] relative">
-      {renderRuler(0)}
-      <div 
-        ref={containerRef}
-        data-lane={0}
-        className="relative w-full bg-gray-900/50"
-        style={{ height: '82px' }}
-        onDragOver={handleDragOver} onDrop={handleDrop} onDragLeave={handleDragLeave}
-        onClick={handleTrackClick}
-        title="Sequencer track. Drag chords here, or click to position the playhead."
-      >
-        {renderGrid(0)}
-        {sequence.filter(c => c.start < 64).map(chord => (
-          <ChordBlock key={chord.id} chord={chord} stepWidth={stepWidth} onUpdate={onUpdateChord} onRemove={onRemoveChord} onDoubleClick={onChordDoubleClick} onChordMouseDown={onChordMouseDown} onChordMouseUp={onChordMouseUp} playingChordId={playingChordId} bars={bars} />
-        ))}
-        {dragOverStep !== null && dragOverStep < 64 && (
-          <div className="absolute bg-indigo-500/30 rounded pointer-events-none" style={{ left: `${(dragOverStep % 64) * stepWidth + TRACK_PADDING}px`, width: `${DEFAULT_CHORD_DURATION * stepWidth}px`, height: `${CHORD_BLOCK_HEIGHT}px`, bottom: `${TRACK_VERTICAL_PADDING}px` }}/>
-        )}
-        {playheadLane === 0 && renderPlayhead()}
-      </div>
-
-      {is8BarMode && (
-        <>
-          {renderRuler(4)}
-          <div 
-            data-lane={1}
-            className="relative w-full bg-gray-900/50" 
+  const renderSequencerLane = (laneIndex: 0 | 1) => {
+    const barOffset = laneIndex * 4;
+    return (
+      <>
+        <div className="relative flex items-center">
+            {renderRuler(barOffset)}
+            {laneIndex === 0 && (
+                <button
+                    onClick={onMuteToggle}
+                    title={isClickMuted ? "Unmute chord click" : "Mute chord click"}
+                    className="absolute -translate-y-1/2 h-6 w-6 flex items-center justify-center rounded-full text-gray-400 hover:bg-gray-700 hover:text-white transition-colors"
+                    style={{ right: '1px', top: 'calc(50% - 5px)' }}
+                >
+                    {isClickMuted ? <SpeakerOffIcon className="w-5 h-5" /> : <SpeakerIcon className="w-5 h-5" />}
+                </button>
+            )}
+        </div>
+        <div 
+            ref={laneIndex === 0 ? containerRef : null}
+            data-lane={laneIndex}
+            className="relative w-full bg-gray-900/50"
             style={{ height: '82px' }}
-            onDragOver={handleDragOver} 
-            onDrop={handleDrop} 
-            onDragLeave={handleDragLeave}
+            onDragOver={handleDragOver} onDrop={handleDrop} onDragLeave={handleDragLeave}
             onClick={handleTrackClick}
             title="Sequencer track. Drag chords here, or click to position the playhead."
-          >
-            {renderGrid(4)}
-            {sequence.filter(c => c.start >= 64).map(chord => (
-              <ChordBlock key={chord.id} chord={chord} stepWidth={stepWidth} onUpdate={onUpdateChord} onRemove={onRemoveChord} onDoubleClick={onChordDoubleClick} onChordMouseDown={onChordMouseDown} onChordMouseUp={onChordMouseUp} playingChordId={playingChordId} bars={bars} />
+        >
+            {renderGrid(barOffset)}
+            {sequenceWithOverlapInfo.filter(c => Math.floor(c.start / 64) === laneIndex).map(chord => (
+              <ChordBlock 
+                key={chord.id} 
+                chord={chord} 
+                stepWidth={stepWidth} 
+                onUpdate={onUpdateChord} 
+                onRemove={onRemoveChord} 
+                onDoubleClick={onChordDoubleClick} 
+                onPlayChord={onPlayChord}
+                onChordSelect={onChordSelect}
+                onChordMouseUp={onChordMouseUp} 
+                playingChordId={playingChordId} 
+                isSelected={selectedChordIds.has(chord.id)}
+                bars={bars} 
+                isOverlappingOnTop={chord.isOverlappingOnTop}
+                isClickMuted={isClickMuted}
+              />
             ))}
-            {dragOverStep !== null && dragOverStep >= 64 && (
-              <div className="absolute bg-indigo-500/30 rounded pointer-events-none" style={{ left: `${(dragOverStep % 64) * stepWidth + TRACK_PADDING}px`, width: `${DEFAULT_CHORD_DURATION * stepWidth}px`, height: `${CHORD_BLOCK_HEIGHT}px`, bottom: `${TRACK_VERTICAL_PADDING}px` }} />
+            {dragOverStep !== null && Math.floor(dragOverStep / 64) === laneIndex && (
+              <div className="absolute bg-indigo-500/30 rounded pointer-events-none" style={{ left: `${(dragOverStep % 64) * stepWidth + TRACK_PADDING}px`, width: `${DEFAULT_CHORD_DURATION * stepWidth}px`, height: `${CHORD_BLOCK_HEIGHT}px`, bottom: `${TRACK_VERTICAL_PADDING}px` }}/>
             )}
-            {playheadLane === 1 && renderPlayhead()}
-          </div>
-        </>
+            {playheadLane === laneIndex && stepWidth > 0 && playheadLeftInLane <= gridWidth && (
+              <Playhead position={playheadLeftInLane} trackPadding={TRACK_PADDING} />
+            )}
+        </div>
+      </>
+    );
+  };
+
+  const handleContainerClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    // This handles clicks on the component's outer padding.
+    // Clicks on the track/ruler are handled by handleTrackClick.
+    if (e.target === e.currentTarget) {
+      onDeselect();
+    }
+  };
+
+  return (
+    <div className="w-full flex flex-col p-2 min-w-[600px] relative" onClick={handleContainerClick}>
+      <React.Fragment key="lane-0">
+        {renderSequencerLane(0)}
+      </React.Fragment>
+
+      {is8BarMode && (
+        <React.Fragment key="lane-1">
+          {renderSequencerLane(1)}
+        </React.Fragment>
       )}
 
       {sequence.length === 0 && dragOverStep === null && (

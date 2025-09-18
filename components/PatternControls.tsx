@@ -2,6 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Pattern } from '../types';
 import { MusicNoteIcon } from './icons/MusicNoteIcon';
 import { MetronomeIcon } from './icons/MetronomeIcon';
+import { PianoIcon } from './icons/PianoIcon';
+import { UndoIcon } from './icons/UndoIcon';
+import { RedoIcon } from './icons/RedoIcon';
 
 interface ArrangementViewProps {
   patterns: Pattern[];
@@ -21,6 +24,12 @@ interface ArrangementViewProps {
   isDrumEditorOpen: boolean;
   isMetronomeOn: boolean;
   onMetronomeToggle: () => void;
+  isPianoVisible: boolean;
+  onTogglePiano: () => void;
+  onUndo: () => void;
+  onRedo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
 }
 
 const TrashIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
@@ -91,7 +100,8 @@ const EditablePatternName: React.FC<{
 export const ArrangementView: React.FC<ArrangementViewProps> = ({
   patterns, currentPattern, onSelectPattern, onAddPattern, onDeletePattern, onRenamePattern, onCopyPattern, onReorderPatterns,
   bpm, onBpmChange, onToggleBarMode, isDrumsEnabled, onToggleDrumsEnabled, onToggleDrumEditor, isDrumEditorOpen,
-  isMetronomeOn, onMetronomeToggle
+  isMetronomeOn, onMetronomeToggle, isPianoVisible, onTogglePiano,
+  onUndo, onRedo, canUndo, canRedo
 }) => {
   const [draggedPatternId, setDraggedPatternId] = useState<string | null>(null);
 
@@ -164,6 +174,14 @@ export const ArrangementView: React.FC<ArrangementViewProps> = ({
       <div className="flex justify-between items-center mt-1 pt-2 border-t border-gray-700/60">
         <EditablePatternName pattern={currentPattern} onRename={onRenamePattern} />
         <div className="flex items-center gap-4">
+            <div className="flex items-center gap-1 border-r border-gray-600 pr-3">
+              <button onClick={onRedo} disabled={!canRedo} className="p-2 rounded-full transition-colors disabled:text-gray-600 disabled:bg-transparent text-gray-300 hover:enabled:bg-gray-600" title="Redo (Ctrl+Y)">
+                  <RedoIcon className="w-5 h-5"/>
+              </button>
+              <button onClick={onUndo} disabled={!canUndo} className="p-2 rounded-full transition-colors disabled:text-gray-600 disabled:bg-transparent text-gray-300 hover:enabled:bg-gray-600" title="Undo (Ctrl+Z)">
+                  <UndoIcon className="w-5 h-5"/>
+              </button>
+            </div>
             <div className="flex items-center gap-2">
                 <span className="text-sm font-medium text-gray-400">BPM</span>
                 <input type="range" min="40" max="240" value={bpm} onChange={e => onBpmChange(Number(e.target.value))} onWheel={handleBpmWheel} className="w-24 h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer range-slider" title="Adjust BPM"/>
@@ -185,6 +203,7 @@ export const ArrangementView: React.FC<ArrangementViewProps> = ({
                     <span aria-hidden="true" className={`${isDrumsEnabled ? 'translate-x-5' : 'translate-x-0'} pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`}/>
                 </button>
             </div>
+            <button onClick={onTogglePiano} className={`p-2 rounded-full transition-colors ${isPianoVisible ? 'bg-indigo-600 text-white' : 'text-gray-300 bg-gray-700 hover:bg-gray-600'}`} title="Toggle Piano Keyboard"><PianoIcon className="w-5 h-5"/></button>
             <button onClick={onToggleDrumEditor} className={`p-2 rounded-full transition-colors ${isDrumEditorOpen ? 'bg-indigo-600 text-white' : 'text-gray-300 bg-gray-700 hover:bg-gray-600'}`} title="Toggle Drum Editor"><MusicNoteIcon className="w-5 h-5"/></button>
         </div>
       </div>

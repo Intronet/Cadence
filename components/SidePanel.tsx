@@ -1,12 +1,14 @@
-
 import React from 'react';
 import { PadGrid } from './ResultCard';
 import { Controls } from './PromptForm';
 import { ChordSet } from '../types';
 import { OctaveSlider } from './OctaveSlider';
 import { Generator } from './Generator';
+import { PanelCloseIcon } from './icons/PanelCloseIcon';
 
 interface SidePanelProps {
+  isOpen: boolean;
+  onClose: () => void;
   chords: string[];
   songKey: string;
   setSongKey: (key: string) => void;
@@ -136,6 +138,8 @@ const VoicingSequencerToggle: React.FC<{
 
 
 export const SidePanel: React.FC<SidePanelProps> = ({
+  isOpen,
+  onClose,
   chords,
   songKey,
   setSongKey,
@@ -171,69 +175,87 @@ export const SidePanel: React.FC<SidePanelProps> = ({
   };
 
   return (
-    <aside className="w-[34rem] h-full bg-gray-800/30 p-4 border-l border-gray-700 hidden lg:block">
-      <div className="h-full grid grid-rows-[auto_1fr] gap-4">
-        {/* Non-scrolling controls area */}
-        <div className="flex-shrink-0 space-y-4">
-          <div>
-            <h2 className="text-lg font-semibold text-indigo-300 mb-2">Controls</h2>
-            <Controls
-              songKey={songKey}
-              setSongKey={setSongKey}
-              category={category}
-              setCategory={setCategory}
-              chordSetIndex={chordSetIndex}
-              setChordSetIndex={setChordSetIndex}
-              categories={categories}
-              chordSets={chordSets}
-              keys={keys}
-            />
-          </div>
-          
-          <div>
-            <Generator 
-              onGenerate={onGenerate} 
-              isGenerating={isGenerating} 
-            />
-          </div>
-
-          <div title="Control how chords are played. 'Off' plays root position. 'Manual' allows setting octave and inversion. 'Auto' creates smooth voice leading.">
-            <h2 className="text-lg font-semibold text-indigo-300 mb-2">Voicing</h2>
-            <VoicingModeControl mode={voicingMode} setMode={setVoicingMode} />
-            <div className="grid grid-cols-2 gap-4 mt-2">
-              <OctaveSlider octave={octave} setOctave={setOctave} />
-              <InversionControl 
-                inversionLevel={inversionLevel} 
-                setInversionLevel={setInversionLevel}
-                disabled={voicingMode !== 'manual'}
+    <aside className={`
+      h-full bg-gray-800/30 border-l border-gray-700
+      transition-all duration-300 ease-in-out
+      overflow-x-hidden
+      ${isOpen ? 'w-[34rem] p-4' : 'w-0 p-0 border-l-0'}
+      hidden lg:block
+      flex-shrink-0
+    `}>
+      <div className="w-[calc(34rem-2rem)] h-full"> {/* Inner container to prevent content wrapping during animation */}
+        <div className="h-full grid grid-rows-[auto_1fr] gap-4">
+          {/* Non-scrolling controls area */}
+          <div className="flex-shrink-0 space-y-4">
+            <div>
+              <div className="flex justify-between items-center mb-2">
+                <h2 className="text-lg font-semibold text-indigo-300">Controls</h2>
+                <button
+                  onClick={onClose}
+                  className="p-1 text-gray-400 hover:text-white hover:bg-gray-700 rounded-full transition-colors"
+                  aria-label="Collapse sidebar"
+                  title="Collapse Sidebar"
+                >
+                  <PanelCloseIcon className="w-5 h-5" />
+                </button>
+              </div>
+              <Controls
+                songKey={songKey}
+                setSongKey={setSongKey}
+                category={category}
+                setCategory={setCategory}
+                chordSetIndex={chordSetIndex}
+                setChordSetIndex={setChordSetIndex}
+                categories={categories}
+                chordSets={chordSets}
+                keys={keys}
               />
             </div>
-             <VoicingSequencerToggle 
-                enabled={isSequencerVoicingOn} 
-                setEnabled={setIsSequencerVoicingOn} 
-                disabled={voicingMode !== 'auto'}
+            
+            <div>
+              <Generator 
+                onGenerate={onGenerate} 
+                isGenerating={isGenerating} 
               />
+            </div>
+
+            <div title="Control how chords are played. 'Off' plays root position. 'Manual' allows setting octave and inversion. 'Auto' creates smooth voice leading.">
+              <h2 className="text-lg font-semibold text-indigo-300 mb-2">Voicing</h2>
+              <VoicingModeControl mode={voicingMode} setMode={setVoicingMode} />
+              <div className="grid grid-cols-2 gap-4 mt-2">
+                <OctaveSlider octave={octave} setOctave={setOctave} />
+                <InversionControl 
+                  inversionLevel={inversionLevel} 
+                  setInversionLevel={setInversionLevel}
+                  disabled={voicingMode !== 'manual'}
+                />
+              </div>
+              <VoicingSequencerToggle 
+                  enabled={isSequencerVoicingOn} 
+                  setEnabled={setIsSequencerVoicingOn} 
+                  disabled={voicingMode !== 'auto'}
+                />
+            </div>
+          </div>
+
+          {/* Scrolling pad grid area */}
+          <div className="min-h-0 pr-2 pb-[10px] overflow-y-scroll custom-scrollbar">
+            <PadGrid 
+              chords={chords} 
+              onPadMouseDown={onPadMouseDown} 
+              onPadMouseUp={onPadMouseUp} 
+              isPianoLoaded={isPianoLoaded}
+              onPadMouseEnter={onPadMouseEnter}
+              onPadMouseLeave={onPadMouseLeave}
+              onPadDragStart={handlePadDragStart}
+              inversionLevel={inversionLevel}
+              voicingMode={voicingMode}
+              keyLabels={keyLabels}
+              activeKeyboardPadIndices={activeKeyboardPadIndices}
+            />
           </div>
         </div>
-
-        {/* Scrolling pad grid area */}
-        <div className="min-h-0 pr-2 pb-[10px] overflow-y-scroll custom-scrollbar">
-          <PadGrid 
-            chords={chords} 
-            onPadMouseDown={onPadMouseDown} 
-            onPadMouseUp={onPadMouseUp} 
-            isPianoLoaded={isPianoLoaded}
-            onPadMouseEnter={onPadMouseEnter}
-            onPadMouseLeave={onPadMouseLeave}
-            onPadDragStart={handlePadDragStart}
-            inversionLevel={inversionLevel}
-            voicingMode={voicingMode}
-            keyLabels={keyLabels}
-            activeKeyboardPadIndices={activeKeyboardPadIndices}
-          />
-        </div>
       </div>
-
       <style>{`
         .custom-scrollbar::-webkit-scrollbar {
           width: 8px;

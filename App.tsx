@@ -1,5 +1,3 @@
-
-
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { Header } from './components/Header';
 import { SidePanel } from './components/SidePanel';
@@ -35,38 +33,105 @@ import { ChordEditor } from './components/ChordEditor';
 import { DrumEditor } from './components/DrumMachine';
 import { PRESET_DRUM_PATTERNS, DRUM_SOUNDS } from './components/drums/drumPatterns';
 import { ArrangementView } from './components/PatternControls';
+import { HamburgerIcon } from './components/icons/HamburgerIcon';
 
+
+// --- History Hook ---
+const useHistory = <T,>(initialState: T) => {
+  const [history, setHistory] = useState([initialState]);
+  const [index, setIndex] = useState(0);
+
+  const setState = useCallback((action: T | ((prevState: T) => T)) => {
+    const currentState = history[index];
+    const newState = typeof action === 'function' ? (action as (prevState: T) => T)(currentState) : action;
+
+    if (JSON.stringify(currentState) === JSON.stringify(newState)) {
+      return;
+    }
+    
+    const newHistory = history.slice(0, index + 1);
+    newHistory.push(newState);
+    
+    setHistory(newHistory);
+    setIndex(newHistory.length - 1);
+  }, [history, index]);
+
+  const undo = useCallback(() => {
+    if (index > 0) {
+      setIndex(i => i - 1);
+    }
+  }, [index]);
+
+  const redo = useCallback(() => {
+    if (index < history.length - 1) {
+      // FIX: The redo function was incorrectly decrementing the index. It should increment.
+      setIndex(i => i + 1);
+    }
+  }, [index, history.length]);
+
+  return {
+    state: history[index],
+    setState,
+    undo,
+    redo,
+    canUndo: index > 0,
+    canRedo: index < history.length - 1,
+  };
+};
 
 // Simple unique ID generator
 const generateId = () => `_${Math.random().toString(36).substr(2, 9)}`;
 
 // --- Loading Screen Component ---
 const LoadingScreen: React.FC<{ isLoaded: boolean; onStart: () => void; }> = ({ isLoaded, onStart }) => {
+  const [progress, setProgress] = useState(0);
+  const [isButtonEnabled, setIsButtonEnabled] = useState(false);
+
+  useEffect(() => {
+    if (isLoaded) {
+      // Animate progress to 100% over 2.5s
+      setProgress(100); 
+
+      // Enable the button after the animation
+      const timer = setTimeout(() => {
+        setIsButtonEnabled(true);
+      }, 2500);
+
+      return () => clearTimeout(timer);
+    }
+  }, [isLoaded]);
+
   return (
-    <div className="fixed inset-0 bg-gray-900 z-50 flex flex-col items-center justify-center text-white">
-      <h1 className="text-6xl font-bold text-center bg-gradient-to-r from-indigo-400 to-purple-500 text-transparent bg-clip-text mb-2 font-display">
-        Cadence
-      </h1>
-      <p className="text-lg text-gray-400 mb-8 tracking-wider">The Songwriter's Canvas</p>
-      <div className="w-64 h-2 bg-gray-800 rounded-full overflow-hidden mb-4">
-        {isLoaded ? (
-          <div className="w-full h-full bg-indigo-500"></div>
-        ) : (
-          <div className="w-full h-full relative">
-            <div className="absolute top-0 bottom-0 w-1/3 bg-indigo-500 rounded-full animate-indeterminate-loader"></div>
-          </div>
-        )}
+    <div className="fixed inset-0 bg-gray-900 z-50 flex flex-col items-center justify-center text-white overflow-hidden">
+      {/* Moving lights animation */}
+      <div className="absolute inset-0 z-0 opacity-30">
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-600 rounded-full filter blur-3xl animate-blob"></div>
+        <div className="absolute top-1/2 right-1/4 w-80 h-80 bg-indigo-600 rounded-full filter blur-3xl animate-blob animation-delay-2000"></div>
+        <div className="absolute bottom-1/4 left-1/3 w-72 h-72 bg-sky-500 rounded-full filter blur-3xl animate-blob animation-delay-4000"></div>
       </div>
-      {isLoaded ? (
+
+      <div className="relative z-10 flex flex-col items-center justify-center">
+        <h1 className="text-6xl font-bold text-center bg-gradient-to-r from-indigo-400 to-purple-500 text-transparent bg-clip-text mb-2 font-display">
+          Cadence
+        </h1>
+        <p className="text-lg text-gray-400 mb-8 tracking-wider">The Songwriter's Canvas</p>
+        <div className="w-64 h-2 bg-gray-800 rounded-full overflow-hidden mb-4">
+          <div 
+            className="h-full bg-indigo-500 transition-all duration-[2500ms] ease-out"
+            style={{ width: `${progress}%` }}
+          ></div>
+        </div>
+        
         <button 
           onClick={onStart} 
-          className="mt-4 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-lg font-semibold transition-all duration-200 transform hover:scale-105 animate-fade-in"
+          disabled={!isButtonEnabled}
+          className="mt-4 px-6 py-3 bg-indigo-600 rounded-lg text-lg font-semibold transition-all duration-300 transform disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100 hover:enabled:bg-indigo-700 hover:enabled:scale-105"
         >
           Click to Start
         </button>
-      ) : (
-        <p className="text-gray-400">Loading audio samples...</p>
-      )}
+        {!isLoaded && <p className="text-gray-400 mt-4">Loading audio samples...</p>}
+      </div>
+
        <style>{`
           @keyframes indeterminate-loader {
             0% { left: -33.33%; }
@@ -75,13 +140,18 @@ const LoadingScreen: React.FC<{ isLoaded: boolean; onStart: () => void; }> = ({ 
           .animate-indeterminate-loader {
             animation: indeterminate-loader 1.5s ease-in-out infinite;
           }
-           @keyframes fade-in {
-            from { opacity: 0; }
-            to { opacity: 1; }
+          
+          @keyframes blob {
+            0% { transform: translate(0px, 0px) scale(1); }
+            33% { transform: translate(30px, -50px) scale(1.1); }
+            66% { transform: translate(-20px, 20px) scale(0.9); }
+            100% { transform: translate(0px, 0px) scale(1); }
           }
-          .animate-fade-in {
-            animation: fade-in 0.5s ease-out forwards;
+          .animate-blob {
+            animation: blob 7s infinite;
           }
+          .animation-delay-2000 { animation-delay: 2s; }
+          .animation-delay-4000 { animation-delay: 4s; }
        `}</style>
     </div>
   );
@@ -175,8 +245,26 @@ const App: React.FC = () => {
   const [hoveredNotes, setHoveredNotes] = useState<string[]>([]);
   const [lastPlayedName, setLastPlayedName] = useState<string | null>(null);
   
-  // --- Pattern & Sequencer State ---
-  const [patterns, setPatterns] = useState<Pattern[]>(() => [createNewPattern('Pattern 1', 4, PRESET_DRUM_PATTERNS[0].pattern)]);
+  // --- UI State ---
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isPianoVisible, setIsPianoVisible] = useState(false);
+  const [isPianoClosing, setIsPianoClosing] = useState(false);
+
+  // --- Master Audio State ---
+  const [masterVolume, setMasterVolume] = useState(0); // in dB
+  const [isMuted, setIsMuted] = useState(false);
+
+
+  // --- Pattern & Sequencer State with History ---
+  const {
+    state: patterns,
+    setState: setPatterns,
+    undo,
+    redo,
+    canUndo,
+    canRedo
+  } = useHistory<Pattern[]>([createNewPattern('Pattern 1', 4, PRESET_DRUM_PATTERNS[0].pattern)]);
+  
   const [currentPatternId, setCurrentPatternId] = useState(patterns[0].id);
   const [isPlaying, setIsPlaying] = useState(false);
   const [bpm, setBpm] = useState(120);
@@ -185,6 +273,9 @@ const App: React.FC = () => {
   const [sequencerActiveNotes, setSequencerActiveNotes] = useState<string[]>([]);
   const [activeSequencerManualNotes, setActiveSequencerManualNotes] = useState<string[]>([]);
   const [isSequencerVoicingOn, setIsSequencerVoicingOn] = useState(true);
+  const [isSequencerClickMuted, setIsSequencerClickMuted] = useState(false);
+  const [selectedChordIds, setSelectedChordIds] = useState<Set<string>>(new Set());
+  const [clipboard, setClipboard] = useState<Array<Omit<SequenceChord, 'id'>>>([]);
   const partRef = useRef<Tone.Part | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const prevSongKeyRef = useRef<string>(songKey);
@@ -198,6 +289,88 @@ const App: React.FC = () => {
   const [activeKeyboardNotes, setActiveKeyboardNotes] = useState<Map<string, string[]>>(new Map());
   const [activeKeyboardPadIndices, setActiveKeyboardPadIndices] = useState<Set<number>>(new Set());
   const pressedKeysRef = useRef<Set<string>>(new Set());
+
+  const updatePattern = useCallback((id: string, updates: Partial<Pattern>) => {
+    setPatterns(prev => prev.map(p => (p.id === id ? { ...p, ...updates } : p)));
+  }, [setPatterns]);
+
+  // Keyboard listeners for shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.target as HTMLElement).tagName.match(/INPUT|TEXTAREA/)) return;
+
+      const isModifier = e.metaKey || e.ctrlKey;
+
+      if (isModifier) {
+        const key = e.key.toLowerCase();
+        
+        // Undo/Redo
+        const isUndo = key === 'z' && !e.shiftKey;
+        const isRedo = key === 'y' || (key === 'z' && e.shiftKey);
+        if (isUndo) { e.preventDefault(); undo(); return; }
+        if (isRedo) { e.preventDefault(); redo(); return; }
+
+        // Cut/Copy/Paste
+        const isCopy = key === 'c';
+        const isCut = key === 'x';
+        const isPaste = key === 'v';
+
+        if (isCopy || isCut) {
+          e.preventDefault();
+          if (selectedChordIds.size === 0) return;
+          const selectedChords = sequence.filter(c => selectedChordIds.has(c.id)).sort((a, b) => a.start - b.start);
+          if (selectedChords.length > 0) {
+            const firstChordStart = selectedChords[0].start;
+            const clipboardContent = selectedChords.map(({ id, ...chord }) => ({ ...chord, start: chord.start - firstChordStart }));
+            setClipboard(clipboardContent);
+            if (isCut) {
+              const newSequence = sequence.filter(c => !selectedChordIds.has(c.id));
+              updatePattern(currentPatternId, { sequence: newSequence });
+              setSelectedChordIds(new Set());
+            }
+          }
+        } else if (isPaste) {
+          e.preventDefault();
+          if (clipboard.length === 0) return;
+          const ppq = Tone.Transport.PPQ;
+          const ticksPer16th = ppq / 4;
+          const currentTick = Tone.Transport.ticks;
+          const pasteStartStep = Math.round(currentTick / ticksPer16th);
+          const newChords = clipboard.map(clipboardChord => ({ ...clipboardChord, id: generateId(), start: pasteStartStep + clipboardChord.start }));
+          const patternEndStep = bars * 16;
+          const validNewChords = newChords.filter(c => c.start < patternEndStep);
+          if (validNewChords.length > 0) {
+            const newSequence = [...sequence, ...validNewChords];
+            updatePattern(currentPatternId, { sequence: newSequence });
+            const newSelectedIds = new Set(validNewChords.map(c => c.id));
+            setSelectedChordIds(newSelectedIds);
+          }
+        }
+      } else {
+        // Deletion
+        if ((e.key === 'Delete' || e.key === 'Backspace') && selectedChordIds.size > 0) {
+          e.preventDefault();
+          const newSequence = sequence.filter(c => !selectedChordIds.has(c.id));
+          updatePattern(currentPatternId, { sequence: newSequence });
+          setSelectedChordIds(new Set());
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [undo, redo, selectedChordIds, sequence, clipboard, bars, currentPatternId, updatePattern]);
+
+
+  // Sync Master Audio
+  useEffect(() => {
+    Tone.Destination.volume.value = masterVolume;
+  }, [masterVolume]);
+
+  useEffect(() => {
+    Tone.Destination.mute = isMuted;
+  }, [isMuted]);
+
 
   // --- Transpose Sequencer on Key Change ---
   useEffect(() => {
@@ -217,7 +390,7 @@ const App: React.FC = () => {
       }
     }
     prevSongKeyRef.current = songKey;
-  }, [songKey, sequence, currentPatternId]);
+  }, [songKey, sequence, currentPatternId, setPatterns]);
 
   // --- Metronome State ---
   const [isMetronomeOn, setIsMetronomeOn] = useState(false);
@@ -233,6 +406,7 @@ const App: React.FC = () => {
   const [selectedDrumPresetIndex, setSelectedDrumPresetIndex] = useState(0);
   const [activeDrumStep, setActiveDrumStep] = useState<number | null>(null);
   const [isDrumEditorOpen, setIsDrumEditorOpen] = useState(false);
+  const [isDrumEditorClosing, setIsDrumEditorClosing] = useState(false);
   const drumSequenceRef = useRef<Tone.Sequence<number> | null>(null);
   const drumPattern = useMemo(() => currentPattern?.drumPattern, [currentPattern]);
 
@@ -452,36 +626,61 @@ const App: React.FC = () => {
     setPlayingChordId(null);
   };
 
-  const updatePattern = (id: string, updates: Partial<Pattern>) => {
-    setPatterns(prev => prev.map(p => (p.id === id ? { ...p, ...updates } : p)));
-  };
-
-  const renamePattern = (id: string, newName: string) => {
+  const renamePattern = useCallback((id: string, newName: string) => {
     if (newName.trim()) {
       updatePattern(id, { name: newName.trim() });
     }
-  };
+  }, [updatePattern]);
 
-  const addChordToSequence = (chordName: string, start: number) => {
+  const addChordToSequence = useCallback((chordName: string, start: number) => {
     const newChord: SequenceChord = {
       id: generateId(), chordName, start, duration: 8,
     };
     const newSequence = [...sequence, newChord];
     updatePattern(currentPatternId, { sequence: newSequence });
-  };
+  }, [sequence, currentPatternId, updatePattern]);
 
-  const updateChordInSequence = (id: string, newProps: Partial<SequenceChord>) => {
+  const updateChordInSequence = useCallback((id: string, newProps: Partial<SequenceChord>) => {
     const newSequence = sequence.map(c => (c.id === id ? { ...c, ...newProps } : c));
     updatePattern(currentPatternId, { sequence: newSequence });
-  };
+  }, [sequence, currentPatternId, updatePattern]);
 
-  const removeChordFromSequence = (id: string) => {
+  const removeChordFromSequence = useCallback((id: string) => {
     const newSequence = sequence.filter(c => c.id !== id);
     updatePattern(currentPatternId, { sequence: newSequence });
-  };
+  }, [sequence, currentPatternId, updatePattern]);
   
-  const handleSequencerChordMouseDown = (chordName: string) => {
-// FIX: The 'release' property was incorrectly set as a string. It has been changed to a number to ensure proper audio synthesis.
+  const handleSequencerChordSelect = useCallback((id: string, e: React.MouseEvent) => {
+    setSelectedChordIds(prevIds => {
+      const newIds = new Set(prevIds);
+      const isMultiKey = e.metaKey || e.ctrlKey || e.shiftKey;
+  
+      if (!isMultiKey) {
+        newIds.clear();
+        newIds.add(id);
+        return newIds;
+      }
+  
+      if (newIds.has(id)) {
+        newIds.delete(id);
+      } else {
+        newIds.add(id);
+      }
+      return newIds;
+    });
+  }, []);
+
+  const handleDeselectChords = useCallback(() => {
+    setSelectedChordIds(new Set());
+  }, []);
+
+  const handleMainContentClick = useCallback((e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) {
+      handleDeselectChords();
+    }
+  }, [handleDeselectChords]);
+
+  const playSequencerChord = (chordName: string) => {
     sampler.release = 0.1;
     const notes = getChordNoteStrings(chordName, octave);
     if (notes.length > 0) {
@@ -508,8 +707,6 @@ const App: React.FC = () => {
     setEditingChord(null);
   };
   
-  // FIX: Refactored `playEditorPreview` to improve logic and resolve potential type issues.
-  // The function now stops previous notes before playing new ones and correctly handles empty chords.
   const playEditorPreview = useCallback((chordName: string) => {
     // Stop old notes first.
     if (activeEditorPreviewNotes.length > 0) {
@@ -517,7 +714,6 @@ const App: React.FC = () => {
     }
 
     // Then, set up and play new notes.
-// FIX: The 'release' property was incorrectly set as a string. It has been changed to a number to ensure proper audio synthesis.
     sampler.release = 0.1;
     const notes = getChordNoteStrings(chordName, octave);
     if (notes.length > 0) {
@@ -578,10 +774,14 @@ const App: React.FC = () => {
       const newDrumPreset = PRESET_DRUM_PATTERNS[fallbackIndex].pattern;
       updatePattern(currentPatternId, { drumPattern: expandDrumPattern(newDrumPreset, currentPattern.bars) });
     }
-  }, [category]); // Only runs when category changes
+  }, [category, currentPattern, currentPatternId, updatePattern]); // Only runs when category changes
 
+  // FIX: The value from the state, which could be a string, needs to be parsed as a number before being assigned to the Tone.js volume property.
   useEffect(() => {
-      drumVolume.volume.value = drumVol;
+    const volAsNumber = Number(drumVol);
+    if (isFinite(volAsNumber)) {
+      drumVolume.volume.value = volAsNumber;
+    }
   }, [drumVol]);
 
   const handleDrumPatternChange = (sound: DrumSound, step: number, value: boolean) => {
@@ -714,9 +914,7 @@ const App: React.FC = () => {
         setActiveKeyboardPadIndices(prev => new Set(prev).add(padIndex));
         const chordName = transposedChords[padIndex];
         setLastPlayedName(chordName);
-// FIX: The `sampler.attack` property was incorrectly set as a string. It has been changed to a number to ensure proper audio synthesis.
         sampler.attack = 0.005;
-        // FIX: The 'release' property must be a number, not a string.
         sampler.release = 0.1;
         const notes = getChordNoteStrings(chordName, octave);
         if (notes.length > 0) {
@@ -767,7 +965,6 @@ const App: React.FC = () => {
   }, [category, songKey, chordData, processChordsForDisplay]);
 
   const handlePadMouseDown = (chordName: string) => {
-// FIX: The 'attack' and 'release' properties were incorrectly set as strings. They have been changed to numbers to ensure proper audio synthesis.
     sampler.attack = 0.005;
     sampler.release = 0.1;
     const notes = getChordNoteStrings(chordName, octave);
@@ -779,7 +976,6 @@ const App: React.FC = () => {
   };
 
   const handlePianoMouseDown = (note: string) => {
-// FIX: The 'release' property was incorrectly set as a string. It has been changed to a number to ensure proper audio synthesis.
     sampler.release = 0.1;
     startNoteSound(note);
     setActivePianoNote(note);
@@ -858,109 +1054,192 @@ const App: React.FC = () => {
     };
 
     const sourceIndex = patterns.findIndex(p => p.id === idToCopy);
-    const newPatterns = [...patterns];
-    newPatterns.splice(sourceIndex + 1, 0, newPattern);
-
-    setPatterns(newPatterns);
+    
+    setPatterns(prev => {
+        const newPatterns = [...prev];
+        newPatterns.splice(sourceIndex + 1, 0, newPattern);
+        return newPatterns;
+    });
     setCurrentPatternId(newPattern.id);
   };
   
   const handleReorderPatterns = (draggedId: string, targetId: string) => {
-    const newPatterns = [...patterns];
-    const draggedIndex = newPatterns.findIndex(p => p.id === draggedId);
-    const targetIndex = newPatterns.findIndex(p => p.id === targetId);
+    setPatterns(prevPatterns => {
+      const newPatterns = [...prevPatterns];
+      const draggedIndex = newPatterns.findIndex(p => p.id === draggedId);
+      const targetIndex = newPatterns.findIndex(p => p.id === targetId);
 
-    if (draggedIndex === -1 || targetIndex === -1) return;
+      if (draggedIndex === -1 || targetIndex === -1) return prevPatterns;
 
-    const [draggedItem] = newPatterns.splice(draggedIndex, 1);
-    newPatterns.splice(targetIndex, 0, draggedItem);
-    
-    setPatterns(newPatterns);
+      const [draggedItem] = newPatterns.splice(draggedIndex, 1);
+      newPatterns.splice(targetIndex, 0, draggedItem);
+      
+      return newPatterns;
+    });
   };
 
+  const handleToggleDrumEditor = () => {
+    if (isDrumEditorOpen && !isDrumEditorClosing) {
+      setIsDrumEditorClosing(true);
+      setTimeout(() => {
+        setIsDrumEditorOpen(false);
+        setIsDrumEditorClosing(false);
+      }, 300); // match animation duration
+    } else if (!isDrumEditorOpen) {
+      setIsDrumEditorOpen(true);
+    }
+  };
+
+  const handleTogglePiano = () => {
+    if (isPianoVisible && !isPianoClosing) {
+      setIsPianoClosing(true);
+      setTimeout(() => {
+        setIsPianoVisible(false);
+        setIsPianoClosing(false);
+      }, 300); // match animation duration
+    } else if (!isPianoVisible) {
+      setIsPianoVisible(true);
+    }
+  };
+
+  const handleStartApp = useCallback(() => {
+    Tone.start();
+    
+    const element = document.documentElement;
+    if (element.requestFullscreen) {
+      element.requestFullscreen().catch(err => {
+        console.warn(`Could not enter fullscreen mode: ${err.message}`);
+      });
+    }
+
+    setIsAppReady(true);
+  }, []);
+
   if (!isAppReady) {
-    return <LoadingScreen isLoaded={isPianoLoaded} onStart={() => { Tone.start(); setIsAppReady(true); }} />;
+    return <LoadingScreen isLoaded={isPianoLoaded} onStart={handleStartApp} />;
   }
+  
+  const drumEditorPanelHeight = 244;
+  const pianoPanelHeight = 136;
+  const drumEditorRow = (isDrumEditorOpen && !isDrumEditorClosing) ? `${drumEditorPanelHeight}px` : '0px';
+  const pianoRow = (isPianoVisible && !isPianoClosing) ? `${pianoPanelHeight}px` : '0px';
 
   return (
     <div className="h-screen bg-gray-900 text-gray-200 flex selection:bg-indigo-500 selection:text-white overflow-hidden">
-      <main className="flex-1 flex flex-col w-full overflow-hidden">
-        <div className="flex-1 flex flex-col gap-2 px-8 py-2 overflow-y-auto custom-scrollbar">
-          <div className="flex-shrink-0">
-            <Header />
-            <div>
+      <main className="flex-1 grid grid-rows-[1fr_auto] w-full overflow-hidden">
+        {/* Grid Row 1: Main Content */}
+        <div 
+          className="overflow-y-auto custom-scrollbar min-h-0"
+          onClick={handleMainContentClick}
+        >
+          <div className="flex flex-col gap-2 px-8 py-2">
+            <div className="flex-shrink-0">
+              <Header />
               <HoverDisplay name={lastPlayedName || hoveredItemName} />
-              <Piano 
-                highlightedNotes={highlightedNotesForPiano}
-                pressedNotes={pressedPianoNotes}
-                onKeyMouseDown={handlePianoMouseDown}
-                onKeyMouseEnter={handlePianoKeyMouseEnter}
-                onKeyMouseLeave={handlePianoKeyMouseLeave}
-                onPianoMouseLeave={handlePianoMouseLeave}
+            </div>
+            
+            <div className="flex-shrink-0">
+              <ArrangementView
+                patterns={patterns}
+                currentPattern={currentPattern}
+                onSelectPattern={setCurrentPatternId}
+                onAddPattern={handleAddPattern}
+                onDeletePattern={handleDeletePattern}
+                onRenamePattern={renamePattern}
+                onCopyPattern={handleCopyPattern}
+                onReorderPatterns={handleReorderPatterns}
+                bpm={bpm}
+                onBpmChange={setBpm}
+                onToggleBarMode={handleToggleBarMode}
+                isDrumsEnabled={isDrumsEnabled}
+                onToggleDrumsEnabled={() => setIsDrumsEnabled(p => !p)}
+                onToggleDrumEditor={handleToggleDrumEditor}
+                isDrumEditorOpen={isDrumEditorOpen}
+                isMetronomeOn={isMetronomeOn}
+                onMetronomeToggle={() => setIsMetronomeOn(prev => !prev)}
+                isPianoVisible={isPianoVisible}
+                onTogglePiano={handleTogglePiano}
+                onUndo={undo}
+                onRedo={redo}
+                canUndo={canUndo}
+                canRedo={canRedo}
+              />
+            </div>
+
+            <div className="flex-shrink-0 bg-gray-800/50 rounded-lg border border-gray-700">
+              <Sequencer 
+                sequence={processedSequence}
+                onAddChord={addChordToSequence}
+                onUpdateChord={updateChordInSequence}
+                onRemoveChord={removeChordFromSequence}
+                onChordDoubleClick={setEditingChord}
+                onPlayChord={playSequencerChord}
+                onChordSelect={handleSequencerChordSelect}
+                onDeselect={handleDeselectChords}
+                onChordMouseUp={handleSequencerChordMouseUp}
+                playheadPosition={playheadPosition}
+                playingChordId={playingChordId}
+                selectedChordIds={selectedChordIds}
+                bars={bars}
+                onSeek={handleSeek}
+                isClickMuted={isSequencerClickMuted}
+                onMuteToggle={() => setIsSequencerClickMuted(p => !p)}
               />
             </div>
           </div>
-          
-          <div className="flex-shrink-0">
-            <ArrangementView
-              patterns={patterns}
-              currentPattern={currentPattern}
-              onSelectPattern={setCurrentPatternId}
-              onAddPattern={handleAddPattern}
-              onDeletePattern={handleDeletePattern}
-              onRenamePattern={renamePattern}
-              onCopyPattern={handleCopyPattern}
-              onReorderPatterns={handleReorderPatterns}
-              bpm={bpm}
-              onBpmChange={setBpm}
-              onToggleBarMode={handleToggleBarMode}
-              isDrumsEnabled={isDrumsEnabled}
-              onToggleDrumsEnabled={() => setIsDrumsEnabled(p => !p)}
-              onToggleDrumEditor={() => setIsDrumEditorOpen(p => !p)}
-              isDrumEditorOpen={isDrumEditorOpen}
-              isMetronomeOn={isMetronomeOn}
-              onMetronomeToggle={() => setIsMetronomeOn(prev => !prev)}
-            />
-          </div>
-
-          <div className="flex-shrink-0 bg-gray-800/50 rounded-lg border border-gray-700">
-            <Sequencer 
-              sequence={processedSequence}
-              onAddChord={addChordToSequence}
-              onUpdateChord={updateChordInSequence}
-              onRemoveChord={removeChordFromSequence}
-              onChordDoubleClick={setEditingChord}
-              onChordMouseDown={handleSequencerChordMouseDown}
-              onChordMouseUp={handleSequencerChordMouseUp}
-              playheadPosition={playheadPosition}
-              playingChordId={playingChordId}
-              bars={bars}
-              onSeek={handleSeek}
-            />
-          </div>
         </div>
         
-        {isDrumEditorOpen && (
-           <div className="flex-shrink-0 z-20 animate-slide-in-up">
-            <DrumEditor
-              pattern={drumPattern}
-              onPatternChange={handleDrumPatternChange}
-              volume={drumVol}
-              onVolumeChange={setDrumVol}
-              activeStep={activeDrumStep}
+        {/* Grid Row 2: Bottom Panels */}
+        <div>
+          <div 
+            className="grid transition-[grid-template-rows] duration-300 ease-out"
+            style={{
+              gridTemplateRows: `${drumEditorRow} ${pianoRow}`,
+            }}
+          >
+            <div className="overflow-hidden">
+              {(isDrumEditorOpen || isDrumEditorClosing) && (
+                <DrumEditor
+                  pattern={drumPattern}
+                  onPatternChange={handleDrumPatternChange}
+                  volume={drumVol}
+                  onVolumeChange={setDrumVol}
+                  activeStep={activeDrumStep}
+                  bars={bars}
+                  onClose={handleToggleDrumEditor}
+                />
+              )}
+            </div>
+            <div className="overflow-hidden">
+              {(isPianoVisible || isPianoClosing) && (
+                <div className="px-8 pb-2">
+                  <Piano 
+                    highlightedNotes={highlightedNotesForPiano}
+                    pressedNotes={pressedPianoNotes}
+                    onKeyMouseDown={handlePianoMouseDown}
+                    onKeyMouseEnter={handlePianoKeyMouseEnter}
+                    onKeyMouseLeave={handlePianoKeyMouseLeave}
+                    onPianoMouseLeave={handlePianoMouseLeave}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+          
+          <div className="z-30">
+            <TransportControls 
+              isPlaying={isPlaying}
+              onPlayPause={handlePlay}
+              onStop={handleStop}
+              onPanic={handlePanic}
+              playheadPosition={playheadPosition}
               bars={bars}
-              onClose={() => setIsDrumEditorOpen(false)}
+              masterVolume={masterVolume}
+              onMasterVolumeChange={setMasterVolume}
+              isMuted={isMuted}
+              onMuteToggle={() => setIsMuted(prev => !prev)}
             />
-           </div>
-        )}
-        
-        <div className="flex-shrink-0 z-30">
-          <TransportControls 
-            isPlaying={isPlaying}
-            onPlayPause={handlePlay}
-            onStop={handleStop}
-            onPanic={handlePanic}
-          />
+          </div>
         </div>
 
         {error && (
@@ -970,7 +1249,20 @@ const App: React.FC = () => {
         )}
       </main>
 
+      {!isSidebarOpen && (
+        <button
+          onClick={() => setIsSidebarOpen(true)}
+          className="fixed top-4 right-4 z-50 p-2 bg-gray-700/80 rounded-full text-white hover:bg-gray-600 transition-colors hidden lg:block shadow-lg"
+          aria-label="Open sidebar"
+          title="Open Sidebar"
+        >
+          <HamburgerIcon className="w-6 h-6" />
+        </button>
+      )}
+
       <SidePanel
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
         songKey={songKey} setSongKey={setSongKey} category={category} setCategory={handleCategoryChange}
         chordSetIndex={chordSetIndex} setChordSetIndex={setChordSetIndex} categories={categories}
         chordSets={displayedChordSets} keys={KEY_OPTIONS} chords={transposedChords}
@@ -998,17 +1290,18 @@ const App: React.FC = () => {
           .custom-scrollbar::-webkit-scrollbar-track { background: #1f2937; border-radius: 4px; }
           .custom-scrollbar::-webkit-scrollbar-thumb { background: #4f46e5; border-radius: 4px; }
           .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #6366f1; }
+
           @keyframes fade-in-up {
             from { opacity: 0; transform: translate(-50%, 10px); }
             to { opacity: 1; transform: translate(-50%, 0); }
           }
           .animate-fade-in-up { animation: fade-in-up 0.3s ease-out forwards; }
-          @keyframes slide-in-up {
-            from { opacity: 0; transform: translateY(100px); }
-            to { opacity: 1; transform: translateY(0); }
+          
+          @keyframes pulse-fast {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
           }
-          .animate-slide-in-up { animation: slide-in-up 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards; }
-          .animate-pulse-fast { animation: pulse 0.5s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+          .animate-pulse-fast { animation: pulse-fast 0.5s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
        `}</style>
     </div>
   );
