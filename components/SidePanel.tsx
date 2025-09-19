@@ -54,13 +54,13 @@ const InversionControl: React.FC<{
   return (
     <div className={`flex flex-col gap-2 transition-opacity duration-200 ${disabled ? 'opacity-50' : ''}`}>
        <label className="block text-sm font-medium text-gray-400">Inversion</label>
-       <div className="flex items-center bg-gray-800 border-2 border-gray-700 rounded-sm p-1">
+       <div className="flex items-center bg-gray-800 border-2 border-gray-700 rounded-[3px] p-1">
         {options.map(option => (
           <button
             key={option.value}
             onClick={() => setInversionLevel(option.value)}
             disabled={disabled}
-            className={`flex-1 px-3 py-1 text-xs font-semibold rounded-sm transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-gray-800
+            className={`flex-1 px-3 py-1 text-xs font-semibold rounded-[3px] transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-gray-800
               ${inversionLevel === option.value && !disabled
                 ? 'bg-indigo-600 text-white shadow'
                 : 'text-gray-300 hover:bg-gray-700'
@@ -88,12 +88,12 @@ const VoicingModeControl: React.FC<{
   ] as const;
 
   return (
-    <div className="flex items-center bg-gray-800 border-2 border-gray-700 rounded-sm p-1 w-full">
+    <div className="flex items-center bg-gray-800 border-2 border-gray-700 rounded-[3px] p-1 w-full">
       {options.map(option => (
         <button
           key={option.value}
           onClick={() => setMode(option.value)}
-          className={`flex-1 px-3 py-2 text-sm font-semibold rounded-sm transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-gray-800
+          className={`flex-1 px-3 py-2 text-sm font-semibold rounded-[3px] transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-gray-800
             ${mode === option.value
               ? 'bg-indigo-600 text-white shadow'
               : 'text-gray-300 hover:bg-gray-700'
@@ -213,7 +213,7 @@ export const SidePanel: React.FC<SidePanelProps> = ({
               />
             </div>
             
-            <div>
+            <div className="hidden">
               <Generator 
                 onGenerate={onGenerate} 
                 isGenerating={isGenerating} 

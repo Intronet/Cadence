@@ -65,7 +65,7 @@ const useHistory = <T,>(initialState: T) => {
 
   const redo = useCallback(() => {
     if (index < history.length - 1) {
-      setIndex(i => i - 1);
+      setIndex(i => i + 1);
     }
   }, [index, history.length]);
 
@@ -122,7 +122,7 @@ const LoadingScreen: React.FC<{ isLoaded: boolean; onStart: () => void; }> = ({ 
         <button 
           onClick={onStart} 
           disabled={!isButtonEnabled}
-          className="mt-4 px-6 py-3 bg-indigo-600 rounded-sm text-lg font-semibold transition-all duration-300 transform disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100 hover:enabled:bg-indigo-700 hover:enabled:scale-105"
+          className="mt-4 px-6 py-3 bg-indigo-600 rounded-[3px] text-lg font-semibold transition-all duration-300 transform disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100 hover:enabled:bg-indigo-700 hover:enabled:scale-105"
         >
           Click to Start
         </button>
@@ -507,12 +507,12 @@ const App: React.FC = () => {
     const notes = getNotesForVoicing(chordName);
     startChordSound(notes);
     setActivePadChordNotes(notes);
-    setDisplayText(chordName);
+    setDisplayText(notes.map(n => n.replace(/[0-9]/g, '')).join(' '));
   };
 
   const handlePadMouseEnter = (chordName: string) => {
-    setDisplayText(chordName);
     const notes = getNotesForVoicing(chordName);
+    setDisplayText(notes.map(n => n.replace(/[0-9]/g, '')).join(' '));
     setHoveredNotes(notes);
   };
   const clearHoveredNotes = () => {
@@ -531,14 +531,14 @@ const App: React.FC = () => {
   const handlePianoMouseDown = (note: string) => {
     startNoteSound(note);
     setActivePianoNote(note);
-    setDisplayText(note);
+    setDisplayText(note.replace(/[0-9]/g, ''));
   };
   const handlePianoMouseEnter = (note: string) => {
     if (activePianoNote) {
       stopNoteSound(activePianoNote);
       startNoteSound(note);
       setActivePianoNote(note);
-      setDisplayText(note);
+      setDisplayText(note.replace(/[0-9]/g, ''));
     }
   };
 
@@ -577,7 +577,7 @@ const App: React.FC = () => {
             startChordSound(notes);
             setActiveKeyboardNotes(prev => new Map(prev).set(e.code, notes));
             setActiveKeyboardPadIndices(prev => new Set(prev).add(padIndex));
-            setDisplayText(chordName);
+            setDisplayText(notes.map(n => n.replace(/[0-9]/g, '')).join(' '));
         }
     };
 
@@ -963,7 +963,17 @@ const App: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-gray-900 text-white overflow-hidden">
-      <main className="flex-1 flex flex-col min-h-0 min-w-0">
+      <main className="relative flex-1 flex flex-col min-h-0 min-w-0">
+        {!isSidebarOpen && (
+            <button
+                onClick={() => setIsSidebarOpen(true)}
+                className="absolute top-4 right-4 z-30 p-2 bg-gray-700/80 rounded-full text-white hover:bg-gray-600 transition-colors hidden lg:block"
+                aria-label="Open sidebar"
+                title="Open Sidebar"
+            >
+                <HamburgerIcon className="w-6 h-6" />
+            </button>
+        )}
         <Header />
         <ArrangementView
           patterns={patterns}
@@ -996,7 +1006,7 @@ const App: React.FC = () => {
           ref={mainAreaRef}
         >
           <div 
-            className="flex flex-col"
+            className="flex flex-col h-full"
             onClick={(e) => {
               if (e.target === e.currentTarget) {
                 setSelectedChordIds(new Set());

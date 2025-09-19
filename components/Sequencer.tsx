@@ -85,7 +85,7 @@ const ChordBlock: React.FC<ChordBlockProps> = ({
   return (
     <div
       data-has-context-menu="true"
-      className={`absolute rounded-sm flex items-center justify-center text-white text-xs font-medium select-none shadow-lg transition-colors duration-150 z-10 chord-block border
+      className={`absolute rounded-[3px] flex items-center justify-center text-white text-xs font-medium select-none shadow-lg transition-colors duration-150 z-10 chord-block border
         ${isSelected ? 'bg-indigo-500 border-yellow-400' : 'bg-indigo-600 border-indigo-400'}
         ${isCurrentlyPlaying ? 'ring-2 ring-sky-400' : ''}
         ${isOverlappingOnTop ? 'opacity-60' : ''}
@@ -101,7 +101,7 @@ const ChordBlock: React.FC<ChordBlockProps> = ({
       onMouseDown={handleMouseDown}
       onMouseUp={onChordMouseUp} // Stop sound on simple click-release
       onDoubleClick={() => onDoubleClick(chord)}
-      title={`${chord.chordName}\nDrag to move.\nDrag edge to resize.\nHold {Ctrl} for precision.\nDouble-click to edit.`}
+      title={`${chord.chordName}\nDrag to move.\nDrag edge to resize.\nHold {Ctrl} for precision.\nDouble-click to edit.\nSelect and press Delete or Backspace to remove.`}
     >
       <span className="truncate px-2 pointer-events-none">{chord.chordName}</span>
       <div className={`resize-handle absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize`} />
@@ -319,8 +319,8 @@ export const Sequencer: React.FC<SequencerProps> = ({
                 <button
                     onClick={onMuteToggle}
                     title={`SEQUENCER:\n${isClickMuted ? "Unmute chord click" : "Mute chord click"}`}
-                    className="absolute -translate-y-1/2 h-6 w-6 flex items-center justify-center rounded-full text-gray-400 hover:bg-gray-700 hover:text-white transition-colors"
-                    style={{ right: '1px', top: 'calc(50% - 5px)' }}
+                    className="absolute h-6 w-6 flex items-center justify-center rounded-full text-gray-400 hover:bg-gray-700 hover:text-white transition-colors"
+                    style={{ right: '1px', top: '50%', transform: 'translateY(calc(-50% + 2px))' }}
                 >
                     {isClickMuted ? <SpeakerOffIcon className="w-5 h-5" /> : <SpeakerIcon className="w-5 h-5" />}
                 </button>
@@ -362,7 +362,7 @@ export const Sequencer: React.FC<SequencerProps> = ({
               );
             })}
             {dragOverStep !== null && Math.floor(dragOverStep / stepsPerLane) === laneIndex && (
-              <div className="absolute bg-indigo-500/30 rounded-sm pointer-events-none" style={{ left: `${(dragOverStep % stepsPerLane) * stepWidth + TRACK_PADDING}px`, width: `${DEFAULT_CHORD_DURATION * stepWidth}px`, height: `${CHORD_BLOCK_HEIGHT}px`, bottom: `${TRACK_VERTICAL_PADDING}px` }}/>
+              <div className="absolute bg-indigo-500/30 rounded-[3px] pointer-events-none" style={{ left: `${(dragOverStep % stepsPerLane) * stepWidth + TRACK_PADDING}px`, width: `${DEFAULT_CHORD_DURATION * stepWidth}px`, height: `${CHORD_BLOCK_HEIGHT}px`, bottom: `${TRACK_VERTICAL_PADDING}px` }}/>
             )}
             {playheadLane === laneIndex && stepWidth > 0 && playheadLeftInLane <= gridWidth && (
               <Playhead position={playheadLeftInLane} trackPadding={TRACK_PADDING} />

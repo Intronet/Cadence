@@ -21,10 +21,9 @@ export const PadGrid: React.FC<PadGridProps> = ({ chords, onPadMouseDown, onPadM
     <div className="relative animate-fade-in p-1">
       <div className="grid grid-cols-4 gap-2">
         {chords.map((chord, index) => {
-          // Temporarily disabled per user request for testing.
-          const isDisabledFor3rdInv = false; // voicingMode === 'manual' && inversionLevel === 3 && !hasSeventh(chord);
+          const isDisabledFor3rdInv = voicingMode === 'manual' && inversionLevel === 3 && !hasSeventh(chord);
           return (
-            <div key={`${chord}-${index}`} className="bg-indigo-500/80 rounded-sm p-[2px] shadow-lg">
+            <div key={`${chord}-${index}`} className="bg-indigo-500/80 rounded-[3px] p-[2px] shadow-lg">
               <Pad 
                 chordName={chord} 
                 onMouseDown={onPadMouseDown} 

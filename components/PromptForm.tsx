@@ -25,7 +25,7 @@ export const Controls: React.FC<ControlsProps> = ({
   keys,
 }) => {
 
-  const selectStyles = "bg-gray-800 border-2 border-gray-700 text-gray-200 text-sm rounded-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent block p-2.5 transition-all duration-200 w-full cursor-pointer";
+  const selectStyles = "bg-gray-800 border-2 border-gray-700 text-gray-200 text-sm rounded-[3px] focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent block p-2.5 transition-all duration-200 w-full cursor-pointer";
   const labelStyles = "block mb-2 text-sm font-medium text-gray-400";
 
   return (

@@ -37,7 +37,7 @@ export const DrumEditor: React.FC<DrumEditorProps> = ({
   presets,
   onApplyPreset,
 }) => {
-  const stepButtonBase = "w-full h-full rounded-sm transition-colors duration-100 border";
+  const stepButtonBase = "w-full h-full rounded-[3px] transition-colors duration-100 border";
 
   const STEPS_PER_BAR = timeSignature === '4/4' ? 16 : 12;
   const BEATS_PER_BAR = timeSignature === '4/4' ? 4 : 3;
@@ -58,14 +58,14 @@ export const DrumEditor: React.FC<DrumEditorProps> = ({
 
 
   return (
-    <div className="flex-shrink-0 bg-gray-800 rounded-sm border border-gray-700 p-3 mt-2">
+    <div className="flex-shrink-0 bg-gray-800 rounded-[3px] border border-gray-700 p-3 mt-2">
       <div className="flex justify-between items-center mb-2">
         <h3 className="text-xl font-bold text-indigo-300">Drum Editor</h3>
         <div className="flex items-center gap-4">
           <select
             onChange={handlePresetChange}
             defaultValue=""
-            className="bg-gray-700 border border-gray-600 text-gray-200 text-sm rounded-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent block p-1.5 transition-all duration-200 cursor-pointer"
+            className="bg-gray-700 border border-gray-600 text-gray-200 text-sm rounded-[3px] focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent block p-1.5 transition-all duration-200 cursor-pointer"
             title="Apply a drum preset"
           >
             <option value="">Apply Preset...</option>
@@ -86,7 +86,7 @@ export const DrumEditor: React.FC<DrumEditorProps> = ({
                 const change = e.deltaY < 0 ? 1 : -1;
                 onVolumeChange(Math.max(-40, Math.min(6, volume + change)));
               }}
-              className="w-24 h-2 bg-gray-600 rounded-sm appearance-none cursor-pointer range-slider"
+              className="w-24 h-2 bg-gray-600 rounded-[3px] appearance-none cursor-pointer range-slider"
               aria-label="Drum volume"
             />
           </div>
@@ -133,14 +133,14 @@ export const DrumEditor: React.FC<DrumEditorProps> = ({
                   return (
                     <div
                       key={`${sound}-${step}`}
-                      className={`h-7 p-px rounded-sm ${isBeat ? 'bg-gray-700/50' : 'bg-transparent'}`}
+                      className={`h-7 p-px rounded-[3px] ${isBeat ? 'bg-gray-700/50' : 'bg-transparent'}`}
                     >
                       <button
                         onClick={() => onPatternChange(sound, step, !isActive)}
                         aria-pressed={isActive}
                         className={`${stepButtonBase} ${isActive ? 'bg-indigo-500 border-indigo-300' : 'bg-gray-800/80 hover:bg-gray-700 border-gray-700'}`}
                       >
-                        {isPlaying && <div className="w-full h-full bg-sky-400/50 rounded-sm animate-pulse-fast"></div>}
+                        {isPlaying && <div className="w-full h-full bg-sky-400/50 rounded-[3px] animate-pulse-fast"></div>}
                       </button>
                     </div>
                   );

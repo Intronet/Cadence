@@ -58,17 +58,17 @@ export const TransportControls: React.FC<TransportControlsProps> = ({
   }, [playheadPosition, timeSignature]);
 
   return (
-    <div className="relative flex items-center justify-between w-full px-4 py-[10px] bg-gradient-to-r from-indigo-600 to-purple-600 border-t border-indigo-400">
+    <div className="relative flex items-center justify-between w-full px-4 h-[72px] bg-gradient-to-r from-indigo-600 to-purple-600 border-t border-indigo-400">
       
       {/* Left: Counter */}
-      <div className="bg-black/25 rounded-sm px-4 py-1 shadow-[inset_0_2px_4px_rgba(0,0,0,0.5)]">
+      <div className="bg-black/25 rounded-[3px] px-4 py-1 shadow-[inset_0_2px_4px_rgba(0,0,0,0.5)]">
         <div className="font-mono text-base leading-normal text-white tracking-wider" style={{textShadow: '0 1px 2px rgba(0,0,0,0.5)'}}>
           {timeDisplay}
         </div>
       </div>
 
       {/* Center: Transport Controls */}
-      <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-6">
+      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-6">
         <button onClick={onStop} className={buttonClasses} aria-label="Stop" title={`SEQUENCER:\nStop playback and return to start`}>
           <StopIcon className="w-6 h-6" />
         </button>
@@ -101,7 +101,7 @@ export const TransportControls: React.FC<TransportControlsProps> = ({
             step={1}
             value={isMuted ? -60 : masterVolume}
             onChange={(e) => onMasterVolumeChange(parseFloat(e.target.value))}
-            className="w-32 h-2 bg-gray-900/50 rounded-sm appearance-none cursor-pointer range-slider"
+            className="w-32 h-2 bg-gray-900/50 rounded-[3px] appearance-none cursor-pointer range-slider"
             aria-label="Master volume"
             title={`SEQUENCER:\nMaster Volume: ${masterVolume.toFixed(1)} dB`}
             disabled={isMuted}

@@ -81,7 +81,7 @@ const EditablePatternName: React.FC<{
         onChange={(e) => setName(e.target.value)}
         onBlur={handleBlur}
         onKeyDown={handleKeyDown}
-        className="text-xl font-bold text-white bg-gray-700 rounded-sm px-2 -mx-2 outline-none"
+        className="text-xl font-bold text-white bg-gray-700 rounded-[3px] px-2 -mx-2 outline-none"
       />
     );
   }
@@ -115,7 +115,7 @@ export const ArrangementView: React.FC<ArrangementViewProps> = ({
   };
 
   return (
-    <div className="flex-shrink-0 flex flex-col gap-2 px-2 pt-2 bg-gray-800/50 rounded-sm border border-gray-700">
+    <div className="flex-shrink-0 flex flex-col gap-2 px-2 pt-2 pb-2 bg-gray-800/50 rounded-[3px] border border-gray-700">
       <div className="flex items-center gap-1 flex-wrap">
         <div className="text-sm font-bold text-indigo-300 pr-2 mr-1 border-r border-gray-600 self-stretch flex items-center">PATTERNS</div>
         {patterns.map((pattern) => {
@@ -145,7 +145,7 @@ export const ArrangementView: React.FC<ArrangementViewProps> = ({
             >
               <button
                 onClick={() => onSelectPattern(pattern.id)}
-                className={`px-3 py-1.5 text-sm font-semibold rounded-sm transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 focus:ring-offset-gray-800 ${
+                className={`px-3 py-1.5 text-sm font-semibold rounded-[3px] transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 focus:ring-offset-gray-800 ${
                   isSelected ? 'bg-indigo-600 text-white shadow' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                 } ${isBeingDraggedOver ? 'opacity-50' : ''}`}
               >
@@ -185,20 +185,20 @@ export const ArrangementView: React.FC<ArrangementViewProps> = ({
             </div>
             <div className="flex items-center gap-2">
                 <span className="text-sm font-medium text-gray-400">BPM</span>
-                <input type="range" min="40" max="240" value={bpm} onChange={e => onBpmChange(Number(e.target.value))} onWheel={handleBpmWheel} className="w-24 h-2 bg-gray-600 rounded-sm appearance-none cursor-pointer range-slider" title={`Tempo:\nAdjust BPM`}/>
-                <input type="number" value={bpm} onChange={e => onBpmChange(Number(e.target.value))} onWheel={handleBpmWheel} className="w-16 bg-gray-900 border border-gray-600 text-center rounded-sm p-1 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent" title={`Tempo:\nSet precise BPM`}/>
+                <input type="range" min="40" max="240" value={bpm} onChange={e => onBpmChange(Number(e.target.value))} onWheel={handleBpmWheel} className="w-24 h-2 bg-gray-600 rounded-[3px] appearance-none cursor-pointer range-slider" title={`Tempo:\nAdjust BPM`}/>
+                <input type="number" value={bpm} onChange={e => onBpmChange(Number(e.target.value))} onWheel={handleBpmWheel} className="w-16 bg-gray-900 border border-gray-600 text-center rounded-[3px] p-1 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent" title={`Tempo:\nSet precise BPM`}/>
             </div>
-            <div className="flex items-center bg-gray-700 rounded-sm p-1">
+            <div className="flex items-center bg-gray-700 rounded-[3px] p-1">
                 <button 
                     onClick={() => onTimeSignatureChange(currentPattern.id, '4/4')}
-                    className={`px-3 py-1 text-sm font-semibold rounded-sm transition-colors ${currentPattern.timeSignature === '4/4' ? 'bg-indigo-600 text-white shadow' : 'text-gray-300 hover:bg-gray-600'}`}
+                    className={`px-3 py-1 text-sm font-semibold rounded-[3px] transition-colors ${currentPattern.timeSignature === '4/4' ? 'bg-indigo-600 text-white shadow' : 'text-gray-300 hover:bg-gray-600'}`}
                 >4/4</button>
                 <button 
                     onClick={() => onTimeSignatureChange(currentPattern.id, '3/4')}
-                    className={`px-3 py-1 text-sm font-semibold rounded-sm transition-colors ${currentPattern.timeSignature === '3/4' ? 'bg-indigo-600 text-white shadow' : 'text-gray-300 hover:bg-gray-600'}`}
+                    className={`px-3 py-1 text-sm font-semibold rounded-[3px] transition-colors ${currentPattern.timeSignature === '3/4' ? 'bg-indigo-600 text-white shadow' : 'text-gray-300 hover:bg-gray-600'}`}
                 >3/4</button>
             </div>
-            <button onClick={() => onToggleBarMode(currentPattern.id)} className="px-3 py-1 text-sm font-semibold rounded-sm bg-gray-700 text-gray-300 hover:bg-gray-600" title={`Toggle pattern length\nbetween 4 and 8 bars`}>{currentPattern.bars === 8 ? '8 Bars' : '4 Bars'}</button>
+            <button onClick={() => onToggleBarMode(currentPattern.id)} className="px-3 py-1 text-sm font-semibold rounded-[3px] bg-gray-700 text-gray-300 hover:bg-gray-600" title={`Toggle pattern length\nbetween 4 and 8 bars`}>{currentPattern.bars === 8 ? '8 Bars' : '4 Bars'}</button>
             <div className="flex items-center gap-2" title={`DRUMS:\nEnable or disable drums`}>
                 <span className="text-sm font-medium text-gray-400">Drums</span>
                 <button
