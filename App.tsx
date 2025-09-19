@@ -255,7 +255,8 @@ const App: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hoveredNotes, setHoveredNotes] = useState<string[]>([]);
-  const [displayText, setDisplayText] = useState<{ name: string; notes: string } | null>(null);
+  const [manualDisplayText, setManualDisplayText] = useState<{ name: string; notes: string } | null>(null);
+  const [sequencerDisplayText, setSequencerDisplayText] = useState<{ name: string; notes: string } | null>(null);
   const mainAreaRef = useRef<HTMLDivElement>(null);
   
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -510,7 +511,7 @@ const App: React.FC = () => {
     if (activePadChordNotes.length > 0) {
       stopChordSound(activePadChordNotes);
       setActivePadChordNotes([]);
-      setDisplayText(null);
+      setManualDisplayText(null);
     }
   }, [activePadChordNotes]);
 
@@ -520,18 +521,18 @@ const App: React.FC = () => {
     setActivePadChordNotes(notes);
     const parsed = parseChord(chordName);
     const cleanName = parsed ? `${parsed.root}${parsed.quality}` : chordName;
-    setDisplayText({ name: cleanName, notes: getChordNoteStrings(chordName, 0).map(n => n.replace(/[0-9]/g, '')).join(' ') });
+    setManualDisplayText({ name: cleanName, notes: getChordNoteStrings(chordName, 0).map(n => n.replace(/[0-9]/g, '')).join(' ') });
   };
 
   const handlePadMouseEnter = (chordName: string) => {
     const notes = getNotesForVoicing(chordName);
     const parsed = parseChord(chordName);
     const cleanName = parsed ? `${parsed.root}${parsed.quality}` : chordName;
-    setDisplayText({ name: cleanName, notes: getChordNoteStrings(chordName, 0).map(n => n.replace(/[0-9]/g, '')).join(' ') });
+    setManualDisplayText({ name: cleanName, notes: getChordNoteStrings(chordName, 0).map(n => n.replace(/[0-9]/g, '')).join(' ') });
     setHoveredNotes(notes);
   };
   const clearHoveredNotes = () => {
-    setDisplayText(null);
+    setManualDisplayText(null);
     setHoveredNotes([]);
   };
 
@@ -539,21 +540,21 @@ const App: React.FC = () => {
     if (activePianoNote) {
       stopNoteSound(activePianoNote);
       setActivePianoNote(null);
-      setDisplayText(null);
+      setManualDisplayText(null);
     }
   }, [activePianoNote]);
 
   const handlePianoMouseDown = (note: string) => {
     startNoteSound(note);
     setActivePianoNote(note);
-    setDisplayText({ name: note.replace(/[0-9]/g, ''), notes: '' });
+    setManualDisplayText({ name: note.replace(/[0-9]/g, ''), notes: '' });
   };
   const handlePianoMouseEnter = (note: string) => {
     if (activePianoNote) {
       stopNoteSound(activePianoNote);
       startNoteSound(note);
       setActivePianoNote(note);
-      setDisplayText({ name: note.replace(/[0-9]/g, ''), notes: '' });
+      setManualDisplayText({ name: note.replace(/[0-9]/g, ''), notes: '' });
     }
   };
 
@@ -594,7 +595,7 @@ const App: React.FC = () => {
             setActiveKeyboardPadIndices(prev => new Set(prev).add(padIndex));
             const parsed = parseChord(chordName);
             const cleanName = parsed ? `${parsed.root}${parsed.quality}` : chordName;
-            setDisplayText({ name: cleanName, notes: getChordNoteStrings(chordName, 0).map(n => n.replace(/[0-9]/g, '')).join(' ') });
+            setManualDisplayText({ name: cleanName, notes: getChordNoteStrings(chordName, 0).map(n => n.replace(/[0-9]/g, '')).join(' ') });
         }
     };
 
@@ -610,7 +611,7 @@ const App: React.FC = () => {
                   const newMap = new Map(prev);
                   newMap.delete(e.code);
                   if (newMap.size === 0) {
-                    setDisplayText(null);
+                    setManualDisplayText(null);
                   }
                   return newMap;
               });
@@ -969,6 +970,25 @@ const App: React.FC = () => {
   const sequenceWithOverlapInfo = useMemo(() => {
     return sequence.map((chord, i) => ({ ...chord, isOverlappingOnTop: false }));
   }, [sequence]);
+
+  // Sequencer display logic
+  useEffect(() => {
+    if (isPlaying && playingChordId) {
+      const activeChord = humanizedSequence.find(c => c.id === playingChordId);
+      if (activeChord) {
+        const parsed = parseChord(activeChord.chordName);
+        const cleanName = parsed ? `${parsed.root}${parsed.quality}`.replace(INVERSION_REGEX, '').trim() : activeChord.chordName;
+        const notesString = getChordNoteStrings(activeChord.chordName, 0).map(n => n.replace(/[0-9]/g, '')).join(' ');
+        setSequencerDisplayText({ name: cleanName, notes: notesString });
+      }
+    } else {
+      setSequencerDisplayText(null); // Clear when playback stops or between chords
+    }
+  }, [isPlaying, playingChordId, humanizedSequence]);
+
+  const displayText = useMemo(() => {
+    return sequencerDisplayText ?? manualDisplayText;
+  }, [sequencerDisplayText, manualDisplayText]);
 
 
   if (!isAppReady) {

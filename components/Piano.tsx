@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 
 // --- Note Definitions (for internal calculations) ---
 const SHARP_NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
@@ -46,6 +46,28 @@ const generatePianoKeys = () => {
 
 const PIANO_KEYS = generatePianoKeys();
 
+const noteToMidi = (note: string): number => {
+    const match = note.match(/([A-G](?:#|b)?)(-?\d+)/);
+    if (!match) return -1;
+    const [, pitch, octaveStr] = match;
+    const octave = parseInt(octaveStr, 10);
+    const noteValue = NOTE_TO_INDEX[pitch];
+    if (noteValue === undefined) return -1;
+    return 12 * (octave + 1) + noteValue;
+};
+
+const findLowestNote = (notes: string[]): string | null => {
+  if (!notes || notes.length === 0) return null;
+  return notes.reduce((lowest, current) => {
+    if (!lowest) return current;
+    const lowestMidi = noteToMidi(lowest);
+    const currentMidi = noteToMidi(current);
+    if (lowestMidi === -1) return current;
+    if (currentMidi === -1) return lowest;
+    return currentMidi < lowestMidi ? current : lowest;
+  });
+};
+
 interface PianoProps {
   highlightedNotes: string[];
   pressedNotes: string[];
@@ -56,9 +78,26 @@ interface PianoProps {
 }
 
 export const Piano: React.FC<PianoProps> = ({ highlightedNotes, pressedNotes, onKeyMouseDown, onKeyMouseEnter, onKeyMouseLeave, onPianoMouseLeave }) => {
-
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const whiteKeys = PIANO_KEYS.filter(key => key.type === 'white');
   const blackKeys = PIANO_KEYS.filter(key => key.type === 'black');
+
+  useEffect(() => {
+    if (highlightedNotes.length > 0 && scrollContainerRef.current) {
+      const lowestNote = findLowestNote(highlightedNotes);
+      if (!lowestNote) return;
+
+      const keyElement = scrollContainerRef.current.querySelector(`[data-note-name="${lowestNote}"]`);
+      
+      if (keyElement) {
+        keyElement.scrollIntoView({
+          behavior: 'smooth',
+          block: 'nearest',
+          inline: 'center',
+        });
+      }
+    }
+  }, [highlightedNotes]);
 
   const handleWheelScroll = (e: React.WheelEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -69,6 +108,7 @@ export const Piano: React.FC<PianoProps> = ({ highlightedNotes, pressedNotes, on
   return (
     <div className="w-full">
        <div 
+        ref={scrollContainerRef}
         className="w-full overflow-x-auto overflow-y-hidden rounded-[3px] shadow-lg border border-gray-800"
         style={{ scrollbarWidth: 'thin', scrollbarColor: '#4f46e5 #374151' }}
         onWheel={handleWheelScroll}
@@ -86,6 +126,7 @@ export const Piano: React.FC<PianoProps> = ({ highlightedNotes, pressedNotes, on
             return (
               <button
                 key={noteName}
+                data-note-name={noteName}
                 onMouseDown={(e) => { if (e.button === 0) onKeyMouseDown(noteName); }}
                 onMouseEnter={() => onKeyMouseEnter(noteName)}
                 onMouseLeave={onKeyMouseLeave}
@@ -116,6 +157,7 @@ export const Piano: React.FC<PianoProps> = ({ highlightedNotes, pressedNotes, on
             return (
               <button
                 key={noteName}
+                data-note-name={noteName}
                 onMouseDown={(e) => {
                   if (e.button === 0) {
                     e.stopPropagation(); // Prevent white key underneath from firing
