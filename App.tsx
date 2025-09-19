@@ -564,12 +564,13 @@ const App: React.FC = () => {
 
   const updatePlayhead = useCallback(() => {
     if (Tone.Transport.state === 'started') {
-      const progress = Tone.Transport.progress;
-      const totalBeats = bars * 4;
-      setPlayheadPosition(progress * totalBeats);
+      const ticks = Tone.Transport.ticks;
+      const ppq = Tone.Transport.PPQ;
+      const positionInBeats = ticks / ppq;
+      setPlayheadPosition(positionInBeats);
     }
     animationFrameRef.current = requestAnimationFrame(updatePlayhead);
-  }, [bars]);
+  }, []);
 
   
   // Start/Stop RAF loop for playhead
@@ -776,7 +777,7 @@ const App: React.FC = () => {
     }
   }, [category, currentPattern, currentPatternId, updatePattern]); // Only runs when category changes
 
-  // FIX: The value from the state, which could be a string, needs to be parsed as a number before being assigned to the Tone.js volume property.
+  // FIX: To prevent a 'string' is not assignable to type 'number' error, the drumVol state value is explicitly converted to a number and validated before being assigned to the Tone.js volume property.
   useEffect(() => {
     const volAsNumber = Number(drumVol);
     if (isFinite(volAsNumber)) {
