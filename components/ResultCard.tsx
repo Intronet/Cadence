@@ -1,6 +1,5 @@
 import React from 'react';
 import { Pad } from './Loader';
-import { hasSeventh } from '../index';
 
 interface PadGridProps {
   chords: string[];
@@ -21,12 +20,6 @@ export const PadGrid: React.FC<PadGridProps> = ({ chords, onPadMouseDown, onPadM
     <div className="relative animate-fade-in p-1">
       <div className="grid grid-cols-4 gap-2">
         {chords.map((chord, index) => {
-          const isDisabledFor3rdInv = voicingMode === 'manual' && inversionLevel === 3 && !hasSeventh(chord);
-          const inversionLabel =
-            voicingMode === 'manual' && inversionLevel > 0
-              ? ['Root', '1st', '2nd', '3rd'][inversionLevel]
-              : undefined;
-
           return (
             <div key={`${chord}-${index}`} className="bg-indigo-500/80 rounded-[3px] p-[2px] shadow-lg">
               <Pad 
@@ -37,10 +30,8 @@ export const PadGrid: React.FC<PadGridProps> = ({ chords, onPadMouseDown, onPadM
                 onMouseLeave={onPadMouseLeave}
                 onDragStart={(e) => onPadDragStart(e, chord)}
                 isLoaded={isPianoLoaded}
-                isDisabled={isDisabledFor3rdInv}
                 keyLabel={keyLabels[index]}
                 isPressedByKeyboard={activeKeyboardPadIndices.has(index)}
-                inversionLabel={inversionLabel}
               />
             </div>
           );

@@ -1051,7 +1051,7 @@ const App: React.FC = () => {
               />
             
             <div className="h-40 overflow-hidden relative">
-                <div className={`absolute inset-0 transition-transform duration-300 ease-in-out ${isPianoVisible ? 'translate-y-0' : 'translate-y-full'}`}>
+                <div className={`absolute inset-0 transition-transform duration-300 ease-in-out ${isPianoVisible ? 'translate-y-0' : '-translate-y-full'}`}>
                     <Piano 
                       highlightedNotes={activePianoNotes}
                       pressedNotes={activePianoNotes}
