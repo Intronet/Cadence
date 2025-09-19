@@ -760,23 +760,6 @@ const App: React.FC = () => {
     }));
   };
 
-  // --- Drum Machine Preset Logic ---
-  useEffect(() => {
-    if (!currentPattern) return;
-    const matchingPresetIndex = PRESET_DRUM_PATTERNS.findIndex(p => p.name === category);
-    if (matchingPresetIndex !== -1) {
-      setSelectedDrumPresetIndex(matchingPresetIndex);
-      const newDrumPreset = PRESET_DRUM_PATTERNS[matchingPresetIndex].pattern;
-      updatePattern(currentPatternId, { drumPattern: expandDrumPattern(newDrumPreset, currentPattern.bars) });
-    } else {
-      let fallbackIndex = PRESET_DRUM_PATTERNS.findIndex(p => p.name === "Common Progressions");
-      if (fallbackIndex === -1) fallbackIndex = 0;
-      setSelectedDrumPresetIndex(fallbackIndex);
-      const newDrumPreset = PRESET_DRUM_PATTERNS[fallbackIndex].pattern;
-      updatePattern(currentPatternId, { drumPattern: expandDrumPattern(newDrumPreset, currentPattern.bars) });
-    }
-  }, [category, currentPattern, currentPatternId, updatePattern]); // Only runs when category changes
-
   // FIX: To prevent a 'string' is not assignable to type 'number' error, the drumVol state value is explicitly converted to a number and validated before being assigned to the Tone.js volume property.
   useEffect(() => {
     const volAsNumber = Number(drumVol);
@@ -850,6 +833,21 @@ const App: React.FC = () => {
   const handleCategoryChange = (newCategory: string) => {
     setCategory(newCategory);
     setChordSetIndex(0);
+
+    // Apply the drum preset for the new category to the current pattern
+    if (!currentPattern) return;
+    const matchingPresetIndex = PRESET_DRUM_PATTERNS.findIndex(p => p.name === newCategory);
+    if (matchingPresetIndex !== -1) {
+      setSelectedDrumPresetIndex(matchingPresetIndex);
+      const newDrumPreset = PRESET_DRUM_PATTERNS[matchingPresetIndex].pattern;
+      updatePattern(currentPatternId, { drumPattern: expandDrumPattern(newDrumPreset, currentPattern.bars) });
+    } else {
+      let fallbackIndex = PRESET_DRUM_PATTERNS.findIndex(p => p.name === "Common Progressions");
+      if (fallbackIndex === -1) fallbackIndex = 0;
+      setSelectedDrumPresetIndex(fallbackIndex);
+      const newDrumPreset = PRESET_DRUM_PATTERNS[fallbackIndex].pattern;
+      updatePattern(currentPatternId, { drumPattern: expandDrumPattern(newDrumPreset, currentPattern.bars) });
+    }
   };
   
   const handleGenerate = async (prompt: string) => {
