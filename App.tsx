@@ -15,15 +15,17 @@ import {
   updateChord,
   playChordOnce,
   sampler,
+  bassSynth,
   drumPlayers,
   drumVolume,
   humanizeProgression,
   parseNote,
   KEY_SIGNATURES,
+  NOTE_TO_INDEX,
   transposeChord,
   findLowestNote
 } from './index';
-import { KEY_OPTIONS, ChordSet, SequenceChord, Pattern, DrumSound, DrumPatternPreset } from './types';
+import { KEY_OPTIONS, ChordSet, SequenceChord, Pattern, DrumSound, DrumPatternPreset, SequenceBassNote } from './types';
 import { Piano, PianoHandle } from './components/Piano';
 import { generateProgression } from './services/geminiService';
 import { HoverDisplay } from './components/HoverDisplay';
@@ -230,6 +232,7 @@ const createNewPattern = (
   bars,
   timeSignature,
   sequence: [],
+  bassSequence: [],
   drumPattern: initialDrumPatterns ?? createExpandedDrumPattern(EMPTY_DRUM_PATTERNS[timeSignature], bars, timeSignature),
 });
 
@@ -287,15 +290,22 @@ const App: React.FC = () => {
   const [isSequencerClickMuted, setIsSequencerClickMuted] = useState(false);
   const [selectedChordIds, setSelectedChordIds] = useState<Set<string>>(new Set());
   const [clipboard, setClipboard] = useState<Array<Omit<SequenceChord, 'id'>>>([]);
-  const partRef = useRef<Tone.Part | null>(null);
+  const chordPartRef = useRef<Tone.Part | null>(null);
+  const bassPartRef = useRef<Tone.Part | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const prevSongKeyRef = useRef<string>(songKey);
 
   const currentPattern = useMemo(() => patterns.find(p => p.id === currentPatternId) ?? patterns[0], [patterns, currentPatternId]);
   const sequence = useMemo(() => currentPattern?.sequence || [], [currentPattern]);
+  const bassSequence = useMemo(() => currentPattern?.bassSequence || [], [currentPattern]);
   const bars = useMemo(() => currentPattern?.bars ?? 4, [currentPattern]);
   const timeSignature = useMemo(() => currentPattern?.timeSignature ?? '4/4', [currentPattern]);
   const timeSignatureValue = useMemo(() => timeSignature === '4/4' ? 4 : 3, [timeSignature]);
+  
+  const [sequencerActiveBassNotes, setSequencerActiveBassNotes] = useState<string[]>([]);
+  const [playingBassNoteId, setPlayingBassNoteId] = useState<string | null>(null);
+  const [basslineStyle, setBasslineStyle] = useState<'root'>('root');
+
 
   const [activeKeyboardNotes, setActiveKeyboardNotes] = useState<Map<string, string[]>>(new Map());
   const [activeKeyboardPadIndices, setActiveKeyboardPadIndices] = useState<Set<number>>(new Set());
@@ -589,10 +599,11 @@ const App: React.FC = () => {
     ...activePadChordNotes,
     ...(activePianoNote ? [activePianoNote] : []),
     ...sequencerActiveNotes,
+    ...sequencerActiveBassNotes,
     ...activeSequencerManualNotes,
     ...activeEditorPreviewNotes,
     ...Array.from(activeKeyboardNotes.values()).flat()
-  ]), [hoveredNotes, activePadChordNotes, activePianoNote, sequencerActiveNotes, activeSequencerManualNotes, activeEditorPreviewNotes, activeKeyboardNotes]);
+  ]), [hoveredNotes, activePadChordNotes, activePianoNote, sequencerActiveNotes, sequencerActiveBassNotes, activeSequencerManualNotes, activeEditorPreviewNotes, activeKeyboardNotes]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -726,6 +737,7 @@ const App: React.FC = () => {
     Tone.Transport.stop();
     setPlayheadPosition(0);
     setPlayingChordId(null);
+    setPlayingBassNoteId(null);
     setActiveDrumStep(null);
   };
 
@@ -733,11 +745,13 @@ const App: React.FC = () => {
     handleStop();
     Tone.Transport.cancel();
     sampler.releaseAll();
+    bassSynth.triggerRelease();
     DRUM_SOUNDS.forEach(sound => drumPlayers.player(sound).stop());
     setActivePadChordNotes([]);
     setActivePianoNote(null);
     setActiveSequencerManualNotes([]);
     setSequencerActiveNotes([]);
+    setSequencerActiveBassNotes([]);
     setActiveEditorPreviewNotes([]);
     setActiveKeyboardNotes(new Map());
   };
@@ -785,9 +799,9 @@ const App: React.FC = () => {
   }, [isPlaying]);
 
   useEffect(() => {
-    if (partRef.current) {
-      partRef.current.dispose();
-      partRef.current = null;
+    if (chordPartRef.current) {
+      chordPartRef.current.dispose();
+      chordPartRef.current = null;
     }
 
     if (humanizedSequence && humanizedSequence.length > 0) {
@@ -815,17 +829,57 @@ const App: React.FC = () => {
             }, time + event.duration * 0.95);
 
         }, partEvents).start(0);
-        partRef.current = part;
+        chordPartRef.current = part;
     } else {
         setPlayingChordId(null);
     }
 
     return () => {
-      partRef.current?.dispose();
-      partRef.current = null;
+      chordPartRef.current?.dispose();
+      chordPartRef.current = null;
     };
   }, [humanizedSequence, octave, scrollToLowestNote]);
   
+  useEffect(() => {
+    if (bassPartRef.current) {
+      bassPartRef.current.dispose();
+      bassPartRef.current = null;
+    }
+  
+    if (bassSequence && bassSequence.length > 0) {
+      const partEvents = bassSequence.map(note => ({
+        time: Tone.Time('16n').toSeconds() * note.start,
+        duration: Tone.Time('16n').toSeconds() * note.duration,
+        noteName: note.noteName,
+        id: note.id,
+      }));
+  
+      const part = new Tone.Part<{ time: number; duration: number; noteName: string; id: string }>((time, event) => {
+        bassSynth.triggerAttackRelease(event.noteName, event.duration, time);
+        
+        Tone.Draw.schedule(() => {
+          setPlayingBassNoteId(event.id);
+          setSequencerActiveBassNotes([event.noteName]);
+        }, time);
+  
+        Tone.Draw.schedule(() => {
+          setPlayingBassNoteId(null);
+          setSequencerActiveBassNotes([]);
+        }, time + event.duration * 0.95);
+  
+      }, partEvents).start(0);
+      bassPartRef.current = part;
+    } else {
+      setPlayingBassNoteId(null);
+    }
+  
+    return () => {
+      bassPartRef.current?.dispose();
+      bassPartRef.current = null;
+    };
+  }, [bassSequence]);
+  
+
   useEffect(() => {
     if (drumSequenceRef.current) {
       drumSequenceRef.current.dispose();
@@ -945,7 +999,7 @@ const App: React.FC = () => {
       newDrumPattern[sound] = newTrack;
     });
 
-    updatePattern(patternId, { timeSignature: newTimeSignature, drumPattern: newDrumPattern });
+    updatePattern(patternId, { timeSignature: newTimeSignature, drumPattern: newDrumPattern, bassSequence: [] });
     setTimeSignatureChangeRequest(null);
   };
   
@@ -985,9 +1039,34 @@ const App: React.FC = () => {
     setActiveEditorPreviewNotes([]);
   };
 
-  const sequenceWithOverlapInfo = useMemo(() => {
-    return sequence.map((chord, i) => ({ ...chord, isOverlappingOnTop: false }));
-  }, [sequence]);
+  const handleGenerateBass = (style: 'root') => {
+    if (!currentPattern) return;
+    
+    // For now, only 'root' style is implemented
+    if (style === 'root') {
+      const newBassSequence = currentPattern.sequence.map(chord => {
+        const parsed = parseChord(chord.chordName);
+        const rootNote = parsed?.bass || parsed?.root;
+
+        let noteOctave = 2;
+        if (rootNote) {
+            const noteIndex = NOTE_TO_INDEX[rootNote];
+            if (!isNaN(noteIndex) && noteIndex > 6) { // If it's G or higher, drop an octave to avoid jumping too high
+                noteOctave = 1;
+            }
+        }
+        
+        const noteName = rootNote ? `${rootNote}${noteOctave}` : 'C2';
+        return {
+          id: generateId(),
+          noteName,
+          start: chord.start,
+          duration: chord.duration,
+        };
+      });
+      updatePattern(currentPatternId, { bassSequence: newBassSequence });
+    }
+  };
 
   // Sequencer display logic
   useEffect(() => {
@@ -1055,6 +1134,9 @@ const App: React.FC = () => {
           onRedo={redo}
           canUndo={canUndo}
           canRedo={canRedo}
+          basslineStyle={basslineStyle}
+          onSetBasslineStyle={setBasslineStyle}
+          onGenerateBass={handleGenerateBass}
         />
         <div 
           className="relative flex-1 min-h-0 overflow-y-auto"
@@ -1069,7 +1151,8 @@ const App: React.FC = () => {
             }}
           >
               <Sequencer
-                sequence={sequenceWithOverlapInfo}
+                sequence={sequence}
+                bassSequence={bassSequence}
                 onAddChord={addChordToSequencer}
                 onUpdateChord={updateSequencerChord}
                 onRemoveChord={removeSequencerChord}
@@ -1080,6 +1163,7 @@ const App: React.FC = () => {
                 onChordMouseUp={stopActiveManualNotes}
                 playheadPosition={playheadPosition}
                 playingChordId={playingChordId}
+                playingBassNoteId={playingBassNoteId}
                 selectedChordIds={selectedChordIds}
                 bars={bars}
                 timeSignature={timeSignature}

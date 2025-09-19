@@ -8,7 +8,7 @@ import * as Tone from 'tone';
 
 const SHARP_NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 const FLAT_NOTES = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
-const NOTE_TO_INDEX: { [note: string]: number } = {
+export const NOTE_TO_INDEX: { [note: string]: number } = {
   'C': 0, 'B#': 0, 'Dbb': 0,
   'C#': 1, 'Db': 1, 'B##': 1,
   'D': 2, 'C##': 2, 'Ebb': 2,
@@ -227,6 +227,13 @@ export const sampler = new Tone.Sampler({
   release: 0.1,
   baseUrl: "https://tonejs.github.io/audio/salamander/"
 }).toDestination();
+
+export const bassSynth = new Tone.MonoSynth({
+    oscillator: { type: 'sine' },
+    envelope: { attack: 0.01, decay: 0.2, sustain: 0.3, release: 0.5 },
+    filterEnvelope: { attack: 0.01, decay: 0.1, sustain: 0.1, release: 0.5, baseFrequency: 200, octaves: 2.6 }
+}).toDestination();
+
 
 // --- Drum Machine Engine ---
 export const drumVolume = new Tone.Volume(-6).toDestination();

@@ -1,11 +1,12 @@
 import React, { useState, useRef, useCallback, MouseEvent, useEffect, useMemo } from 'react';
-import { SequenceChord } from '../types';
+import { SequenceChord, SequenceBassNote } from '../types';
 import * as Tone from 'tone';
 import { SpeakerIcon } from './icons/SpeakerIcon';
 import { SpeakerOffIcon } from './icons/SpeakerOffIcon';
 
 interface SequencerProps {
   sequence: SequenceChord[];
+  bassSequence: SequenceBassNote[];
   onAddChord: (chordName: string, start: number) => void;
   onUpdateChord: (id: string, newProps: Partial<SequenceChord>) => void;
   onRemoveChord: (id: string) => void;
@@ -16,6 +17,7 @@ interface SequencerProps {
   onChordMouseUp: () => void;
   playheadPosition: number; // in beats
   playingChordId: string | null;
+  playingBassNoteId: string | null;
   selectedChordIds: Set<string>;
   bars: 4 | 8;
   timeSignature: '4/4' | '3/4';
@@ -25,22 +27,60 @@ interface SequencerProps {
 }
 
 const DEFAULT_CHORD_DURATION = 8; // A half note (8 * 16th steps)
-const TRACK_PADDING = 4; // horizontal padding in px
+const TRACK_PADDING = 10; // horizontal padding in px
 const RULER_HEIGHT = 24; // Corresponds to h-6 in tailwind
 const CHORD_BLOCK_HEIGHT = 68; // 10px taller
+const BASS_BLOCK_HEIGHT = 28;
 const TRACK_VERTICAL_PADDING = 4; // Reduced padding for more chord height
 
+const CHORD_TRACK_HEIGHT = 82;
+const BASS_TRACK_HEIGHT = 40;
+
+
 // A pure component for the playhead to help with rendering consistency.
-const Playhead: React.FC<{ position: number; trackPadding: number }> = React.memo(({ position, trackPadding }) => (
+const Playhead: React.FC<{ position: number; trackPadding: number, height: number, top: number }> = React.memo(({ position, trackPadding, height, top }) => (
     <div
-        className="absolute top-0 w-0.5 bg-red-500 z-20 pointer-events-none"
+        className="absolute w-0.5 bg-red-500 z-20 pointer-events-none"
         style={{
             left: `${position + trackPadding}px`,
-            height: `100%`,
+            height: `${height}px`,
+            top: `${top}px`,
         }}
     />
 ));
 Playhead.displayName = 'Playhead';
+
+// --- BassBlock Component ---
+interface BassBlockProps {
+  note: SequenceBassNote;
+  stepWidth: number;
+  stepsPerLane: number;
+  isPlaying: boolean;
+}
+const BassBlock: React.FC<BassBlockProps> = ({ note, stepWidth, stepsPerLane, isPlaying }) => {
+  const startInLanePx = (note.start % stepsPerLane) * stepWidth;
+  const widthPx = note.duration * stepWidth;
+
+  return (
+    <div
+      className={`absolute rounded-[2px] flex items-center justify-center text-white text-xs font-medium select-none shadow-md transition-colors duration-150 z-10 border
+        ${isPlaying ? 'bg-green-500 border-green-300' : 'bg-green-700 border-green-500'}
+        cursor-default
+      `}
+      style={{
+        bottom: `${TRACK_VERTICAL_PADDING}px`,
+        left: `${startInLanePx + TRACK_PADDING}px`,
+        width: `${widthPx}px`,
+        height: `${BASS_BLOCK_HEIGHT}px`,
+        touchAction: 'none',
+      }}
+      title={note.noteName}
+    >
+      <span className="truncate px-2 pointer-events-none">{note.noteName}</span>
+    </div>
+  );
+};
+
 
 // --- ChordBlock Component ---
 interface ChordBlockProps {
@@ -54,14 +94,13 @@ interface ChordBlockProps {
   onChordMouseUp: () => void;
   playingChordId: string | null;
   isSelected: boolean;
-  isOverlappingOnTop: boolean;
   isClickMuted: boolean;
   onDragStart: (chord: SequenceChord, isResizing: boolean, e: React.MouseEvent<HTMLDivElement>) => void;
 }
 
 const ChordBlock: React.FC<ChordBlockProps> = ({ 
   chord, stepWidth, stepsPerLane, onRemove, onDoubleClick, onPlayChord, onChordSelect, onChordMouseUp, 
-  playingChordId, isSelected, isOverlappingOnTop, isClickMuted, onDragStart 
+  playingChordId, isSelected, isClickMuted, onDragStart 
 }) => {
   const isCurrentlyPlaying = chord.id === playingChordId;
 
@@ -88,7 +127,6 @@ const ChordBlock: React.FC<ChordBlockProps> = ({
       className={`absolute rounded-[3px] flex items-center justify-center text-white text-xs font-medium select-none shadow-lg transition-colors duration-150 z-10 chord-block border
         ${isSelected ? 'bg-indigo-500 border-yellow-400' : 'bg-indigo-600 border-indigo-400'}
         ${isCurrentlyPlaying ? 'ring-2 ring-sky-400' : ''}
-        ${isOverlappingOnTop ? 'opacity-60' : ''}
         cursor-grab active:cursor-grabbing
       `}
       style={{
@@ -112,9 +150,9 @@ const ChordBlock: React.FC<ChordBlockProps> = ({
 
 // --- Sequencer Component ---
 export const Sequencer: React.FC<SequencerProps> = ({
-  sequence, onAddChord, onUpdateChord, onRemoveChord, onChordDoubleClick,
+  sequence, bassSequence, onAddChord, onUpdateChord, onRemoveChord, onChordDoubleClick,
   onPlayChord, onChordSelect, onDeselect, onChordMouseUp, playheadPosition, 
-  playingChordId, selectedChordIds, bars, timeSignature, onSeek, isClickMuted, onMuteToggle
+  playingChordId, playingBassNoteId, selectedChordIds, bars, timeSignature, onSeek, isClickMuted, onMuteToggle
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [dragOverStep, setDragOverStep] = useState<number | null>(null);
@@ -128,6 +166,7 @@ export const Sequencer: React.FC<SequencerProps> = ({
       originalStart: number;
       originalDuration: number;
   } | null>(null);
+  const wasEverPreciseRef = useRef(false);
 
   const is8BarMode = bars === 8;
   const STEPS_PER_BAR = timeSignature === '4/4' ? 16 : 12;
@@ -137,23 +176,9 @@ export const Sequencer: React.FC<SequencerProps> = ({
   const BAR_COUNT = bars;
   const TOTAL_STEPS = BAR_COUNT * STEPS_PER_BAR;
   const BEAT_COUNT = BAR_COUNT * BEATS_PER_BAR;
-
-  const sequenceWithOverlapInfo = useMemo(() => {
-    return sequence.map((chord, i, allChords) => {
-        let isOverlappingOnTop = false;
-        for (let j = 0; j < allChords.length; j++) {
-            if (i === j) continue;
-            const otherChord = allChords[j];
-            const overlaps = (chord.start < otherChord.start + otherChord.duration) && (otherChord.start < chord.start + chord.duration);
-            if (overlaps && j < i) {
-                isOverlappingOnTop = true;
-                break;
-            }
-        }
-        return { ...chord, isOverlappingOnTop };
-    });
-  }, [sequence]);
-
+  
+  const hasBass = bassSequence.length > 0;
+  const playheadHeight = hasBass ? CHORD_TRACK_HEIGHT + BASS_TRACK_HEIGHT : CHORD_TRACK_HEIGHT;
 
   useEffect(() => {
     const calculateWidth = () => {
@@ -172,6 +197,7 @@ export const Sequencer: React.FC<SequencerProps> = ({
   const barWidth = beatWidth * BEATS_PER_BAR;
 
   const handleDragStart = useCallback((chord: SequenceChord, isResizing: boolean, e: React.MouseEvent<HTMLDivElement>) => {
+      wasEverPreciseRef.current = e.ctrlKey;
       setDraggingState({
           id: chord.id,
           start: chord.start,
@@ -184,54 +210,57 @@ export const Sequencer: React.FC<SequencerProps> = ({
   }, []);
 
   useEffect(() => {
-      const handleMouseMove = (e: globalThis.MouseEvent) => {
-          if (!draggingState || stepWidth <= 0) return;
-          e.preventDefault();
+    const handleMouseMove = (e: globalThis.MouseEvent) => {
+        if (!draggingState || stepWidth <= 0) return;
+        e.preventDefault();
 
-          const dx = e.clientX - draggingState.startX;
-          const dxInSteps = dx / stepWidth;
-          const isPrecise = e.ctrlKey;
+        if (e.ctrlKey) {
+            wasEverPreciseRef.current = true;
+        }
 
-          if (draggingState.isResizing) {
-              const newDuration = isPrecise
-                  ? draggingState.originalDuration + dxInSteps
-                  : Math.round(draggingState.originalDuration + dxInSteps);
-              
-              const finalDuration = Math.max(1, Math.min(TOTAL_STEPS - draggingState.originalStart, newDuration));
-              setDraggingState(prev => prev ? { ...prev, duration: finalDuration } : null);
-          } else { // Moving
-              const newStart = isPrecise
-                  ? draggingState.originalStart + dxInSteps
-                  : Math.round(draggingState.originalStart + dxInSteps);
-              
-              const maxStart = TOTAL_STEPS - draggingState.duration;
-              const finalStart = Math.max(0, Math.min(maxStart, newStart));
-              
-              setDraggingState(prev => prev ? { ...prev, start: finalStart } : null);
-          }
-      };
+        const dx = e.clientX - draggingState.startX;
+        const dxInSteps = dx / stepWidth;
+        
+        if (draggingState.isResizing) {
+            const newDuration = draggingState.originalDuration + dxInSteps;
+            const finalDuration = Math.max(1, Math.min(TOTAL_STEPS - draggingState.originalStart, newDuration));
+            setDraggingState(prev => prev ? { ...prev, duration: finalDuration } : null);
+        } else { // Moving
+            const newStart = draggingState.originalStart + dxInSteps;
+            const maxStart = TOTAL_STEPS - draggingState.originalDuration; // Bug fix: use originalDuration
+            const finalStart = Math.max(0, Math.min(maxStart, newStart));
+            setDraggingState(prev => prev ? { ...prev, start: finalStart } : null);
+        }
+    };
 
-      const handleMouseUp = () => {
-          if (!draggingState) return;
-          
-          const { id, start, duration, originalStart, originalDuration } = draggingState;
-          if (start !== originalStart || duration !== originalDuration) {
-              onUpdateChord(id, { start, duration });
-          }
-          
-          onChordMouseUp();
-          setDraggingState(null);
-      };
+    const handleMouseUp = () => {
+        if (!draggingState) return;
+        
+        let { id, start, duration, originalStart, originalDuration } = draggingState;
+        
+        if (!wasEverPreciseRef.current) {
+            start = Math.round(start);
+            duration = Math.round(duration);
+        }
 
-      if (draggingState) {
-          window.addEventListener('mousemove', handleMouseMove);
-          window.addEventListener('mouseup', handleMouseUp);
-      }
+        if (start !== originalStart || duration !== originalDuration) {
+            onUpdateChord(id, { start, duration });
+        }
+        
+        onChordMouseUp();
+        setDraggingState(null);
+        wasEverPreciseRef.current = false;
+    };
 
-      return () => {
-          window.removeEventListener('mousemove', handleMouseMove);
-          window.removeEventListener('mouseup', handleMouseUp);
-      };
+    if (draggingState) {
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mouseup', handleMouseUp);
+    }
+
+    return () => {
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('mouseup', handleMouseUp);
+    };
   }, [draggingState, stepWidth, onUpdateChord, TOTAL_STEPS, onChordMouseUp]);
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -280,8 +309,8 @@ export const Sequencer: React.FC<SequencerProps> = ({
   const playheadLane = is8BarMode && playheadPosition >= beatsPerLane ? 1 : 0;
   const playheadLeftInLane = (playheadPosition % beatsPerLane) * beatWidth;
 
-  const renderGrid = () => (
-    <div className="absolute inset-0" style={{ left: `${TRACK_PADDING}px`, right: `${TRACK_PADDING}px` }}>
+  const renderGrid = (height: number) => (
+    <div className="absolute inset-0" style={{ left: `${TRACK_PADDING}px`, right: `${TRACK_PADDING}px`, height: `${height}px` }}>
        {Array.from({ length: stepsPerLane }).map((_, i) => {
           const isBeat = i % SUBDIVISION === 0;
           let borderColorClass = i % STEPS_PER_BAR === 0 ? 'border-gray-600' : isBeat ? 'border-gray-700' : 'border-gray-800';
@@ -312,7 +341,7 @@ export const Sequencer: React.FC<SequencerProps> = ({
   const renderSequencerLane = (laneIndex: 0 | 1) => {
     const barOffset = laneIndex * 4;
     return (
-      <>
+      <div className='relative bg-gray-800'>
         <div className="relative flex items-center">
             {renderRuler(barOffset)}
             {laneIndex === 0 && (
@@ -326,17 +355,18 @@ export const Sequencer: React.FC<SequencerProps> = ({
                 </button>
             )}
         </div>
+        {/* Chords Track */}
         <div 
             ref={laneIndex === 0 ? containerRef : null}
             data-lane={laneIndex}
             className="relative w-full bg-gray-900/50"
-            style={{ height: '82px' }}
+            style={{ height: `${CHORD_TRACK_HEIGHT}px` }}
             onDragOver={handleDragOver} onDrop={handleDrop} onDragLeave={handleDragLeave}
             onClick={handleTrackClick}
             title={`SEQUENCER:\nDrag chords here, or click to position the playhead.`}
         >
-            {renderGrid()}
-            {sequenceWithOverlapInfo.filter(c => Math.floor(c.start / stepsPerLane) === laneIndex).map(chord => {
+            {renderGrid(CHORD_TRACK_HEIGHT)}
+            {sequence.filter(c => Math.floor(c.start / stepsPerLane) === laneIndex).map(chord => {
               const isDraggingThisChord = draggingState?.id === chord.id;
               const displayChord = isDraggingThisChord
                   ? { ...chord, start: draggingState!.start, duration: draggingState!.duration }
@@ -355,7 +385,6 @@ export const Sequencer: React.FC<SequencerProps> = ({
                   onChordMouseUp={onChordMouseUp} 
                   playingChordId={playingChordId} 
                   isSelected={selectedChordIds.has(chord.id)}
-                  isOverlappingOnTop={chord.isOverlappingOnTop}
                   isClickMuted={isClickMuted}
                   onDragStart={handleDragStart}
                 />
@@ -364,16 +393,38 @@ export const Sequencer: React.FC<SequencerProps> = ({
             {dragOverStep !== null && Math.floor(dragOverStep / stepsPerLane) === laneIndex && (
               <div className="absolute bg-indigo-500/30 rounded-[3px] pointer-events-none" style={{ left: `${(dragOverStep % stepsPerLane) * stepWidth + TRACK_PADDING}px`, width: `${DEFAULT_CHORD_DURATION * stepWidth}px`, height: `${CHORD_BLOCK_HEIGHT}px`, bottom: `${TRACK_VERTICAL_PADDING}px` }}/>
             )}
-            {playheadLane === laneIndex && stepWidth > 0 && playheadLeftInLane <= gridWidth && (
-              <Playhead position={playheadLeftInLane} trackPadding={TRACK_PADDING} />
-            )}
         </div>
-      </>
+         {/* Bass Track or Spacer */}
+         {hasBass ? (
+            <div
+                data-lane={laneIndex}
+                className="relative w-full bg-gray-900/50"
+                style={{ height: `${BASS_TRACK_HEIGHT}px` }}
+                onClick={handleTrackClick}
+            >
+                {renderGrid(BASS_TRACK_HEIGHT)}
+                {bassSequence.filter(n => Math.floor(n.start / stepsPerLane) === laneIndex).map(note => (
+                    <BassBlock
+                        key={note.id}
+                        note={note}
+                        stepWidth={stepWidth}
+                        stepsPerLane={stepsPerLane}
+                        isPlaying={note.id === playingBassNoteId}
+                    />
+                ))}
+            </div>
+         ) : (
+            <div className="h-[24px] bg-gray-900" />
+         )}
+
+         {playheadLane === laneIndex && stepWidth > 0 && playheadLeftInLane <= gridWidth && (
+              <Playhead position={playheadLeftInLane} trackPadding={TRACK_PADDING} height={playheadHeight} top={RULER_HEIGHT} />
+        )}
+      </div>
     );
   };
 
   const handleContainerClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    // Check if the click is on the container itself or its direct children used for spacing/layout
     const target = e.target as HTMLElement;
     if (target === e.currentTarget || target.classList.contains('relative')) {
         onDeselect();
@@ -381,7 +432,7 @@ export const Sequencer: React.FC<SequencerProps> = ({
   };
 
   return (
-    <div className="w-full flex flex-col px-2 min-w-[600px]" onClick={handleContainerClick}>
+    <div className="w-full flex flex-col min-w-[600px]" onClick={handleContainerClick}>
       <div className="relative">
         <React.Fragment key="lane-0">
           {renderSequencerLane(0)}
@@ -394,12 +445,11 @@ export const Sequencer: React.FC<SequencerProps> = ({
         )}
 
         {sequence.length === 0 && dragOverStep === null && (
-          <div className="absolute top-1/2 -translate-y-1/2 text-gray-600 font-semibold pointer-events-none" style={{left: barWidth / 2 + 16, transform: 'translate(-50%, -50%)' }}>
+          <div className="absolute top-1/2 -translate-y-1/2 text-gray-600 font-semibold pointer-events-none" style={{left: barWidth / 2 + 16, transform: 'translate(-50%, -50%)', top: '65px' }}>
             Drag a chord from the side panel to start
           </div>
         )}
       </div>
-      <div className="h-[24px] bg-gray-800"></div>
     </div>
   );
 };

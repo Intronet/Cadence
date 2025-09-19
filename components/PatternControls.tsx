@@ -31,6 +31,9 @@ interface ArrangementViewProps {
   onRedo: () => void;
   canUndo: boolean;
   canRedo: boolean;
+  basslineStyle: 'root';
+  onSetBasslineStyle: (style: 'root') => void;
+  onGenerateBass: (style: 'root') => void;
 }
 
 const TrashIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
@@ -102,7 +105,8 @@ export const ArrangementView: React.FC<ArrangementViewProps> = ({
   patterns, currentPattern, onSelectPattern, onAddPattern, onDeletePattern, onRenamePattern, onCopyPattern, onReorderPatterns,
   bpm, onBpmChange, onToggleBarMode, onTimeSignatureChange, isDrumsEnabled, onToggleDrumsEnabled, onToggleDrumEditor, isDrumEditorOpen,
   isMetronomeOn, onMetronomeToggle, isPianoVisible, onTogglePiano,
-  onUndo, onRedo, canUndo, canRedo
+  onUndo, onRedo, canUndo, canRedo,
+  basslineStyle, onSetBasslineStyle, onGenerateBass
 }) => {
   const [draggedPatternId, setDraggedPatternId] = useState<string | null>(null);
 
@@ -115,8 +119,8 @@ export const ArrangementView: React.FC<ArrangementViewProps> = ({
   };
 
   return (
-    <div className="flex-shrink-0 flex flex-col gap-2 px-2 pt-2 pb-2 bg-gray-800/50 rounded-[3px] border border-gray-700">
-      <div className="flex items-center gap-1 flex-wrap">
+    <div className="flex-shrink-0 flex flex-col gap-2 pt-2 pb-2 bg-gray-800/50 border-y border-gray-700">
+      <div className="flex items-center gap-1 flex-wrap px-[10px]">
         <div className="text-sm font-bold text-indigo-300 pr-2 mr-1 border-r border-gray-600 self-stretch flex items-center">PATTERNS</div>
         {patterns.map((pattern) => {
           const isSelected = pattern.id === currentPattern.id;
@@ -171,7 +175,7 @@ export const ArrangementView: React.FC<ArrangementViewProps> = ({
         </button>
       </div>
 
-      <div className="flex justify-between items-center mt-1 pt-2 border-t border-gray-700/60">
+      <div className="flex justify-between items-center mt-1 pt-2 border-t border-gray-700/60 px-[10px]">
         <EditablePatternName pattern={currentPattern} onRename={onRenamePattern} />
         <div className="flex items-center gap-4">
             <div className="flex items-center gap-1 border-r border-gray-600 pr-3">
@@ -208,6 +212,22 @@ export const ArrangementView: React.FC<ArrangementViewProps> = ({
                     aria-checked={isDrumsEnabled}
                 >
                     <span aria-hidden="true" className={`${isDrumsEnabled ? 'translate-x-5' : 'translate-x-0'} pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`}/>
+                </button>
+            </div>
+            <div className="flex items-center gap-2 border-l border-gray-600 pl-4">
+                <span className="text-sm font-medium text-gray-400">Bassline</span>
+                <select 
+                    value={basslineStyle} 
+                    onChange={e => onSetBasslineStyle(e.target.value as 'root')}
+                    className="bg-gray-700 border border-gray-600 text-gray-200 text-sm rounded-[3px] focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent block p-1.5 transition-all duration-200 cursor-pointer"
+                >
+                    <option value="root">Root Notes</option>
+                    <option value="fifth" disabled>Root & Fifth</option>
+                    <option value="arpeggio" disabled>Arpeggio</option>
+                    <option value="walking" disabled>Walking Bass</option>
+                </select>
+                <button onClick={() => onGenerateBass(basslineStyle)} className="px-3 py-1 text-sm font-semibold rounded-[3px] bg-indigo-600 text-white hover:bg-indigo-700">
+                    Generate
                 </button>
             </div>
              <div className="flex items-center gap-2 pl-2 border-l border-gray-600">

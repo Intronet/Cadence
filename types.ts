@@ -32,6 +32,13 @@ export interface SequenceChord {
   duration: number; // in 16th note steps
 }
 
+export interface SequenceBassNote {
+  id: string;
+  noteName: string; // e.g., "C2"
+  start: number; // in 16th note steps
+  duration: number; // in 16th note steps
+}
+
 export type DrumSound = 'kick' | 'snare' | 'hat' | 'clap' | 'rim' | 'timbale';
 
 export interface DrumPatternPreset {
@@ -46,6 +53,7 @@ export interface Pattern {
   id: string;
   name: string;
   sequence: SequenceChord[];
+  bassSequence: SequenceBassNote[];
   drumPattern: Record<DrumSound, boolean[]>; // Live patterns can be 64 or 128 steps
   bars: 4 | 8;
   timeSignature: '4/4' | '3/4';
