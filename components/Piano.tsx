@@ -62,6 +62,7 @@ export const Piano: React.FC<PianoProps> = ({ highlightedNotes, pressedNotes, on
 
   const handleWheelScroll = (e: React.WheelEvent<HTMLDivElement>) => {
     e.preventDefault();
+    onPianoMouseLeave(); // Stop any active sound/highlight when scrolling starts
     e.currentTarget.scrollLeft += e.deltaY;
   };
   

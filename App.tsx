@@ -546,14 +546,14 @@ const App: React.FC = () => {
   const handlePianoMouseDown = (note: string) => {
     startNoteSound(note);
     setActivePianoNote(note);
-    setDisplayText({ name: note.replace(/[0-9]/g, ''), notes: note.replace(/[0-9]/g, '') });
+    setDisplayText({ name: note.replace(/[0-9]/g, ''), notes: '' });
   };
   const handlePianoMouseEnter = (note: string) => {
     if (activePianoNote) {
       stopNoteSound(activePianoNote);
       startNoteSound(note);
       setActivePianoNote(note);
-      setDisplayText({ name: note.replace(/[0-9]/g, ''), notes: note.replace(/[0-9]/g, '') });
+      setDisplayText({ name: note.replace(/[0-9]/g, ''), notes: '' });
     }
   };
 
@@ -1049,21 +1049,27 @@ const App: React.FC = () => {
                 isClickMuted={isSequencerClickMuted}
                 onMuteToggle={() => setIsSequencerClickMuted(v => !v)}
               />
-            
-            <div className="h-40 overflow-hidden relative">
-                <div className={`absolute inset-0 transition-transform duration-300 ease-in-out ${isPianoVisible ? 'translate-y-0' : '-translate-y-full'}`}>
-                    <Piano 
-                      highlightedNotes={activePianoNotes}
-                      pressedNotes={activePianoNotes}
-                      onKeyMouseDown={handlePianoMouseDown}
-                      onKeyMouseEnter={handlePianoMouseEnter}
-                      onKeyMouseLeave={stopActivePianoNote}
-                      onPianoMouseLeave={stopActivePianoNote}
-                    />
+
+            <div className={`relative transition-all duration-300 ease-in-out ${isPianoVisible ? 'h-52 mt-0' : 'h-12 mt-[10px]'}`}>
+                {/* Piano container, always h-40 */}
+                <div className="absolute top-0 left-0 right-0 h-40 overflow-hidden">
+                    <div className={`absolute inset-0 transition-transform duration-300 ease-in-out ${isPianoVisible ? 'translate-y-0' : '-translate-y-full'}`}>
+                        <Piano 
+                          highlightedNotes={activePianoNotes}
+                          pressedNotes={activePianoNotes}
+                          onKeyMouseDown={handlePianoMouseDown}
+                          onKeyMouseEnter={handlePianoMouseEnter}
+                          onKeyMouseLeave={stopActivePianoNote}
+                          onPianoMouseLeave={stopActivePianoNote}
+                        />
+                    </div>
+                </div>
+                {/* Hover Display container */}
+                <div className="absolute bottom-0 left-0 right-0 h-12">
+                    <HoverDisplay data={displayText} />
                 </div>
             </div>
 
-            <HoverDisplay data={displayText} />
             {error && <div className="text-red-500 text-center pointer-events-auto">{error}</div>}
           </div>
         </div>
