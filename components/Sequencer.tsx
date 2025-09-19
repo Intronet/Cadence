@@ -45,7 +45,6 @@ Playhead.displayName = 'Playhead';
 interface ChordBlockProps {
   chord: SequenceChord;
   stepWidth: number;
-  onUpdate: (id: string, newProps: Partial<SequenceChord>) => void;
   onRemove: (id: string) => void;
   onDoubleClick: (chord: SequenceChord) => void;
   onPlayChord: (chordName: string) => void;
@@ -53,126 +52,30 @@ interface ChordBlockProps {
   onChordMouseUp: () => void;
   playingChordId: string | null;
   isSelected: boolean;
-  bars: 4 | 8;
   isOverlappingOnTop: boolean;
   isClickMuted: boolean;
+  onDragStart: (chord: SequenceChord, isResizing: boolean, e: React.MouseEvent<HTMLDivElement>) => void;
 }
 
 const ChordBlock: React.FC<ChordBlockProps> = ({ 
-  chord, stepWidth, onUpdate, onRemove, onDoubleClick, onPlayChord, onChordSelect, onChordMouseUp, 
-  playingChordId, isSelected, bars, isOverlappingOnTop, isClickMuted 
+  chord, stepWidth, onRemove, onDoubleClick, onPlayChord, onChordSelect, onChordMouseUp, 
+  playingChordId, isSelected, isOverlappingOnTop, isClickMuted, onDragStart 
 }) => {
-  const [visualDragState, setVisualDragState] = useState<{ left: number, width: number } | null>(null);
-  
-  const dragStateRef = useRef<{
-    isResizing: boolean;
-    startX: number;
-    originalStartPx: number;
-    originalWidthPx: number;
-  } | null>(null);
-
   const isCurrentlyPlaying = chord.id === playingChordId;
-  const TOTAL_STEPS = bars * 16;
 
   const handleMouseDown = useCallback((e: MouseEvent<HTMLDivElement>) => {
-    if (e.button !== 0) return; // Only for left-click.
+    if (e.button !== 0) return;
     
     onChordSelect(chord.id, e);
     if (!isClickMuted) {
       onPlayChord(chord.chordName);
     }
-
-    e.preventDefault();
-    e.stopPropagation();
-
+    
     const target = e.target as HTMLElement;
     const isResizeHandle = target.classList.contains('resize-handle');
-    
-    dragStateRef.current = {
-      isResizing: isResizeHandle,
-      startX: e.clientX,
-      originalStartPx: (chord.start % 64) * stepWidth,
-      originalWidthPx: chord.duration * stepWidth,
-    };
+    onDragStart(chord, isResizeHandle, e);
 
-    const handleMouseMove = (moveEvent: globalThis.MouseEvent) => {
-        if (!dragStateRef.current || stepWidth === 0) return;
-        moveEvent.preventDefault();
-
-        const isPrecise = moveEvent.ctrlKey;
-        const dx = moveEvent.clientX - dragStateRef.current.startX;
-
-        if (dragStateRef.current.isResizing) {
-            let newWidthPx = dragStateRef.current.originalWidthPx + dx;
-            if (!isPrecise) {
-                const widthInSteps = Math.max(1, Math.round(newWidthPx / stepWidth));
-                newWidthPx = widthInSteps * stepWidth;
-            }
-
-            const clampedWidth = Math.max(stepWidth, newWidthPx);
-            const maxDurationPx = (TOTAL_STEPS - chord.start) * stepWidth;
-            setVisualDragState({ left: dragStateRef.current.originalStartPx, width: Math.min(clampedWidth, maxDurationPx) });
-
-        } else { // Moving
-            let newLeftPx = dragStateRef.current.originalStartPx + dx;
-            if (!isPrecise) {
-                const leftInSteps = Math.round(newLeftPx / stepWidth);
-                newLeftPx = leftInSteps * stepWidth;
-            }
-
-            const maxStartPx = (64 - chord.duration) * stepWidth;
-            setVisualDragState({ left: Math.max(0, Math.min(newLeftPx, maxStartPx)), width: dragStateRef.current.originalWidthPx });
-        }
-    };
-
-    const handleMouseUp = (upEvent: globalThis.MouseEvent) => {
-      onChordMouseUp(); // Stop sound on mouse up
-
-      if (dragStateRef.current && stepWidth > 0) {
-          const isPrecise = upEvent.ctrlKey;
-          const laneBaseStep = Math.floor(chord.start / 64) * 64;
-          const finalDx = upEvent.clientX - dragStateRef.current.startX;
-
-          if (dragStateRef.current.isResizing) {
-              const newWidthPx = Math.max(stepWidth, dragStateRef.current.originalWidthPx + finalDx);
-              let newDuration: number;
-              if (isPrecise) {
-                  newDuration = newWidthPx / stepWidth;
-              } else {
-                  newDuration = Math.round(newWidthPx / stepWidth);
-              }
-              
-              newDuration = Math.max(1, Math.min(TOTAL_STEPS - chord.start, newDuration));
-              if (newDuration !== chord.duration) {
-                  onUpdate(chord.id, { duration: newDuration });
-              }
-          } else { // Moving
-              const newLeftPx = dragStateRef.current.originalStartPx + finalDx;
-              let newStartSteps: number;
-              if (isPrecise) {
-                  newStartSteps = newLeftPx / stepWidth;
-              } else {
-                  newStartSteps = Math.round(newLeftPx / stepWidth);
-              }
-              
-              newStartSteps = Math.max(0, Math.min(64 - chord.duration, newStartSteps));
-              const finalStart = laneBaseStep + newStartSteps;
-
-              if (finalStart !== chord.start) {
-                  onUpdate(chord.id, { start: finalStart });
-              }
-          }
-      }
-      
-      dragStateRef.current = null;
-      setVisualDragState(null);
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-}, [chord, stepWidth, onUpdate, onPlayChord, onChordSelect, onChordMouseUp, TOTAL_STEPS, isClickMuted]);
+  }, [chord, onChordSelect, onPlayChord, onDragStart, isClickMuted]);
 
   const startInLanePx = (chord.start % 64) * stepWidth;
   const widthPx = chord.duration * stepWidth;
@@ -180,7 +83,7 @@ const ChordBlock: React.FC<ChordBlockProps> = ({
   return (
     <div
       data-has-context-menu="true"
-      className={`absolute rounded-md flex items-center justify-center text-white text-xs font-medium select-none shadow-lg transition-all duration-150 z-10 chord-block border
+      className={`absolute rounded-md flex items-center justify-center text-white text-xs font-medium select-none shadow-lg transition-colors duration-150 z-10 chord-block border
         ${isSelected ? 'bg-indigo-500 border-yellow-400' : 'bg-indigo-600 border-indigo-400'}
         ${isCurrentlyPlaying ? 'ring-2 ring-sky-400' : ''}
         ${isOverlappingOnTop ? 'opacity-60' : ''}
@@ -188,14 +91,15 @@ const ChordBlock: React.FC<ChordBlockProps> = ({
       `}
       style={{
         bottom: `${TRACK_VERTICAL_PADDING}px`,
-        left: `${(visualDragState?.left ?? startInLanePx) + TRACK_PADDING}px`,
-        width: `${visualDragState?.width ?? widthPx}px`,
+        left: `${startInLanePx + TRACK_PADDING}px`,
+        width: `${widthPx}px`,
         height: `${CHORD_BLOCK_HEIGHT}px`,
         touchAction: 'none',
       }}
       onMouseDown={handleMouseDown}
+      onMouseUp={onChordMouseUp} // Stop sound on simple click-release
       onDoubleClick={() => onDoubleClick(chord)}
-      title={`${chord.chordName}\nDrag to move (snaps to grid).\nDrag edge to resize (snaps to grid).\nHold Ctrl for precise control.\nDouble-click to edit. Delete to remove.`}
+      title={`${chord.chordName}\nDrag to move.\nDrag edge to resize.\nHold Ctrl for precision.\nDouble-click to edit.`}
     >
       <span className="truncate px-2 pointer-events-none">{chord.chordName}</span>
       <div className={`resize-handle absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize`} />
@@ -213,6 +117,15 @@ export const Sequencer: React.FC<SequencerProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const [dragOverStep, setDragOverStep] = useState<number | null>(null);
   const [containerWidth, setContainerWidth] = useState(0);
+  const [draggingState, setDraggingState] = useState<{
+      id: string;
+      start: number;
+      duration: number;
+      isResizing: boolean;
+      startX: number;
+      originalStart: number;
+      originalDuration: number;
+  } | null>(null);
 
   const is8BarMode = bars === 8;
   const BAR_COUNT = bars;
@@ -227,7 +140,6 @@ export const Sequencer: React.FC<SequencerProps> = ({
             if (i === j) continue;
             const otherChord = allChords[j];
             const overlaps = (chord.start < otherChord.start + otherChord.duration) && (otherChord.start < chord.start + chord.duration);
-            // This chord is on top if it comes later in the array and overlaps
             if (overlaps && j < i) {
                 isOverlappingOnTop = true;
                 break;
@@ -252,6 +164,69 @@ export const Sequencer: React.FC<SequencerProps> = ({
   const stepWidth = gridWidth / 64; // Each lane is 4 bars (64 steps)
   const beatWidth = stepWidth * SUBDIVISION;
   const barWidth = beatWidth * 4;
+
+  const handleDragStart = useCallback((chord: SequenceChord, isResizing: boolean, e: React.MouseEvent<HTMLDivElement>) => {
+      setDraggingState({
+          id: chord.id,
+          start: chord.start,
+          duration: chord.duration,
+          isResizing,
+          startX: e.clientX,
+          originalStart: chord.start,
+          originalDuration: chord.duration,
+      });
+  }, []);
+
+  useEffect(() => {
+      const handleMouseMove = (e: globalThis.MouseEvent) => {
+          if (!draggingState || stepWidth <= 0) return;
+          e.preventDefault();
+
+          const dx = e.clientX - draggingState.startX;
+          const dxInSteps = dx / stepWidth;
+          const isPrecise = e.ctrlKey;
+
+          if (draggingState.isResizing) {
+              const newDuration = isPrecise
+                  ? draggingState.originalDuration + dxInSteps
+                  : Math.round(draggingState.originalDuration + dxInSteps);
+              
+              const finalDuration = Math.max(1, Math.min(TOTAL_STEPS - draggingState.originalStart, newDuration));
+              setDraggingState(prev => prev ? { ...prev, duration: finalDuration } : null);
+          } else { // Moving
+              const newStart = isPrecise
+                  ? draggingState.originalStart + dxInSteps
+                  : Math.round(draggingState.originalStart + dxInSteps);
+              
+              const maxStart = TOTAL_STEPS - draggingState.originalDuration;
+              const finalStart = Math.max(0, Math.min(maxStart, newStart));
+              
+              setDraggingState(prev => prev ? { ...prev, start: finalStart } : null);
+          }
+      };
+
+      const handleMouseUp = () => {
+          if (!draggingState) return;
+          
+          const { id, start, duration, originalStart, originalDuration } = draggingState;
+          if (start !== originalStart || duration !== originalDuration) {
+              onUpdateChord(id, { start, duration });
+          }
+          
+          onChordMouseUp();
+          setDraggingState(null);
+      };
+
+      if (draggingState) {
+          window.addEventListener('mousemove', handleMouseMove);
+          window.addEventListener('mouseup', handleMouseUp);
+      }
+
+      return () => {
+          window.removeEventListener('mousemove', handleMouseMove);
+          window.removeEventListener('mouseup', handleMouseUp);
+      };
+  }, [draggingState, stepWidth, onUpdateChord, TOTAL_STEPS, onChordMouseUp]);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -354,24 +329,30 @@ export const Sequencer: React.FC<SequencerProps> = ({
             title="Sequencer track. Drag chords here, or click to position the playhead."
         >
             {renderGrid(barOffset)}
-            {sequenceWithOverlapInfo.filter(c => Math.floor(c.start / 64) === laneIndex).map(chord => (
-              <ChordBlock 
-                key={chord.id} 
-                chord={chord} 
-                stepWidth={stepWidth} 
-                onUpdate={onUpdateChord} 
-                onRemove={onRemoveChord} 
-                onDoubleClick={onChordDoubleClick} 
-                onPlayChord={onPlayChord}
-                onChordSelect={onChordSelect}
-                onChordMouseUp={onChordMouseUp} 
-                playingChordId={playingChordId} 
-                isSelected={selectedChordIds.has(chord.id)}
-                bars={bars} 
-                isOverlappingOnTop={chord.isOverlappingOnTop}
-                isClickMuted={isClickMuted}
-              />
-            ))}
+            {sequenceWithOverlapInfo.filter(c => Math.floor(c.start / 64) === laneIndex).map(chord => {
+              const isDraggingThisChord = draggingState?.id === chord.id;
+              const displayChord = isDraggingThisChord
+                  ? { ...chord, start: draggingState!.start, duration: draggingState!.duration }
+                  : chord;
+
+              return (
+                <ChordBlock 
+                  key={chord.id} 
+                  chord={displayChord} 
+                  stepWidth={stepWidth} 
+                  onRemove={onRemoveChord} 
+                  onDoubleClick={onChordDoubleClick} 
+                  onPlayChord={onPlayChord}
+                  onChordSelect={onChordSelect}
+                  onChordMouseUp={onChordMouseUp} 
+                  playingChordId={playingChordId} 
+                  isSelected={selectedChordIds.has(chord.id)}
+                  isOverlappingOnTop={chord.isOverlappingOnTop}
+                  isClickMuted={isClickMuted}
+                  onDragStart={handleDragStart}
+                />
+              );
+            })}
             {dragOverStep !== null && Math.floor(dragOverStep / 64) === laneIndex && (
               <div className="absolute bg-indigo-500/30 rounded pointer-events-none" style={{ left: `${(dragOverStep % 64) * stepWidth + TRACK_PADDING}px`, width: `${DEFAULT_CHORD_DURATION * stepWidth}px`, height: `${CHORD_BLOCK_HEIGHT}px`, bottom: `${TRACK_VERTICAL_PADDING}px` }}/>
             )}
