@@ -20,10 +20,11 @@ import {
   humanizeProgression,
   parseNote,
   KEY_SIGNATURES,
-  transposeChord
+  transposeChord,
+  findLowestNote
 } from './index';
 import { KEY_OPTIONS, ChordSet, SequenceChord, Pattern, DrumSound, DrumPatternPreset } from './types';
-import { Piano } from './components/Piano';
+import { Piano, PianoHandle } from './components/Piano';
 import { generateProgression } from './services/geminiService';
 import { HoverDisplay } from './components/HoverDisplay';
 import { Sequencer } from './components/Sequencer';
@@ -258,6 +259,7 @@ const App: React.FC = () => {
   const [manualDisplayText, setManualDisplayText] = useState<{ name: string; notes: string } | null>(null);
   const [sequencerDisplayText, setSequencerDisplayText] = useState<{ name: string; notes: string } | null>(null);
   const mainAreaRef = useRef<HTMLDivElement>(null);
+  const pianoRef = useRef<PianoHandle>(null);
   
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isPianoVisible, setIsPianoVisible] = useState(false);
@@ -490,6 +492,14 @@ const App: React.FC = () => {
     initAudio().then(() => setIsPianoLoaded(true));
   }, []);
 
+  const scrollToLowestNote = useCallback((notes: string[]) => {
+    if (notes.length === 0 || !pianoRef.current) return;
+    const lowestNote = findLowestNote(notes);
+    if (lowestNote) {
+      pianoRef.current.scrollToNote(lowestNote);
+    }
+  }, []);
+
   const getNotesForVoicing = useCallback((chordName: string) => {
     if (voicingMode === 'manual') {
         return getChordNoteStrings(updateChord(chordName, { inversion: inversionLevel }), octave);
@@ -517,6 +527,7 @@ const App: React.FC = () => {
 
   const handlePadMouseDown = (chordName: string) => {
     const notes = getNotesForVoicing(chordName);
+    scrollToLowestNote(notes);
     startChordSound(notes);
     setActivePadChordNotes(notes);
     const parsed = parseChord(chordName);
@@ -526,6 +537,7 @@ const App: React.FC = () => {
 
   const handlePadMouseEnter = (chordName: string) => {
     const notes = getNotesForVoicing(chordName);
+    scrollToLowestNote(notes);
     const parsed = parseChord(chordName);
     const cleanName = parsed ? `${parsed.root}${parsed.quality}` : chordName;
     setManualDisplayText({ name: cleanName, notes: getChordNoteStrings(chordName, 0).map(n => n.replace(/[0-9]/g, '')).join(' ') });
@@ -549,8 +561,10 @@ const App: React.FC = () => {
     setActivePianoNote(note);
     setManualDisplayText({ name: note.replace(/[0-9]/g, ''), notes: '' });
   };
+
   const handlePianoMouseEnter = (note: string) => {
-    if (activePianoNote) {
+    if (activePianoNote) { // Glissando
+      scrollToLowestNote([note]);
       stopNoteSound(activePianoNote);
       startNoteSound(note);
       setActivePianoNote(note);
@@ -590,6 +604,7 @@ const App: React.FC = () => {
             e.preventDefault();
             const chordName = currentChordSet[padIndex];
             const notes = getNotesForVoicing(chordName);
+            scrollToLowestNote(notes);
             startChordSound(notes);
             setActiveKeyboardNotes(prev => new Map(prev).set(e.code, notes));
             setActiveKeyboardPadIndices(prev => new Set(prev).add(padIndex));
@@ -630,7 +645,7 @@ const App: React.FC = () => {
         window.removeEventListener('keydown', handleKeyDown);
         window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [currentChordSet, getNotesForVoicing, activeKeyboardNotes]);
+  }, [currentChordSet, getNotesForVoicing, scrollToLowestNote]);
 
   const addChordToSequencer = (chordName: string, start: number) => {
     const newChord: SequenceChord = { id: generateId(), chordName, start, duration: 8 };
@@ -647,6 +662,7 @@ const App: React.FC = () => {
   const playSequencerChordPreview = (chordName: string) => {
     if (isSequencerClickMuted) return;
     const notes = getChordNoteStrings(chordName, octave);
+    scrollToLowestNote(notes);
     playChordOnce(notes, '8n');
     setActiveSequencerManualNotes(notes);
     setTimeout(() => setActiveSequencerManualNotes([]), Tone.Time('8n').toMilliseconds());
@@ -788,6 +804,7 @@ const App: React.FC = () => {
             sampler.triggerAttackRelease(notes, event.duration, time);
             
             Tone.Draw.schedule(() => {
+                scrollToLowestNote(notes);
                 setPlayingChordId(event.chord.id);
                 setSequencerActiveNotes(notes);
             }, time);
@@ -807,7 +824,7 @@ const App: React.FC = () => {
       partRef.current?.dispose();
       partRef.current = null;
     };
-  }, [humanizedSequence, octave]);
+  }, [humanizedSequence, octave, scrollToLowestNote]);
   
   useEffect(() => {
     if (drumSequenceRef.current) {
@@ -959,9 +976,10 @@ const App: React.FC = () => {
   
   const playEditorPreview = useCallback((chordName: string) => {
     const notes = getChordNoteStrings(chordName, octave);
+    scrollToLowestNote(notes);
     playChordOnce(notes, '4n');
     setActiveEditorPreviewNotes(notes);
-  }, [octave]);
+  }, [octave, scrollToLowestNote]);
 
   const stopActiveEditorPreviewNotes = () => {
     setActiveEditorPreviewNotes([]);
@@ -1070,25 +1088,29 @@ const App: React.FC = () => {
                 onMuteToggle={() => setIsSequencerClickMuted(v => !v)}
               />
 
-            <div className={`relative transition-all duration-300 ease-in-out ${isPianoVisible ? 'h-52 mt-0' : 'h-12 mt-[10px]'}`}>
-                {/* Piano container, always h-40 */}
-                <div className="absolute top-0 left-0 right-0 h-40 overflow-hidden">
-                    <div className={`absolute inset-0 transition-transform duration-300 ease-in-out ${isPianoVisible ? 'translate-y-0' : '-translate-y-full'}`}>
-                        <Piano 
-                          highlightedNotes={activePianoNotes}
-                          pressedNotes={activePianoNotes}
-                          onKeyMouseDown={handlePianoMouseDown}
-                          onKeyMouseEnter={handlePianoMouseEnter}
-                          onKeyMouseLeave={stopActivePianoNote}
-                          onPianoMouseLeave={stopActivePianoNote}
-                        />
-                    </div>
-                </div>
-                {/* Hover Display container */}
-                <div className="absolute bottom-0 left-0 right-0 h-12">
-                    <HoverDisplay data={displayText} />
-                </div>
-            </div>
+              <div className={`relative transition-all duration-300 ease-in-out ${isPianoVisible ? 'h-52 mt-0' : 'h-12 mt-[10px]'}`}>
+                  {/* Piano container, always h-40 */}
+                  <div className="absolute top-0 left-0 right-0 h-40 overflow-hidden">
+                      <div className={`absolute inset-0 transition-transform duration-300 ease-in-out ${isPianoVisible ? 'translate-y-0' : '-translate-y-full'}`}>
+                          <Piano 
+                            ref={pianoRef}
+                            highlightedNotes={activePianoNotes}
+                            pressedNotes={activePianoNotes}
+                            onKeyMouseDown={handlePianoMouseDown}
+                            onKeyMouseEnter={handlePianoMouseEnter}
+                            onKeyMouseLeave={stopActivePianoNote}
+                            onPianoMouseLeave={stopActivePianoNote}
+                          />
+                      </div>
+                  </div>
+                  {/* Hover Display container */}
+                  <div className="absolute bottom-0 left-0 right-0 h-12">
+                      <HoverDisplay data={displayText} />
+                  </div>
+              </div>
+
+              {/* This spacer fills the REMAINING empty area, preventing clicks on the background from deselecting chords. */}
+              <div className="flex-1" />
 
             {error && <div className="text-red-500 text-center pointer-events-auto">{error}</div>}
           </div>

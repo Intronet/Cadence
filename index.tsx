@@ -485,6 +485,33 @@ export const playChordOnce = async (notes: string[], duration: Tone.Unit.Time) =
   sampler.triggerAttackRelease(notes, duration);
 };
 
+export const noteToMidi = (note: string): number => {
+    const match = note.match(/([A-G](?:##|bb|#|b)?)(-?\d+)/);
+    if (!match) return -1;
+    const [, pitch, octaveStr] = match;
+    const octave = parseInt(octaveStr, 10);
+    const noteValue = NOTE_TO_INDEX[pitch];
+    if (noteValue === undefined) return -1;
+    return noteValue + (octave + 1) * 12;
+};
+
+export const findLowestNote = (notes: string[]): string | null => {
+  if (!notes || notes.length === 0) return null;
+  
+  let lowestNote: string | null = null;
+  let lowestMidi = Infinity;
+
+  for (const note of notes) {
+    const midi = noteToMidi(note);
+    if (midi !== -1 && midi < lowestMidi) {
+      lowestMidi = midi;
+      lowestNote = note;
+    }
+  }
+  return lowestNote;
+};
+
+
 import App from './App';
 
 const rootElement = document.getElementById('root');
