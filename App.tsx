@@ -31,7 +31,7 @@ import * as Tone from 'tone';
 import { TransportControls } from './components/TransportControls';
 import { ChordEditor } from './components/ChordEditor';
 import { DrumEditor } from './components/DrumMachine';
-import { PRESET_DRUM_PATTERNS, DRUM_SOUNDS } from './components/drums/drumPatterns';
+import { PRESET_DRUM_PATTERNS, DRUM_SOUNDS, EMPTY_DRUM_PATTERNS } from './components/drums/drumPatterns';
 import { ArrangementView } from './components/PatternControls';
 import { HamburgerIcon } from './components/icons/HamburgerIcon';
 import { ConfirmationDialog } from './components/ConfirmationDialog';
@@ -218,14 +218,20 @@ const createExpandedDrumPattern = (
   return newPattern;
 };
 
-const createNewPattern = (name: string, bars: 4 | 8, initialDrumPreset: DrumPatternPreset): Pattern => ({
+const createNewPattern = (
+  name: string,
+  bars: 4 | 8,
+  timeSignature: '4/4' | '3/4',
+  initialDrumPatterns?: Record<DrumSound, boolean[]>
+): Pattern => ({
   id: generateId(),
   name,
   bars,
-  timeSignature: '4/4',
+  timeSignature,
   sequence: [],
-  drumPattern: createExpandedDrumPattern(initialDrumPreset.patterns['4/4'], bars, '4/4'),
+  drumPattern: initialDrumPatterns ?? createExpandedDrumPattern(EMPTY_DRUM_PATTERNS[timeSignature], bars, timeSignature),
 });
+
 
 const requestFullScreen = () => {
     const element = document.documentElement;
@@ -249,12 +255,11 @@ const App: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hoveredNotes, setHoveredNotes] = useState<string[]>([]);
-  const [displayText, setDisplayText] = useState<string | null>(null);
+  const [displayText, setDisplayText] = useState<{ name: string; notes: string } | null>(null);
   const mainAreaRef = useRef<HTMLDivElement>(null);
   
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isPianoVisible, setIsPianoVisible] = useState(false);
-  const [isPianoClosing, setIsPianoClosing] = useState(false);
 
   const [masterVolume, setMasterVolume] = useState(0); // in dB
   const [isMuted, setIsMuted] = useState(false);
@@ -266,7 +271,7 @@ const App: React.FC = () => {
     redo,
     canUndo,
     canRedo
-  } = useHistory<Pattern[]>([createNewPattern('Pattern 1', 4, PRESET_DRUM_PATTERNS[0])]);
+  } = useHistory<Pattern[]>([createNewPattern('Pattern 1', 4, '4/4')]);
   
   const [currentPatternId, setCurrentPatternId] = useState(patterns[0].id);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -389,7 +394,7 @@ const App: React.FC = () => {
   }, [songKey, sequence, currentPatternId, setPatterns]);
 
   const [isMetronomeOn, setIsMetronomeOn] = useState(false);
-  const metronomeRef = useRef<{ synth: Tone.Synth, loop: Tone.Loop } | null>(null);
+  const metronomeRef = useRef<{ synth: Tone.Synth, loop: Tone.Loop | null } | null>(null);
 
   const [editingChord, setEditingChord] = useState<SequenceChord | null>(null);
   const [activeEditorPreviewNotes, setActiveEditorPreviewNotes] = useState<string[]>([]);
@@ -431,36 +436,42 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const metronomeSynth = new Tone.Synth({
-        oscillator: { type: 'sine' },
-        envelope: { attack: 0.005, decay: 0.05, sustain: 0, release: 0.1 },
-        volume: -12,
+      oscillator: { type: 'sine' },
+      envelope: { attack: 0.005, decay: 0.05, sustain: 0, release: 0.1 },
+      volume: -6,
     }).toDestination();
-    const loop = new Tone.Loop(time => {
-      const ticks = Tone.Transport.getTicksAtTime(time);
-      const ppq = Tone.Transport.PPQ;
-      const beatsPerBar = timeSignatureValue;
-
-      if (ticks % (ppq * beatsPerBar) === 0) {
-        metronomeSynth.triggerAttackRelease('C5', '16n', time);
-      } else if (ticks % ppq === 0) {
-        metronomeSynth.triggerAttackRelease('C4', '16n', time);
-      }
-    }, '4n').start(0);
-
-    metronomeRef.current = { synth: metronomeSynth, loop };
+    metronomeRef.current = { synth: metronomeSynth, loop: null };
 
     return () => {
-      metronomeRef.current?.loop.dispose();
       metronomeRef.current?.synth.dispose();
-      metronomeRef.current = null;
+      metronomeRef.current?.loop?.dispose();
     };
-  }, [timeSignatureValue]);
+  }, []);
 
   useEffect(() => {
-    if (metronomeRef.current) {
-      metronomeRef.current.loop.mute = !isMetronomeOn;
+    const currentMetronome = metronomeRef.current;
+    if (currentMetronome?.loop) {
+      currentMetronome.loop.dispose();
+      currentMetronome.loop = null;
     }
-  }, [isMetronomeOn]);
+
+    if (isMetronomeOn && currentMetronome) {
+      const loop = new Tone.Loop(time => {
+        if (!metronomeRef.current) return;
+
+        const ticks = Tone.Transport.getTicksAtTime(time);
+        const ppq = Tone.Transport.PPQ;
+        const beatsPerBar = timeSignatureValue;
+
+        if (ticks % (ppq * beatsPerBar) === 0) {
+          metronomeRef.current.synth.triggerAttackRelease('C5', '16n', time);
+        } else if (ticks % ppq === 0) {
+          metronomeRef.current.synth.triggerAttackRelease('C4', '16n', time);
+        }
+      }, '4n').start(0);
+      currentMetronome.loop = loop;
+    }
+  }, [isMetronomeOn, timeSignatureValue]);
 
   useEffect(() => {
     drumVolume.volume.value = drumVol;
@@ -507,12 +518,16 @@ const App: React.FC = () => {
     const notes = getNotesForVoicing(chordName);
     startChordSound(notes);
     setActivePadChordNotes(notes);
-    setDisplayText(notes.map(n => n.replace(/[0-9]/g, '')).join(' '));
+    const parsed = parseChord(chordName);
+    const cleanName = parsed ? `${parsed.root}${parsed.quality}` : chordName;
+    setDisplayText({ name: cleanName, notes: getChordNoteStrings(chordName, 0).map(n => n.replace(/[0-9]/g, '')).join(' ') });
   };
 
   const handlePadMouseEnter = (chordName: string) => {
     const notes = getNotesForVoicing(chordName);
-    setDisplayText(notes.map(n => n.replace(/[0-9]/g, '')).join(' '));
+    const parsed = parseChord(chordName);
+    const cleanName = parsed ? `${parsed.root}${parsed.quality}` : chordName;
+    setDisplayText({ name: cleanName, notes: getChordNoteStrings(chordName, 0).map(n => n.replace(/[0-9]/g, '')).join(' ') });
     setHoveredNotes(notes);
   };
   const clearHoveredNotes = () => {
@@ -531,14 +546,14 @@ const App: React.FC = () => {
   const handlePianoMouseDown = (note: string) => {
     startNoteSound(note);
     setActivePianoNote(note);
-    setDisplayText(note.replace(/[0-9]/g, ''));
+    setDisplayText({ name: note.replace(/[0-9]/g, ''), notes: note.replace(/[0-9]/g, '') });
   };
   const handlePianoMouseEnter = (note: string) => {
     if (activePianoNote) {
       stopNoteSound(activePianoNote);
       startNoteSound(note);
       setActivePianoNote(note);
-      setDisplayText(note.replace(/[0-9]/g, ''));
+      setDisplayText({ name: note.replace(/[0-9]/g, ''), notes: note.replace(/[0-9]/g, '') });
     }
   };
 
@@ -577,7 +592,9 @@ const App: React.FC = () => {
             startChordSound(notes);
             setActiveKeyboardNotes(prev => new Map(prev).set(e.code, notes));
             setActiveKeyboardPadIndices(prev => new Set(prev).add(padIndex));
-            setDisplayText(notes.map(n => n.replace(/[0-9]/g, '')).join(' '));
+            const parsed = parseChord(chordName);
+            const cleanName = parsed ? `${parsed.root}${parsed.quality}` : chordName;
+            setDisplayText({ name: cleanName, notes: getChordNoteStrings(chordName, 0).map(n => n.replace(/[0-9]/g, '')).join(' ') });
         }
     };
 
@@ -719,6 +736,13 @@ const App: React.FC = () => {
     setCategory(newCategory);
     setChordSetIndex(0);
   };
+  
+  const handleMetronomeToggle = () => {
+    if (Tone.context.state !== 'running') {
+      Tone.start();
+    }
+    setIsMetronomeOn(v => !v);
+  };
 
   useEffect(() => {
     const animate = () => {
@@ -819,7 +843,12 @@ const App: React.FC = () => {
   const handleAddPattern = () => {
     setPatterns(prev => {
       const newName = `Pattern ${prev.length + 1}`;
-      const newPattern = createNewPattern(newName, 4, PRESET_DRUM_PATTERNS[0]);
+      const newPattern = createNewPattern(
+        newName,
+        currentPattern.bars,
+        currentPattern.timeSignature,
+        currentPattern.drumPattern
+      );
       return [...prev, newPattern];
     });
   };
@@ -927,18 +956,6 @@ const App: React.FC = () => {
     updatePattern(currentPatternId, { drumPattern: newPattern });
   };
   
-  const togglePiano = () => {
-    if (isPianoVisible) {
-      setIsPianoClosing(true);
-      setTimeout(() => {
-        setIsPianoVisible(false);
-        setIsPianoClosing(false);
-      }, 300);
-    } else {
-      setIsPianoVisible(true);
-    }
-  };
-
   const playEditorPreview = useCallback((chordName: string) => {
     const notes = getChordNoteStrings(chordName, octave);
     playChordOnce(notes, '4n');
@@ -993,9 +1010,9 @@ const App: React.FC = () => {
           onToggleDrumEditor={toggleDrumEditor}
           isDrumEditorOpen={isDrumEditorOpen}
           isMetronomeOn={isMetronomeOn}
-          onMetronomeToggle={() => setIsMetronomeOn(v => !v)}
+          onMetronomeToggle={handleMetronomeToggle}
           isPianoVisible={isPianoVisible}
-          onTogglePiano={togglePiano}
+          onTogglePiano={() => setIsPianoVisible(v => !v)}
           onUndo={undo}
           onRedo={redo}
           canUndo={canUndo}
@@ -1033,18 +1050,20 @@ const App: React.FC = () => {
                 onMuteToggle={() => setIsSequencerClickMuted(v => !v)}
               />
             
-            <div className={`transition-all duration-300 ease-in-out ${isPianoVisible ? "max-h-40" : "max-h-0"} overflow-hidden`}>
-                {isPianoVisible && <Piano 
-                  highlightedNotes={activePianoNotes}
-                  pressedNotes={activePianoNotes}
-                  onKeyMouseDown={handlePianoMouseDown}
-                  onKeyMouseEnter={handlePianoMouseEnter}
-                  onKeyMouseLeave={stopActivePianoNote}
-                  onPianoMouseLeave={stopActivePianoNote}
-                />}
+            <div className="h-40 overflow-hidden relative">
+                <div className={`absolute inset-0 transition-transform duration-300 ease-in-out ${isPianoVisible ? 'translate-y-0' : 'translate-y-full'}`}>
+                    <Piano 
+                      highlightedNotes={activePianoNotes}
+                      pressedNotes={activePianoNotes}
+                      onKeyMouseDown={handlePianoMouseDown}
+                      onKeyMouseEnter={handlePianoMouseEnter}
+                      onKeyMouseLeave={stopActivePianoNote}
+                      onPianoMouseLeave={stopActivePianoNote}
+                    />
+                </div>
             </div>
 
-            <HoverDisplay name={displayText} />
+            <HoverDisplay data={displayText} />
             {error && <div className="text-red-500 text-center pointer-events-auto">{error}</div>}
           </div>
         </div>

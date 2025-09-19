@@ -135,13 +135,12 @@ export const ArrangementView: React.FC<ArrangementViewProps> = ({
                     onReorderPatterns(draggedPatternId, pattern.id);
                 }
               }}
-              onDoubleClick={() => onCopyPattern(pattern.id)}
               onContextMenu={(e) => {
                 e.preventDefault();
                 onCopyPattern(pattern.id);
               }}
               data-has-context-menu="true"
-              title={`Drag to reorder.\nRight-click or\ndouble-click to copy.`}
+              title={`Drag to reorder.\nRight-click to copy.`}
             >
               <button
                 onClick={() => onSelectPattern(pattern.id)}

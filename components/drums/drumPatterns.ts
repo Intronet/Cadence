@@ -5,6 +5,17 @@ export const DRUM_SOUNDS = ['kick', 'snare', 'hat', 'clap', 'rim', 'timbale'] as
 // Helper to create an empty pattern for a sound
 const emptyTrack = (steps: 12 | 16) => Array(steps).fill(false);
 
+export const EMPTY_DRUM_PATTERNS: DrumPatternPreset['patterns'] = {
+    '4/4': {
+        kick: emptyTrack(16), snare: emptyTrack(16), hat: emptyTrack(16),
+        clap: emptyTrack(16), rim: emptyTrack(16), timbale: emptyTrack(16),
+    },
+    '3/4': {
+        kick: emptyTrack(12), snare: emptyTrack(12), hat: emptyTrack(12),
+        clap: emptyTrack(12), rim: emptyTrack(12), timbale: emptyTrack(12),
+    }
+};
+
 export const PRESET_DRUM_PATTERNS: DrumPatternPreset[] = [
   {
     name: "70's Funk & Soul",
