@@ -203,7 +203,7 @@ const ModifierArc: React.FC<{
         return (
           <button
             key={btn.label}
-            className={`absolute w-14 h-8 rounded-md flex items-center justify-center font-semibold text-xs transition-colors
+            className={`absolute w-14 h-8 rounded-sm flex items-center justify-center font-semibold text-xs transition-colors
               ${isActive ? 'bg-sky-500 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}
             `}
             style={{ transform: `translate(${x}px, ${y}px) translate(-50%, -50%)` }}

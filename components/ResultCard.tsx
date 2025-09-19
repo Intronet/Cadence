@@ -24,7 +24,7 @@ export const PadGrid: React.FC<PadGridProps> = ({ chords, onPadMouseDown, onPadM
           // Temporarily disabled per user request for testing.
           const isDisabledFor3rdInv = false; // voicingMode === 'manual' && inversionLevel === 3 && !hasSeventh(chord);
           return (
-            <div key={`${chord}-${index}`} className="bg-indigo-500/80 rounded-lg p-[2px] shadow-lg">
+            <div key={`${chord}-${index}`} className="bg-indigo-500/80 rounded-sm p-[2px] shadow-lg">
               <Pad 
                 chordName={chord} 
                 onMouseDown={onPadMouseDown} 

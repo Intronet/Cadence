@@ -14,7 +14,7 @@ interface PadProps {
 }
 
 export const Pad: React.FC<PadProps> = ({ chordName, onMouseDown, onMouseUp, onMouseEnter, onMouseLeave, onDragStart, isLoaded, isDisabled = false, keyLabel, isPressedByKeyboard = false }) => {
-  const baseClasses = "relative w-full min-h-[5rem] flex items-center justify-center p-2 rounded-md text-white font-semibold transition-all duration-100 transform focus:outline-none";
+  const baseClasses = "relative w-full min-h-[5rem] flex items-center justify-center p-2 rounded-sm text-white font-semibold transition-all duration-100 transform focus:outline-none";
   
   // Base styles for an enabled pad, including mouse interaction pseudo-classes
   const enabledClasses = "cursor-grab active:cursor-grabbing bg-gradient-to-b from-slate-700 to-slate-900 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6)] hover:from-slate-600 hover:to-slate-800 active:translate-y-px active:shadow-[inset_0_3px_5px_rgba(0,0,0,0.8)]";
@@ -33,8 +33,8 @@ export const Pad: React.FC<PadProps> = ({ chordName, onMouseDown, onMouseUp, onM
     if (!isLoaded) {
       return 'Loading piano samples...';
     }
-    const keyHint = keyLabel ? ` (Key: ${keyLabel})` : '';
-    return `Play or drag ${chordName}${keyHint}`;
+    const keyHint = keyLabel ? `\n{Shortcut Key: ${keyLabel}}` : '';
+    return `${chordName}${keyHint}\nPlay or drag onto\nsequencer timeline`;
   };
 
   return (

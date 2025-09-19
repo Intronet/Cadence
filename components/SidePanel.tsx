@@ -29,6 +29,7 @@ interface SidePanelProps {
   inversionLevel: number;
   setInversionLevel: (level: number) => void;
   voicingMode: 'off' | 'manual' | 'auto';
+// FIX: Corrected a typo in the type definition for setVoicingMode. The closing parenthesis was misplaced.
   setVoicingMode: (mode: 'off' | 'manual' | 'auto') => void;
   onGenerate: (prompt: string) => void;
   isGenerating: boolean;
@@ -53,13 +54,13 @@ const InversionControl: React.FC<{
   return (
     <div className={`flex flex-col gap-2 transition-opacity duration-200 ${disabled ? 'opacity-50' : ''}`}>
        <label className="block text-sm font-medium text-gray-400">Inversion</label>
-       <div className="flex items-center bg-gray-800 border-2 border-gray-700 rounded-lg p-1">
+       <div className="flex items-center bg-gray-800 border-2 border-gray-700 rounded-sm p-1">
         {options.map(option => (
           <button
             key={option.value}
             onClick={() => setInversionLevel(option.value)}
             disabled={disabled}
-            className={`flex-1 px-3 py-1 text-xs font-semibold rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-gray-800
+            className={`flex-1 px-3 py-1 text-xs font-semibold rounded-sm transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-gray-800
               ${inversionLevel === option.value && !disabled
                 ? 'bg-indigo-600 text-white shadow'
                 : 'text-gray-300 hover:bg-gray-700'
@@ -87,12 +88,12 @@ const VoicingModeControl: React.FC<{
   ] as const;
 
   return (
-    <div className="flex items-center bg-gray-800 border-2 border-gray-700 rounded-lg p-1 w-full">
+    <div className="flex items-center bg-gray-800 border-2 border-gray-700 rounded-sm p-1 w-full">
       {options.map(option => (
         <button
           key={option.value}
           onClick={() => setMode(option.value)}
-          className={`flex-1 px-3 py-2 text-sm font-semibold rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-gray-800
+          className={`flex-1 px-3 py-2 text-sm font-semibold rounded-sm transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-gray-800
             ${mode === option.value
               ? 'bg-indigo-600 text-white shadow'
               : 'text-gray-300 hover:bg-gray-700'
@@ -114,7 +115,7 @@ const VoicingSequencerToggle: React.FC<{
 }> = ({ enabled, setEnabled, disabled }) => (
   <div 
     className={`flex justify-between items-center mt-3 pt-3 border-t border-gray-700/50 transition-opacity duration-200 ${disabled ? 'opacity-50' : ''}`}
-    title={disabled ? "Only available in 'Auto' voicing mode" : "When enabled, 'Auto' voicing mode will also apply to the chords in the sequencer."}
+    title={disabled ? "Only available in 'Auto' voicing mode" : `VOICINGS:\nWhen enabled, 'Auto' voicing\nmode will also apply to the\nchords in the sequencer.`}
   >
     <label htmlFor="sequencer-voicing-toggle" className={`text-sm font-medium text-gray-400 ${disabled ? 'cursor-not-allowed' : ''}`}>
       Apply to Sequencer
@@ -219,7 +220,7 @@ export const SidePanel: React.FC<SidePanelProps> = ({
               />
             </div>
 
-            <div title="Control how chords are played. 'Off' plays root position. 'Manual' allows setting octave and inversion. 'Auto' creates smooth voice leading.">
+            <div title={`INVERSIONS:\nControl how chords are played.\n'Off' plays root position.\n'Manual' allows setting octave and inversion.\n'Auto' creates smooth voice leading.`}>
               <h2 className="text-lg font-semibold text-indigo-300 mb-2">Voicing</h2>
               <VoicingModeControl mode={voicingMode} setMode={setVoicingMode} />
               <div className="grid grid-cols-2 gap-4 mt-2">

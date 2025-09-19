@@ -18,6 +18,7 @@ interface SequencerProps {
   playingChordId: string | null;
   selectedChordIds: Set<string>;
   bars: 4 | 8;
+  timeSignature: '4/4' | '3/4';
   onSeek: (positionInBeats: number) => void;
   isClickMuted: boolean;
   onMuteToggle: () => void;
@@ -45,6 +46,7 @@ Playhead.displayName = 'Playhead';
 interface ChordBlockProps {
   chord: SequenceChord;
   stepWidth: number;
+  stepsPerLane: number;
   onRemove: (id: string) => void;
   onDoubleClick: (chord: SequenceChord) => void;
   onPlayChord: (chordName: string) => void;
@@ -58,7 +60,7 @@ interface ChordBlockProps {
 }
 
 const ChordBlock: React.FC<ChordBlockProps> = ({ 
-  chord, stepWidth, onRemove, onDoubleClick, onPlayChord, onChordSelect, onChordMouseUp, 
+  chord, stepWidth, stepsPerLane, onRemove, onDoubleClick, onPlayChord, onChordSelect, onChordMouseUp, 
   playingChordId, isSelected, isOverlappingOnTop, isClickMuted, onDragStart 
 }) => {
   const isCurrentlyPlaying = chord.id === playingChordId;
@@ -77,13 +79,13 @@ const ChordBlock: React.FC<ChordBlockProps> = ({
 
   }, [chord, onChordSelect, onPlayChord, onDragStart, isClickMuted]);
 
-  const startInLanePx = (chord.start % 64) * stepWidth;
+  const startInLanePx = (chord.start % stepsPerLane) * stepWidth;
   const widthPx = chord.duration * stepWidth;
 
   return (
     <div
       data-has-context-menu="true"
-      className={`absolute rounded-md flex items-center justify-center text-white text-xs font-medium select-none shadow-lg transition-colors duration-150 z-10 chord-block border
+      className={`absolute rounded-sm flex items-center justify-center text-white text-xs font-medium select-none shadow-lg transition-colors duration-150 z-10 chord-block border
         ${isSelected ? 'bg-indigo-500 border-yellow-400' : 'bg-indigo-600 border-indigo-400'}
         ${isCurrentlyPlaying ? 'ring-2 ring-sky-400' : ''}
         ${isOverlappingOnTop ? 'opacity-60' : ''}
@@ -99,7 +101,7 @@ const ChordBlock: React.FC<ChordBlockProps> = ({
       onMouseDown={handleMouseDown}
       onMouseUp={onChordMouseUp} // Stop sound on simple click-release
       onDoubleClick={() => onDoubleClick(chord)}
-      title={`${chord.chordName}\nDrag to move.\nDrag edge to resize.\nHold Ctrl for precision.\nDouble-click to edit.`}
+      title={`${chord.chordName}\nDrag to move.\nDrag edge to resize.\nHold {Ctrl} for precision.\nDouble-click to edit.`}
     >
       <span className="truncate px-2 pointer-events-none">{chord.chordName}</span>
       <div className={`resize-handle absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize`} />
@@ -112,7 +114,7 @@ const ChordBlock: React.FC<ChordBlockProps> = ({
 export const Sequencer: React.FC<SequencerProps> = ({
   sequence, onAddChord, onUpdateChord, onRemoveChord, onChordDoubleClick,
   onPlayChord, onChordSelect, onDeselect, onChordMouseUp, playheadPosition, 
-  playingChordId, selectedChordIds, bars, onSeek, isClickMuted, onMuteToggle
+  playingChordId, selectedChordIds, bars, timeSignature, onSeek, isClickMuted, onMuteToggle
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [dragOverStep, setDragOverStep] = useState<number | null>(null);
@@ -128,10 +130,13 @@ export const Sequencer: React.FC<SequencerProps> = ({
   } | null>(null);
 
   const is8BarMode = bars === 8;
+  const STEPS_PER_BAR = timeSignature === '4/4' ? 16 : 12;
+  const BEATS_PER_BAR = timeSignature === '4/4' ? 4 : 3;
+  const SUBDIVISION = 4; // 16th notes per beat
+
   const BAR_COUNT = bars;
-  const BEAT_COUNT = BAR_COUNT * 4;
-  const SUBDIVISION = 4;
-  const TOTAL_STEPS = BEAT_COUNT * SUBDIVISION;
+  const TOTAL_STEPS = BAR_COUNT * STEPS_PER_BAR;
+  const BEAT_COUNT = BAR_COUNT * BEATS_PER_BAR;
 
   const sequenceWithOverlapInfo = useMemo(() => {
     return sequence.map((chord, i, allChords) => {
@@ -160,10 +165,11 @@ export const Sequencer: React.FC<SequencerProps> = ({
     return () => resizeObserver.disconnect();
   }, []);
 
+  const stepsPerLane = STEPS_PER_BAR * 4;
   const gridWidth = containerWidth > 0 ? containerWidth - (TRACK_PADDING * 2) : 0;
-  const stepWidth = gridWidth / 64; // Each lane is 4 bars (64 steps)
+  const stepWidth = gridWidth / stepsPerLane;
   const beatWidth = stepWidth * SUBDIVISION;
-  const barWidth = beatWidth * 4;
+  const barWidth = beatWidth * BEATS_PER_BAR;
 
   const handleDragStart = useCallback((chord: SequenceChord, isResizing: boolean, e: React.MouseEvent<HTMLDivElement>) => {
       setDraggingState({
@@ -198,7 +204,7 @@ export const Sequencer: React.FC<SequencerProps> = ({
                   ? draggingState.originalStart + dxInSteps
                   : Math.round(draggingState.originalStart + dxInSteps);
               
-              const maxStart = TOTAL_STEPS - draggingState.originalDuration;
+              const maxStart = TOTAL_STEPS - draggingState.duration;
               const finalStart = Math.max(0, Math.min(maxStart, newStart));
               
               setDraggingState(prev => prev ? { ...prev, start: finalStart } : null);
@@ -237,7 +243,7 @@ export const Sequencer: React.FC<SequencerProps> = ({
 
     const stepInLane = Math.floor(x / stepWidth);
     const lane = Number(target.dataset.lane) || 0;
-    const baseStep = lane * 64;
+    const baseStep = lane * stepsPerLane;
     const totalStep = baseStep + stepInLane;
 
     setDragOverStep(Math.max(0, Math.min(TOTAL_STEPS - DEFAULT_CHORD_DURATION, totalStep)));
@@ -264,20 +270,21 @@ export const Sequencer: React.FC<SequencerProps> = ({
     const x = e.clientX - rect.left - TRACK_PADDING;
     const lane = Number(e.currentTarget.dataset.lane) || 0;
     
-    const positionInSteps = (lane * 64) + (x / stepWidth);
+    const positionInSteps = (lane * stepsPerLane) + (x / stepWidth);
     const positionInBeats = positionInSteps / SUBDIVISION;
     
     onSeek(Math.max(0, Math.min(BEAT_COUNT, positionInBeats)));
-  }, [stepWidth, onSeek, BEAT_COUNT, onDeselect]);
+  }, [stepWidth, onSeek, BEAT_COUNT, stepsPerLane, onDeselect]);
 
-  const playheadLane = is8BarMode && playheadPosition >= 16 ? 1 : 0;
-  const playheadLeftInLane = (playheadPosition % 16) * beatWidth;
+  const beatsPerLane = BEATS_PER_BAR * 4;
+  const playheadLane = is8BarMode && playheadPosition >= beatsPerLane ? 1 : 0;
+  const playheadLeftInLane = (playheadPosition % beatsPerLane) * beatWidth;
 
-  const renderGrid = (barOffset = 0) => (
+  const renderGrid = () => (
     <div className="absolute inset-0" style={{ left: `${TRACK_PADDING}px`, right: `${TRACK_PADDING}px` }}>
-       {Array.from({ length: 64 }).map((_, i) => {
-          const isBeat = i % 4 === 0;
-          let borderColorClass = i % 16 === 0 ? 'border-gray-600' : isBeat ? 'border-gray-700' : 'border-gray-800';
+       {Array.from({ length: stepsPerLane }).map((_, i) => {
+          const isBeat = i % SUBDIVISION === 0;
+          let borderColorClass = i % STEPS_PER_BAR === 0 ? 'border-gray-600' : isBeat ? 'border-gray-700' : 'border-gray-800';
           return <div key={`sub-${i}`} className={`absolute top-0 bottom-0 border-l ${borderColorClass}`} style={{ left: `${i * stepWidth}px` }} />;
         })}
        {Array.from({ length: 5 }).map((_, i) => (
@@ -292,7 +299,7 @@ export const Sequencer: React.FC<SequencerProps> = ({
       style={{ paddingLeft: `${TRACK_PADDING}px`, paddingRight: `${TRACK_PADDING}px` }}
       onClick={handleTrackClick}
       data-lane={barOffset > 0 ? 1 : 0}
-      title="Click to position playhead"
+      title={`SEQUENCER:\nClick to position playhead`}
     >
       {Array.from({ length: 4 }).map((_, i) => (
         <div key={`bar-${i}`} style={{ width: `${barWidth}px` }} className="text-xs text-gray-500 border-l border-gray-600 pl-1">
@@ -311,7 +318,7 @@ export const Sequencer: React.FC<SequencerProps> = ({
             {laneIndex === 0 && (
                 <button
                     onClick={onMuteToggle}
-                    title={isClickMuted ? "Unmute chord click" : "Mute chord click"}
+                    title={`SEQUENCER:\n${isClickMuted ? "Unmute chord click" : "Mute chord click"}`}
                     className="absolute -translate-y-1/2 h-6 w-6 flex items-center justify-center rounded-full text-gray-400 hover:bg-gray-700 hover:text-white transition-colors"
                     style={{ right: '1px', top: 'calc(50% - 5px)' }}
                 >
@@ -326,10 +333,10 @@ export const Sequencer: React.FC<SequencerProps> = ({
             style={{ height: '82px' }}
             onDragOver={handleDragOver} onDrop={handleDrop} onDragLeave={handleDragLeave}
             onClick={handleTrackClick}
-            title="Sequencer track. Drag chords here, or click to position the playhead."
+            title={`SEQUENCER:\nDrag chords here, or click to position the playhead.`}
         >
-            {renderGrid(barOffset)}
-            {sequenceWithOverlapInfo.filter(c => Math.floor(c.start / 64) === laneIndex).map(chord => {
+            {renderGrid()}
+            {sequenceWithOverlapInfo.filter(c => Math.floor(c.start / stepsPerLane) === laneIndex).map(chord => {
               const isDraggingThisChord = draggingState?.id === chord.id;
               const displayChord = isDraggingThisChord
                   ? { ...chord, start: draggingState!.start, duration: draggingState!.duration }
@@ -340,6 +347,7 @@ export const Sequencer: React.FC<SequencerProps> = ({
                   key={chord.id} 
                   chord={displayChord} 
                   stepWidth={stepWidth} 
+                  stepsPerLane={stepsPerLane}
                   onRemove={onRemoveChord} 
                   onDoubleClick={onChordDoubleClick} 
                   onPlayChord={onPlayChord}
@@ -353,8 +361,8 @@ export const Sequencer: React.FC<SequencerProps> = ({
                 />
               );
             })}
-            {dragOverStep !== null && Math.floor(dragOverStep / 64) === laneIndex && (
-              <div className="absolute bg-indigo-500/30 rounded pointer-events-none" style={{ left: `${(dragOverStep % 64) * stepWidth + TRACK_PADDING}px`, width: `${DEFAULT_CHORD_DURATION * stepWidth}px`, height: `${CHORD_BLOCK_HEIGHT}px`, bottom: `${TRACK_VERTICAL_PADDING}px` }}/>
+            {dragOverStep !== null && Math.floor(dragOverStep / stepsPerLane) === laneIndex && (
+              <div className="absolute bg-indigo-500/30 rounded-sm pointer-events-none" style={{ left: `${(dragOverStep % stepsPerLane) * stepWidth + TRACK_PADDING}px`, width: `${DEFAULT_CHORD_DURATION * stepWidth}px`, height: `${CHORD_BLOCK_HEIGHT}px`, bottom: `${TRACK_VERTICAL_PADDING}px` }}/>
             )}
             {playheadLane === laneIndex && stepWidth > 0 && playheadLeftInLane <= gridWidth && (
               <Playhead position={playheadLeftInLane} trackPadding={TRACK_PADDING} />
@@ -365,30 +373,33 @@ export const Sequencer: React.FC<SequencerProps> = ({
   };
 
   const handleContainerClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    // This handles clicks on the component's outer padding.
-    // Clicks on the track/ruler are handled by handleTrackClick.
-    if (e.target === e.currentTarget) {
-      onDeselect();
+    // Check if the click is on the container itself or its direct children used for spacing/layout
+    const target = e.target as HTMLElement;
+    if (target === e.currentTarget || target.classList.contains('relative')) {
+        onDeselect();
     }
   };
 
   return (
-    <div className="w-full flex flex-col p-2 min-w-[600px] relative" onClick={handleContainerClick}>
-      <React.Fragment key="lane-0">
-        {renderSequencerLane(0)}
-      </React.Fragment>
-
-      {is8BarMode && (
-        <React.Fragment key="lane-1">
-          {renderSequencerLane(1)}
+    <div className="w-full flex flex-col px-2 min-w-[600px]" onClick={handleContainerClick}>
+      <div className="relative">
+        <React.Fragment key="lane-0">
+          {renderSequencerLane(0)}
         </React.Fragment>
-      )}
 
-      {sequence.length === 0 && dragOverStep === null && (
-         <div className="absolute top-1/2 -translate-y-1/2 text-gray-600 font-semibold pointer-events-none" style={{left: barWidth / 2 + 16, transform: 'translate(-50%, -50%)' }}>
-           Drag a chord from the side panel to start
-         </div>
-      )}
+        {is8BarMode && (
+          <React.Fragment key="lane-1">
+            {renderSequencerLane(1)}
+          </React.Fragment>
+        )}
+
+        {sequence.length === 0 && dragOverStep === null && (
+          <div className="absolute top-1/2 -translate-y-1/2 text-gray-600 font-semibold pointer-events-none" style={{left: barWidth / 2 + 16, transform: 'translate(-50%, -50%)' }}>
+            Drag a chord from the side panel to start
+          </div>
+        )}
+      </div>
+      <div className="h-[24px] bg-gray-800"></div>
     </div>
   );
 };

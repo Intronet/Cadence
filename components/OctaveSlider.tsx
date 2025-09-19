@@ -11,7 +11,7 @@ export const OctaveSlider: React.FC<OctaveSliderProps> = ({ octave, setOctave })
   return (
     <div className="flex flex-col gap-2">
       <label className="block text-sm font-medium text-gray-400">Octave</label>
-      <div className="flex items-center gap-3 bg-gray-800 border-2 border-gray-700 rounded-lg p-1 pr-3 h-[2.625rem]">
+      <div className="flex items-center gap-3 bg-gray-800 border-2 border-gray-700 rounded-sm p-1 pr-3 h-[2.625rem]">
         <input
           type="range"
           min="-3"
@@ -31,9 +31,9 @@ export const OctaveSlider: React.FC<OctaveSliderProps> = ({ octave, setOctave })
                 setOctave(newValue);
             }
           }}
-          className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer range-slider"
+          className="w-full h-2 bg-gray-600 rounded-sm appearance-none cursor-pointer range-slider"
           aria-label="Octave slider"
-          title="Shift the playback octave up or down"
+          title={`OCTAVES:\nShift the playback\noctave up or down`}
         />
         <span className="text-sm font-medium text-gray-200 w-8 text-center flex-shrink-0" title={`Octave: ${octaveLabel}`}>{octaveLabel}</span>
       </div>

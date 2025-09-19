@@ -9,6 +9,7 @@ interface TransportControlsProps {
   onPanic: () => void;
   playheadPosition: number; // in beats
   bars: 4 | 8;
+  timeSignature: '4/4' | '3/4';
   masterVolume: number;
   onMasterVolumeChange: (volume: number) => void;
   isMuted: boolean;
@@ -42,24 +43,25 @@ const PanicIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
 );
 
 export const TransportControls: React.FC<TransportControlsProps> = ({ 
-  isPlaying, onPlayPause, onStop, onPanic, playheadPosition, bars,
+  isPlaying, onPlayPause, onStop, onPanic, playheadPosition, bars, timeSignature,
   masterVolume, onMasterVolumeChange, isMuted, onMuteToggle
 }) => {
   const buttonClasses = "w-12 h-12 flex items-center justify-center rounded-full bg-gray-700/60 hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 focus:ring-offset-gray-900";
 
   const timeDisplay = useMemo(() => {
+    const stepsPerBar = timeSignature === '4/4' ? 16 : 12;
     const totalSixteenths = Math.floor(playheadPosition * 4);
-    const bar = Math.floor(totalSixteenths / 16) + 1;
-    const beat = Math.floor((totalSixteenths % 16) / 4) + 1;
+    const bar = Math.floor(totalSixteenths / stepsPerBar) + 1;
+    const beat = Math.floor((totalSixteenths % stepsPerBar) / 4) + 1;
     const sixteenth = (totalSixteenths % 4) + 1;
     return `${String(bar).padStart(2, '0')}:${beat}:${sixteenth}`;
-  }, [playheadPosition]);
+  }, [playheadPosition, timeSignature]);
 
   return (
     <div className="relative flex items-center justify-between w-full px-4 py-[10px] bg-gradient-to-r from-indigo-600 to-purple-600 border-t border-indigo-400">
       
       {/* Left: Counter */}
-      <div className="bg-black/25 rounded-md px-4 py-1 shadow-[inset_0_2px_4px_rgba(0,0,0,0.5)]">
+      <div className="bg-black/25 rounded-sm px-4 py-1 shadow-[inset_0_2px_4px_rgba(0,0,0,0.5)]">
         <div className="font-mono text-base leading-normal text-white tracking-wider" style={{textShadow: '0 1px 2px rgba(0,0,0,0.5)'}}>
           {timeDisplay}
         </div>
@@ -67,7 +69,7 @@ export const TransportControls: React.FC<TransportControlsProps> = ({
 
       {/* Center: Transport Controls */}
       <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-6">
-        <button onClick={onStop} className={buttonClasses} aria-label="Stop" title="Stop playback and return to start">
+        <button onClick={onStop} className={buttonClasses} aria-label="Stop" title={`SEQUENCER:\nStop playback and return to start`}>
           <StopIcon className="w-6 h-6" />
         </button>
 
@@ -84,7 +86,7 @@ export const TransportControls: React.FC<TransportControlsProps> = ({
           onClick={onPanic}
           className={`${buttonClasses} text-gray-400 hover:bg-red-600 hover:text-white`}
           aria-label="Panic: Stop all sound"
-          title="Panic: Immediately stop all sound"
+          title={`SEQUENCER:\nPanic:\nImmediately stop all sound`}
         >
           <PanicIcon className="w-6 h-6" />
         </button>
@@ -99,16 +101,16 @@ export const TransportControls: React.FC<TransportControlsProps> = ({
             step={1}
             value={isMuted ? -60 : masterVolume}
             onChange={(e) => onMasterVolumeChange(parseFloat(e.target.value))}
-            className="w-32 h-2 bg-gray-900/50 rounded-lg appearance-none cursor-pointer range-slider"
+            className="w-32 h-2 bg-gray-900/50 rounded-sm appearance-none cursor-pointer range-slider"
             aria-label="Master volume"
-            title={`Master Volume: ${masterVolume.toFixed(1)} dB`}
+            title={`SEQUENCER:\nMaster Volume: ${masterVolume.toFixed(1)} dB`}
             disabled={isMuted}
         />
         <button 
           onClick={onMuteToggle} 
           className={buttonClasses} 
           aria-label={isMuted ? 'Unmute' : 'Mute'}
-          title={isMuted ? 'Unmute All Audio' : 'Mute All Audio'}
+          title={`SEQUENCER:\n${isMuted ? 'Unmute All Audio' : 'Mute All Audio'}`}
         >
           {isMuted ? <SpeakerOffIcon className="w-6 h-6" /> : <SpeakerIcon className="w-6 h-6" />}
         </button>

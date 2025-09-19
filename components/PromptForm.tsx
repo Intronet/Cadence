@@ -25,7 +25,7 @@ export const Controls: React.FC<ControlsProps> = ({
   keys,
 }) => {
 
-  const selectStyles = "bg-gray-800 border-2 border-gray-700 text-gray-200 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent block p-2.5 transition-all duration-200 w-full cursor-pointer";
+  const selectStyles = "bg-gray-800 border-2 border-gray-700 text-gray-200 text-sm rounded-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent block p-2.5 transition-all duration-200 w-full cursor-pointer";
   const labelStyles = "block mb-2 text-sm font-medium text-gray-400";
 
   return (
@@ -38,7 +38,7 @@ export const Controls: React.FC<ControlsProps> = ({
             value={songKey} 
             onChange={(e) => setSongKey(e.target.value)} 
             className={selectStyles}
-            title="Set the global key for all chord progressions"
+            title={`KEY:\nSet the global key for\nall chord progressions`}
             onWheel={(e) => {
               e.preventDefault();
               const currentIndex = keys.findIndex(k => k.value === songKey);
@@ -63,7 +63,7 @@ export const Controls: React.FC<ControlsProps> = ({
             value={category} 
             onChange={(e) => setCategory(e.target.value)} 
             className={selectStyles}
-            title="Choose a genre or style category"
+            title={`GENRE:\nChoose a genre\nor style category`}
             onWheel={(e) => {
               e.preventDefault();
               const currentIndex = categories.indexOf(category);

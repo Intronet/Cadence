@@ -18,6 +18,7 @@ interface ArrangementViewProps {
   bpm: number;
   onBpmChange: (bpm: number) => void;
   onToggleBarMode: (patternId: string) => void;
+  onTimeSignatureChange: (patternId: string, ts: '4/4' | '3/4') => void;
   isDrumsEnabled: boolean;
   onToggleDrumsEnabled: () => void;
   onToggleDrumEditor: () => void;
@@ -80,7 +81,7 @@ const EditablePatternName: React.FC<{
         onChange={(e) => setName(e.target.value)}
         onBlur={handleBlur}
         onKeyDown={handleKeyDown}
-        className="text-xl font-bold text-white bg-gray-700 rounded px-2 -mx-2 outline-none"
+        className="text-xl font-bold text-white bg-gray-700 rounded-sm px-2 -mx-2 outline-none"
       />
     );
   }
@@ -99,7 +100,7 @@ const EditablePatternName: React.FC<{
 
 export const ArrangementView: React.FC<ArrangementViewProps> = ({
   patterns, currentPattern, onSelectPattern, onAddPattern, onDeletePattern, onRenamePattern, onCopyPattern, onReorderPatterns,
-  bpm, onBpmChange, onToggleBarMode, isDrumsEnabled, onToggleDrumsEnabled, onToggleDrumEditor, isDrumEditorOpen,
+  bpm, onBpmChange, onToggleBarMode, onTimeSignatureChange, isDrumsEnabled, onToggleDrumsEnabled, onToggleDrumEditor, isDrumEditorOpen,
   isMetronomeOn, onMetronomeToggle, isPianoVisible, onTogglePiano,
   onUndo, onRedo, canUndo, canRedo
 }) => {
@@ -114,7 +115,7 @@ export const ArrangementView: React.FC<ArrangementViewProps> = ({
   };
 
   return (
-    <div className="flex-shrink-0 flex flex-col gap-2 mb-2 p-2 bg-gray-800/50 rounded-lg border border-gray-700">
+    <div className="flex-shrink-0 flex flex-col gap-2 px-2 pt-2 bg-gray-800/50 rounded-sm border border-gray-700">
       <div className="flex items-center gap-1 flex-wrap">
         <div className="text-sm font-bold text-indigo-300 pr-2 mr-1 border-r border-gray-600 self-stretch flex items-center">PATTERNS</div>
         {patterns.map((pattern) => {
@@ -140,11 +141,11 @@ export const ArrangementView: React.FC<ArrangementViewProps> = ({
                 onCopyPattern(pattern.id);
               }}
               data-has-context-menu="true"
-              title="Drag to reorder. Right-click or double-click to copy."
+              title={`Drag to reorder.\nRight-click or\ndouble-click to copy.`}
             >
               <button
                 onClick={() => onSelectPattern(pattern.id)}
-                className={`px-3 py-1.5 text-sm font-semibold rounded-md transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 focus:ring-offset-gray-800 ${
+                className={`px-3 py-1.5 text-sm font-semibold rounded-sm transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 focus:ring-offset-gray-800 ${
                   isSelected ? 'bg-indigo-600 text-white shadow' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                 } ${isBeingDraggedOver ? 'opacity-50' : ''}`}
               >
@@ -175,23 +176,30 @@ export const ArrangementView: React.FC<ArrangementViewProps> = ({
         <EditablePatternName pattern={currentPattern} onRename={onRenamePattern} />
         <div className="flex items-center gap-4">
             <div className="flex items-center gap-1 border-r border-gray-600 pr-3">
-              <button onClick={onRedo} disabled={!canRedo} className="p-2 rounded-full transition-colors disabled:text-gray-600 disabled:bg-transparent text-gray-300 hover:enabled:bg-gray-600" title="Redo (Ctrl+Y)">
+              <button onClick={onRedo} disabled={!canRedo} className="p-2 rounded-full transition-colors disabled:text-gray-600 disabled:bg-transparent text-gray-300 hover:enabled:bg-gray-600" title={`Redo\n{Ctrl+Y}`}>
                   <RedoIcon className="w-5 h-5"/>
               </button>
-              <button onClick={onUndo} disabled={!canUndo} className="p-2 rounded-full transition-colors disabled:text-gray-600 disabled:bg-transparent text-gray-300 hover:enabled:bg-gray-600" title="Undo (Ctrl+Z)">
+              <button onClick={onUndo} disabled={!canUndo} className="p-2 rounded-full transition-colors disabled:text-gray-600 disabled:bg-transparent text-gray-300 hover:enabled:bg-gray-600" title={`Undo\n{Ctrl+Z}`}>
                   <UndoIcon className="w-5 h-5"/>
               </button>
             </div>
             <div className="flex items-center gap-2">
                 <span className="text-sm font-medium text-gray-400">BPM</span>
-                <input type="range" min="40" max="240" value={bpm} onChange={e => onBpmChange(Number(e.target.value))} onWheel={handleBpmWheel} className="w-24 h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer range-slider" title="Adjust BPM"/>
-                <input type="number" value={bpm} onChange={e => onBpmChange(Number(e.target.value))} onWheel={handleBpmWheel} className="w-16 bg-gray-900 border border-gray-600 text-center rounded-md p-1 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent" title="Set precise BPM"/>
+                <input type="range" min="40" max="240" value={bpm} onChange={e => onBpmChange(Number(e.target.value))} onWheel={handleBpmWheel} className="w-24 h-2 bg-gray-600 rounded-sm appearance-none cursor-pointer range-slider" title={`Tempo:\nAdjust BPM`}/>
+                <input type="number" value={bpm} onChange={e => onBpmChange(Number(e.target.value))} onWheel={handleBpmWheel} className="w-16 bg-gray-900 border border-gray-600 text-center rounded-sm p-1 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent" title={`Tempo:\nSet precise BPM`}/>
             </div>
-            <button onClick={onMetronomeToggle} className={`p-2 rounded-full transition-colors ${isMetronomeOn ? 'bg-indigo-600 text-white' : 'text-gray-300 bg-gray-700 hover:bg-gray-600'}`} title="Toggle Metronome">
-              <MetronomeIcon className="w-5 h-5"/>
-            </button>
-            <button onClick={() => onToggleBarMode(currentPattern.id)} className="px-3 py-1 text-sm font-semibold rounded-md bg-gray-700 text-gray-300 hover:bg-gray-600" title="Toggle pattern length between 4 and 8 bars">{currentPattern.bars === 8 ? '8 Bars' : '4 Bars'}</button>
-            <div className="flex items-center gap-2" title="Enable or disable drums">
+            <div className="flex items-center bg-gray-700 rounded-sm p-1">
+                <button 
+                    onClick={() => onTimeSignatureChange(currentPattern.id, '4/4')}
+                    className={`px-3 py-1 text-sm font-semibold rounded-sm transition-colors ${currentPattern.timeSignature === '4/4' ? 'bg-indigo-600 text-white shadow' : 'text-gray-300 hover:bg-gray-600'}`}
+                >4/4</button>
+                <button 
+                    onClick={() => onTimeSignatureChange(currentPattern.id, '3/4')}
+                    className={`px-3 py-1 text-sm font-semibold rounded-sm transition-colors ${currentPattern.timeSignature === '3/4' ? 'bg-indigo-600 text-white shadow' : 'text-gray-300 hover:bg-gray-600'}`}
+                >3/4</button>
+            </div>
+            <button onClick={() => onToggleBarMode(currentPattern.id)} className="px-3 py-1 text-sm font-semibold rounded-sm bg-gray-700 text-gray-300 hover:bg-gray-600" title={`Toggle pattern length\nbetween 4 and 8 bars`}>{currentPattern.bars === 8 ? '8 Bars' : '4 Bars'}</button>
+            <div className="flex items-center gap-2" title={`DRUMS:\nEnable or disable drums`}>
                 <span className="text-sm font-medium text-gray-400">Drums</span>
                 <button
                     type="button"
@@ -203,8 +211,13 @@ export const ArrangementView: React.FC<ArrangementViewProps> = ({
                     <span aria-hidden="true" className={`${isDrumsEnabled ? 'translate-x-5' : 'translate-x-0'} pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`}/>
                 </button>
             </div>
-            <button onClick={onTogglePiano} className={`p-2 rounded-full transition-colors ${isPianoVisible ? 'bg-indigo-600 text-white' : 'text-gray-300 bg-gray-700 hover:bg-gray-600'}`} title="Toggle Piano Keyboard"><PianoIcon className="w-5 h-5"/></button>
-            <button onClick={onToggleDrumEditor} className={`p-2 rounded-full transition-colors ${isDrumEditorOpen ? 'bg-indigo-600 text-white' : 'text-gray-300 bg-gray-700 hover:bg-gray-600'}`} title="Toggle Drum Editor"><MusicNoteIcon className="w-5 h-5"/></button>
+             <div className="flex items-center gap-2 pl-2 border-l border-gray-600">
+                <button onClick={onMetronomeToggle} className={`p-2 rounded-full transition-colors ${isMetronomeOn ? 'bg-indigo-600 text-white' : 'text-gray-300 bg-gray-700 hover:bg-gray-600'}`} title={`METRONOME\nToggle Metronome`}>
+                    <MetronomeIcon className="w-5 h-5"/>
+                </button>
+                <button onClick={onTogglePiano} className={`p-2 rounded-full transition-colors ${isPianoVisible ? 'bg-indigo-600 text-white' : 'text-gray-300 bg-gray-700 hover:bg-gray-600'}`} title={`PIANO\nToggle Piano Keyboard`}><PianoIcon className="w-5 h-5"/></button>
+                <button onClick={onToggleDrumEditor} className={`p-2 rounded-full transition-colors ${isDrumEditorOpen ? 'bg-indigo-600 text-white' : 'text-gray-300 bg-gray-700 hover:bg-gray-600'}`} title={`DRUMS\nToggle Drum Editor`}><MusicNoteIcon className="w-5 h-5"/></button>
+            </div>
         </div>
       </div>
     </div>

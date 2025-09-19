@@ -34,9 +34,12 @@ export interface SequenceChord {
 
 export type DrumSound = 'kick' | 'snare' | 'hat' | 'clap' | 'rim' | 'timbale';
 
-export interface DrumPattern {
+export interface DrumPatternPreset {
   name: string;
-  pattern: Record<DrumSound, boolean[]>; // Preset patterns are 16 steps
+  patterns: {
+    '4/4': Record<DrumSound, boolean[]>; // 16 steps
+    '3/4': Record<DrumSound, boolean[]>; // 12 steps
+  }
 }
 
 export interface Pattern {
@@ -45,4 +48,5 @@ export interface Pattern {
   sequence: SequenceChord[];
   drumPattern: Record<DrumSound, boolean[]>; // Live patterns can be 64 or 128 steps
   bars: 4 | 8;
+  timeSignature: '4/4' | '3/4';
 }

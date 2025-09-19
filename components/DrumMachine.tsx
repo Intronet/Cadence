@@ -1,5 +1,5 @@
 import React from 'react';
-import { DrumPattern, DrumSound } from '../types';
+import { DrumPatternPreset, DrumSound } from '../types';
 import { DRUM_SOUNDS } from './drums/drumPatterns';
 import { XIcon } from './icons/XIcon';
 
@@ -10,7 +10,10 @@ interface DrumEditorProps {
   onVolumeChange: (volume: number) => void;
   activeStep: number | null;
   bars: 4 | 8;
+  timeSignature: '4/4' | '3/4';
   onClose: () => void;
+  presets: DrumPatternPreset[];
+  onApplyPreset: (pattern: Record<DrumSound, boolean[]>) => void;
 }
 
 const soundLabels: Record<DrumSound, string> = {
@@ -29,18 +32,45 @@ export const DrumEditor: React.FC<DrumEditorProps> = ({
   onVolumeChange,
   activeStep,
   bars,
+  timeSignature,
   onClose,
+  presets,
+  onApplyPreset,
 }) => {
-  const stepButtonBase = "w-full h-full rounded transition-colors duration-100 border";
-  const TOTAL_STEPS = bars * 16;
-  const gridColsClass = bars === 8 ? 'grid-cols-128' : 'grid-cols-64';
-  const minWClass = bars === 8 ? 'min-w-[100rem]' : 'min-w-[50rem]';
+  const stepButtonBase = "w-full h-full rounded-sm transition-colors duration-100 border";
+
+  const STEPS_PER_BAR = timeSignature === '4/4' ? 16 : 12;
+  const BEATS_PER_BAR = timeSignature === '4/4' ? 4 : 3;
+  const TOTAL_STEPS = bars * STEPS_PER_BAR;
+  const TOTAL_BEATS = bars * BEATS_PER_BAR;
+
+  const handlePresetChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const presetName = e.target.value;
+    if (!presetName) return;
+
+    const preset = presets.find(p => p.name === presetName);
+    if (preset) {
+      onApplyPreset(preset.patterns[timeSignature]);
+    }
+    // Reset select so it can be re-triggered
+    e.target.value = "";
+  };
+
 
   return (
-    <div className="flex-shrink-0 bg-gray-800 rounded-lg border border-gray-700 p-3 mt-2">
+    <div className="flex-shrink-0 bg-gray-800 rounded-sm border border-gray-700 p-3 mt-2">
       <div className="flex justify-between items-center mb-2">
         <h3 className="text-xl font-bold text-indigo-300">Drum Editor</h3>
         <div className="flex items-center gap-4">
+          <select
+            onChange={handlePresetChange}
+            defaultValue=""
+            className="bg-gray-700 border border-gray-600 text-gray-200 text-sm rounded-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent block p-1.5 transition-all duration-200 cursor-pointer"
+            title="Apply a drum preset"
+          >
+            <option value="">Apply Preset...</option>
+            {presets.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
+          </select>
           <div className="flex items-center gap-2">
             <label htmlFor="drum-volume" className="text-sm font-medium text-gray-400">Vol</label>
             <input
@@ -56,7 +86,7 @@ export const DrumEditor: React.FC<DrumEditorProps> = ({
                 const change = e.deltaY < 0 ? 1 : -1;
                 onVolumeChange(Math.max(-40, Math.min(6, volume + change)));
               }}
-              className="w-24 h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer range-slider"
+              className="w-24 h-2 bg-gray-600 rounded-sm appearance-none cursor-pointer range-slider"
               aria-label="Drum volume"
             />
           </div>
@@ -76,27 +106,41 @@ export const DrumEditor: React.FC<DrumEditorProps> = ({
         </div>
 
         <div className="overflow-x-auto custom-scrollbar">
-          <div className={`relative grid ${gridColsClass} gap-1 ${minWClass}`}>
-            {Array.from({ length: bars * 4 - 1 }).map((_, i) => (
-              <div key={`divider-${i}`} className="absolute top-0 bottom-0 w-px bg-gray-600 z-10" style={{ left: `calc(${(i + 1) * 25 / bars}% - 0.5px)` }}></div>
-            ))}
+          <div 
+            className="relative grid gap-1"
+            style={{ 
+              gridTemplateColumns: `repeat(${TOTAL_STEPS}, minmax(1.25rem, 1fr))`,
+            }}
+          >
+            {/* Beat and Bar dividers */}
+            {Array.from({ length: TOTAL_BEATS - 1 }).map((_, i) => {
+              const isBarLine = (i + 1) % BEATS_PER_BAR === 0;
+              return (
+                  <div 
+                      key={`divider-${i}`} 
+                      className={`absolute top-0 bottom-0 ${isBarLine ? 'w-0.5 bg-gray-600 z-10' : 'w-px bg-gray-700'}`} 
+                      style={{ left: `calc(${(i + 1) * 4 * 100 / TOTAL_STEPS}% - 0.5px)` }}
+                  ></div>
+              );
+            })}
             
             {DRUM_SOUNDS.map(sound => (
               <React.Fragment key={sound}>
-                {(pattern?.[sound] || Array(TOTAL_STEPS).fill(false)).map((isActive, step) => {
+                {Array.from({ length: TOTAL_STEPS }).map((_, step) => {
+                  const isActive = pattern?.[sound]?.[step] || false;
                   const isBeat = step % 4 === 0;
                   const isPlaying = activeStep === step;
                   return (
                     <div
                       key={`${sound}-${step}`}
-                      className={`h-7 p-px rounded ${isBeat ? 'bg-gray-700/50' : 'bg-transparent'}`}
+                      className={`h-7 p-px rounded-sm ${isBeat ? 'bg-gray-700/50' : 'bg-transparent'}`}
                     >
                       <button
                         onClick={() => onPatternChange(sound, step, !isActive)}
                         aria-pressed={isActive}
                         className={`${stepButtonBase} ${isActive ? 'bg-indigo-500 border-indigo-300' : 'bg-gray-800/80 hover:bg-gray-700 border-gray-700'}`}
                       >
-                        {isPlaying && <div className="w-full h-full bg-sky-400/50 rounded animate-pulse-fast"></div>}
+                        {isPlaying && <div className="w-full h-full bg-sky-400/50 rounded-sm animate-pulse-fast"></div>}
                       </button>
                     </div>
                   );
@@ -108,8 +152,6 @@ export const DrumEditor: React.FC<DrumEditorProps> = ({
       </div>
 
        <style>{`
-        .grid-cols-64 { grid-template-columns: repeat(64, minmax(0, 1fr)); }
-        .grid-cols-128 { grid-template-columns: repeat(128, minmax(0, 1fr)); }
         .range-slider::-webkit-slider-thumb {
           -webkit-appearance: none; appearance: none; width: 16px; height: 16px;
           border-radius: 50%; background: #818cf8; cursor: pointer; transition: background .2s;
