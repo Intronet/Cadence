@@ -12,7 +12,7 @@ export default defineConfig(({ mode }) => {
       },
       resolve: {
         alias: {
-          // FIX: `process.cwd()` was causing a TypeScript type error. `path.resolve('.')` is an equivalent way to resolve to the project's root directory.
+          // FIX: Using `path.resolve('.')` to avoid a TypeScript type error with `process.cwd()` while still resolving to the project's root directory.
           '@': path.resolve('.'),
         }
       }
