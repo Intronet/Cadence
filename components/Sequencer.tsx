@@ -414,7 +414,7 @@ export const Sequencer: React.FC<SequencerProps> = ({
                 ))}
             </div>
          ) : (
-            <div className="h-[24px] bg-gray-900" />
+            <div className="h-[24px] bg-gray-800" />
          )}
 
          {playheadLane === laneIndex && stepWidth > 0 && playheadLeftInLane <= gridWidth && (

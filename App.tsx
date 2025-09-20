@@ -92,13 +92,8 @@ const LoadingScreen: React.FC<{ isLoaded: boolean; onStart: () => void; }> = ({ 
 
   useEffect(() => {
     if (isLoaded) {
-      setProgress(100); 
-
-      const timer = setTimeout(() => {
-        setIsButtonEnabled(true);
-      }, 2500);
-
-      return () => clearTimeout(timer);
+      setProgress(100);
+      setIsButtonEnabled(true);
     }
   }, [isLoaded]);
 
@@ -116,10 +111,19 @@ const LoadingScreen: React.FC<{ isLoaded: boolean; onStart: () => void; }> = ({ 
         </h1>
         <p className="text-lg text-gray-400 mb-8 tracking-wider">The Songwriter's Canvas</p>
         <div className="w-64 h-2 bg-gray-800 rounded-full overflow-hidden mb-4">
-          <div 
-            className="h-full bg-indigo-500 transition-all duration-[2500ms] ease-out"
-            style={{ width: `${progress}%` }}
-          ></div>
+          {isLoaded ? (
+            <div 
+              className="h-full bg-indigo-500 transition-all duration-500 ease-out"
+              style={{ width: `${progress}%` }}
+            ></div>
+          ) : (
+            <div className="relative w-full h-full">
+              <div 
+                className="absolute top-0 h-full bg-indigo-500 rounded-full animate-indeterminate-loader"
+                style={{ width: '33.33%' }}
+              ></div>
+            </div>
+          )}
         </div>
         
         <button 

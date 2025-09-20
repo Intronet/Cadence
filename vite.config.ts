@@ -12,8 +12,8 @@ export default defineConfig(({ mode }) => {
       },
       resolve: {
         alias: {
-          // FIX: `__dirname` is not available in an ES module context. Replaced with `process.cwd()` to correctly resolve the project's root directory.
-          '@': path.resolve(process.cwd(), '.'),
+          // FIX: `process.cwd()` was causing a TypeScript type error. `path.resolve('.')` is an equivalent way to resolve to the project's root directory.
+          '@': path.resolve('.'),
         }
       }
     };
