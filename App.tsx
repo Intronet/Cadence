@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { Header } from './components/Header';
 import { SidePanel } from './components/SidePanel';
@@ -68,7 +69,7 @@ const useHistory = <T,>(initialState: T) => {
 
   const redo = useCallback(() => {
     if (index < history.length - 1) {
-      setIndex(i => i + 1);
+      setIndex(i => i - 1);
     }
   }, [index, history.length]);
 
@@ -133,7 +134,9 @@ const LoadingScreen: React.FC<{ isLoaded: boolean; onStart: () => void; }> = ({ 
         >
           Click to Start
         </button>
-        {!isLoaded && <p className="text-gray-400 mt-4">Loading audio samples...</p>}
+        <p className="text-gray-400 mt-4 h-6 flex items-center justify-center">
+          {isLoaded ? <span className="text-green-400">Audio ready....</span> : 'Loading audio samples...'}
+        </p>
       </div>
 
        <style>{`
@@ -293,1006 +296,825 @@ const App: React.FC = () => {
   const [isSequencerVoicingOn, setIsSequencerVoicingOn] = useState(true);
   const [isSequencerClickMuted, setIsSequencerClickMuted] = useState(false);
   const [selectedChordIds, setSelectedChordIds] = useState<Set<string>>(new Set());
-  const [clipboard, setClipboard] = useState<Array<Omit<SequenceChord, 'id'>>>([]);
-  const chordPartRef = useRef<Tone.Part | null>(null);
-  const bassPartRef = useRef<Tone.Part | null>(null);
-  const animationFrameRef = useRef<number | null>(null);
-  const prevSongKeyRef = useRef<string>(songKey);
+  const [clipboard, setClipboard] = useState<Array<SequenceChord>>([]);
+  const [activeChordEditor, setActiveChordEditor] = useState<SequenceChord | null>(null);
 
-  const currentPattern = useMemo(() => patterns.find(p => p.id === currentPatternId) ?? patterns[0], [patterns, currentPatternId]);
-  const sequence = useMemo(() => currentPattern?.sequence || [], [currentPattern]);
-  const bassSequence = useMemo(() => currentPattern?.bassSequence || [], [currentPattern]);
-  const bars = useMemo(() => currentPattern?.bars ?? 4, [currentPattern]);
-  const timeSignature = useMemo(() => currentPattern?.timeSignature ?? '4/4', [currentPattern]);
-  const timeSignatureValue = useMemo(() => timeSignature === '4/4' ? 4 : 3, [timeSignature]);
-  
-  const [sequencerActiveBassNotes, setSequencerActiveBassNotes] = useState<string[]>([]);
-  const [playingBassNoteId, setPlayingBassNoteId] = useState<string | null>(null);
+  const [isDrumsEnabled, setIsDrumsEnabled] = useState(true);
+  const [isDrumEditorOpen, setIsDrumEditorOpen] = useState(false);
+  const [isMetronomeOn, setIsMetronomeOn] = useState(false);
+  const [activeDrumStep, setActiveDrumStep] = useState<number | null>(null);
+  const [activeKeyboardPadIndices, setActiveKeyboardPadIndices] = useState<Set<number>>(new Set());
+  const [dialog, setDialog] = useState<{ type: 'deletePattern' | 'timeSignature' | 'barMode', data?: any } | null>(null);
   const [basslineStyle, setBasslineStyle] = useState<'root'>('root');
 
 
-  const [activeKeyboardNotes, setActiveKeyboardNotes] = useState<Map<string, string[]>>(new Map());
-  const [activeKeyboardPadIndices, setActiveKeyboardPadIndices] = useState<Set<number>>(new Set());
-  const pressedKeysRef = useRef<Set<string>>(new Set());
-
-  const updatePattern = useCallback((id: string, updates: Partial<Pattern>) => {
-    setPatterns(prev => prev.map(p => (p.id === id ? { ...p, ...updates } : p)));
-  }, [setPatterns]);
-
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement).tagName.match(/INPUT|TEXTAREA/)) return;
-
-      const isModifier = e.metaKey || e.ctrlKey;
-
-      if (isModifier) {
-        const key = e.key.toLowerCase();
-        
-        const isUndo = key === 'z' && !e.shiftKey;
-        const isRedo = key === 'y' || (key === 'z' && e.shiftKey);
-        if (isUndo) { e.preventDefault(); undo(); return; }
-        if (isRedo) { e.preventDefault(); redo(); return; }
-
-        const isCopy = key === 'c';
-        const isCut = key === 'x';
-        const isPaste = key === 'v';
-
-        if (isCopy || isCut) {
-          e.preventDefault();
-          if (selectedChordIds.size === 0) return;
-          const selectedChords = sequence.filter(c => selectedChordIds.has(c.id)).sort((a, b) => a.start - b.start);
-          if (selectedChords.length > 0) {
-            const firstChordStart = selectedChords[0].start;
-            const clipboardContent = selectedChords.map(({ id, ...chord }) => ({ ...chord, start: chord.start - firstChordStart }));
-            setClipboard(clipboardContent);
-            if (isCut) {
-              const newSequence = sequence.filter(c => !selectedChordIds.has(c.id));
-              updatePattern(currentPatternId, { sequence: newSequence });
-              setSelectedChordIds(new Set());
-            }
-          }
-        } else if (isPaste) {
-          e.preventDefault();
-          if (clipboard.length === 0) return;
-          const ppq = Tone.Transport.PPQ;
-          const ticksPer16th = ppq / 4;
-          const currentTick = Tone.Transport.ticks;
-          const pasteStartStep = Math.round(currentTick / ticksPer16th);
-          const newChords = clipboard.map(clipboardChord => ({ ...clipboardChord, id: generateId(), start: pasteStartStep + clipboardChord.start }));
-          const stepsPerBar = timeSignature === '4/4' ? 16 : 12;
-          const patternEndStep = bars * stepsPerBar;
-          const validNewChords = newChords.filter(c => c.start < patternEndStep);
-          if (validNewChords.length > 0) {
-            const newSequence = [...sequence, ...validNewChords];
-            updatePattern(currentPatternId, { sequence: newSequence });
-            const newSelectedIds = new Set(validNewChords.map(c => c.id));
-            setSelectedChordIds(newSelectedIds);
-          }
-        }
-      } else {
-        if ((e.key === 'Delete' || e.key === 'Backspace') && selectedChordIds.size > 0) {
-          e.preventDefault();
-          const newSequence = sequence.filter(c => !selectedChordIds.has(c.id));
-          updatePattern(currentPatternId, { sequence: newSequence });
-          setSelectedChordIds(new Set());
-        }
+    const loadAudio = async () => {
+      try {
+        await initAudio();
+        setIsPianoLoaded(true);
+      } catch (err) {
+        console.error("Failed to initialize audio:", err);
+        setError("Could not load audio samples. Please refresh the page.");
       }
     };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [undo, redo, selectedChordIds, sequence, clipboard, bars, timeSignature, currentPatternId, updatePattern]);
-
-  useEffect(() => {
-    Tone.Destination.volume.value = masterVolume;
-  }, [masterVolume]);
-
-  useEffect(() => {
-    Tone.Destination.mute = isMuted;
-  }, [isMuted]);
-
-  useEffect(() => {
-    if (prevSongKeyRef.current !== songKey && sequence.length > 0) {
-      const oldKey = prevSongKeyRef.current;
-      const newKey = songKey;
-      const oldKeyIndex = parseNote(oldKey);
-      const newKeyIndex = parseNote(newKey);
-      if (!isNaN(oldKeyIndex) && !isNaN(newKeyIndex)) {
-        const interval = newKeyIndex - oldKeyIndex;
-        const useSharps = KEY_SIGNATURES[newKey] !== 'flats';
-        const newSequence = sequence.map(seqChord => ({
-          ...seqChord,
-          chordName: transposeChord(seqChord.chordName, interval, useSharps),
-        }));
-        setPatterns(prev => prev.map(p => p.id === currentPatternId ? { ...p, sequence: newSequence } : p));
-      }
-    }
-    prevSongKeyRef.current = songKey;
-  }, [songKey, sequence, currentPatternId, setPatterns]);
-
-  const [isMetronomeOn, setIsMetronomeOn] = useState(false);
-  const metronomeRef = useRef<{ synth: Tone.Synth, loop: Tone.Loop | null } | null>(null);
-
-  const [editingChord, setEditingChord] = useState<SequenceChord | null>(null);
-  const [activeEditorPreviewNotes, setActiveEditorPreviewNotes] = useState<string[]>([]);
-
-  const [isDrumsEnabled, setIsDrumsEnabled] = useState(false);
-  const [drumVol, setDrumVol] = useState(-6);
-  const [activeDrumStep, setActiveDrumStep] = useState<number | null>(null);
-  const [isDrumEditorOpen, setIsDrumEditorOpen] = useState(false);
-  const [isDrumEditorClosing, setIsDrumEditorClosing] = useState(false);
-  const drumSequenceRef = useRef<Tone.Sequence<number> | null>(null);
-  const drumPattern = useMemo(() => currentPattern?.drumPattern, [currentPattern]);
-
-  const [timeSignatureChangeRequest, setTimeSignatureChangeRequest] = useState<{ patternId: string, newTimeSignature: '4/4' | '3/4' } | null>(null);
-
-  useEffect(() => {
-    const handleContextMenu = (e: MouseEvent) => {
-      if ((e.target as HTMLElement).closest('[data-has-context-menu="true"]')) {
-        return;
-      }
-      if (!e.ctrlKey) {
-        e.preventDefault();
-      }
-    };
-    document.addEventListener('contextmenu', handleContextMenu as EventListener);
-    return () => document.removeEventListener('contextmenu', handleContextMenu as EventListener);
+    loadAudio();
   }, []);
+  
+  const handleStart = () => {
+      requestFullScreen();
+      Tone.start();
+      setIsAppReady(true);
+  };
+
+  const currentPattern = useMemo(() => patterns.find(p => p.id === currentPatternId), [patterns, currentPatternId]);
+
+  const chordSets = useMemo(() => {
+    const allSets = [
+      ...staticChordData[category] || [],
+      ...generatedChordSets
+    ];
+    return allSets.map(set => ({
+      ...set,
+      chords: transposeProgression(set.chords, songKey)
+    }));
+  }, [category, songKey, generatedChordSets]);
+  
+  const displayedChords = useMemo(() => {
+    if (chordSets.length === 0) return Array(16).fill('...');
+    const set = chordSets[chordSetIndex] || { chords: [] };
+    const chords = set.chords;
+    return [...chords, ...Array(Math.max(0, 16 - chords.length)).fill('...')].slice(0, 16);
+  }, [chordSets, chordSetIndex]);
+
+  const getVoicedChordNotes = useCallback((chordName: string) => {
+    switch(voicingMode) {
+      case 'manual':
+        return getChordNoteStrings(chordName, octave);
+      case 'auto':
+        return getChordNoteStrings(chordName, 0); // Voicing will be handled by humanizeProgression later
+      case 'off':
+      default:
+        const rootPosChord = chordName.replace(INVERSION_REGEX, '').trim();
+        return getChordNoteStrings(rootPosChord, 0);
+    }
+  }, [voicingMode, octave]);
+
+  const handlePadMouseDown = useCallback((chordName: string) => {
+    if (chordName === '...') return;
+    const notes = getVoicedChordNotes(chordName);
+    setActivePadChordNotes(notes);
+    startChordSound(notes);
+    const normalizedNotes = normalizeNotesForPiano(notes);
+    pianoRef.current?.scrollToNote(normalizedNotes[0]);
+  }, [getVoicedChordNotes]);
+
+  const handlePadMouseUp = useCallback(() => {
+    stopChordSound(activePadChordNotes);
+    setActivePadChordNotes([]);
+  }, [activePadChordNotes]);
+
+  const handlePadHover = useCallback((chordName: string) => {
+    if (chordName === '...') {
+      setHoveredNotes([]);
+      setManualDisplayText(null);
+      return;
+    }
+    const notes = getVoicedChordNotes(chordName);
+    setHoveredNotes(notes);
+    setManualDisplayText({ name: chordName, notes: notes.join(' ')});
+  }, [getVoicedChordNotes]);
+
+  const handlePadLeave = useCallback(() => {
+    setHoveredNotes([]);
+    setManualDisplayText(null);
+  }, []);
+  
+  const handlePianoKeyDown = useCallback((note: string) => {
+    setActivePianoNote(note);
+    startNoteSound(note);
+    setHoveredNotes([note]);
+    setManualDisplayText({ name: note, notes: '' });
+  }, []);
+
+  const handlePianoKeyUp = useCallback((note: string) => {
+    stopNoteSound(note);
+    if (activePianoNote === note) {
+      setActivePianoNote(null);
+    }
+    setHoveredNotes([]);
+    setManualDisplayText(null);
+  }, [activePianoNote]);
+  
+  const handleGenerate = useCallback(async (prompt: string) => {
+    setIsGenerating(true);
+    setError(null);
+    try {
+      const progression = await generateProgression(prompt, songKey);
+      if (progression.length > 0) {
+        const newSet: ChordSet = { name: prompt, chords: progression };
+        setGeneratedChordSets(prev => [newSet, ...prev]);
+        setCategory(Object.keys(staticChordData)[0]); // Reset to a static category to avoid confusion
+        setChordSetIndex(0); // Select the newly generated progression
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An unknown error occurred.");
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [songKey]);
+
+  // --- Sequencer Handlers ---
+  const handleAddChord = useCallback((chordName: string, start: number) => {
+    if (!currentPattern) return;
+    const newChord: SequenceChord = {
+      id: generateId(),
+      chordName,
+      start: Math.round(start),
+      duration: 8, // 8 steps = half note
+    };
+    const newSequence = [...currentPattern.sequence, newChord];
+    setPatterns(patterns => patterns.map(p => p.id === currentPatternId ? { ...p, sequence: newSequence } : p));
+  }, [currentPattern, currentPatternId, setPatterns]);
+
+  const handleUpdateChord = useCallback((id: string, newProps: Partial<SequenceChord>) => {
+    if (!currentPattern) return;
+    const newSequence = currentPattern.sequence.map(c =>
+      c.id === id ? { ...c, ...newProps } : c
+    );
+    setPatterns(patterns => patterns.map(p => p.id === currentPatternId ? { ...p, sequence: newSequence } : p));
+  }, [currentPattern, currentPatternId, setPatterns]);
+  
+  const handleRemoveChords = useCallback((idsToRemove: Set<string>) => {
+    if (!currentPattern) return;
+    const newSequence = currentPattern.sequence.filter(c => !idsToRemove.has(c.id));
+    setPatterns(patterns => patterns.map(p => p.id === currentPatternId ? { ...p, sequence: newSequence } : p));
+    setSelectedChordIds(new Set());
+  }, [currentPattern, currentPatternId, setPatterns]);
+  
+  const handleChordSelect = useCallback((id: string, e: React.MouseEvent) => {
+    if (e.ctrlKey || e.metaKey) {
+      setSelectedChordIds(prev => {
+        const newSet = new Set(prev);
+        if (newSet.has(id)) {
+          newSet.delete(id);
+        } else {
+          newSet.add(id);
+        }
+        return newSet;
+      });
+    } else {
+      setSelectedChordIds(new Set([id]));
+    }
+  }, []);
+  
+  const handleDeselect = useCallback(() => {
+    setSelectedChordIds(new Set());
+  }, []);
+  
+  // --- Metronome Setup ---
+  const metronome = useRef<Tone.Player | null>(null);
+  useEffect(() => {
+    metronome.current = new Tone.Player("/samples/metronome.wav").toDestination();
+    metronome.current.volume.value = -12; // Quieter tick
+  }, []);
+  
+  // --- Sequencer Playback Logic ---
+  const chordPart = useRef<Tone.Part | null>(null);
+  const bassPart = useRef<Tone.Part | null>(null);
+  const drumParts = useRef<Map<DrumSound, Tone.Part>>(new Map());
+  const metronomePart = useRef<Tone.Part | null>(null);
 
   useEffect(() => {
     Tone.Transport.bpm.value = bpm;
   }, [bpm]);
-
-  useEffect(() => {
-    Tone.Transport.timeSignature = timeSignatureValue;
-    Tone.Transport.loop = true;
-    Tone.Transport.loopStart = 0;
-    Tone.Transport.loopEnd = Tone.Time(`${bars}m`).toSeconds();
-  }, [bars, timeSignatureValue]);
-
-
-  useEffect(() => {
-    const metronomeSynth = new Tone.Synth({
-      oscillator: { type: 'sine' },
-      envelope: { attack: 0.005, decay: 0.05, sustain: 0, release: 0.1 },
-      volume: -6,
-    }).toDestination();
-    metronomeRef.current = { synth: metronomeSynth, loop: null };
-
-    return () => {
-      metronomeRef.current?.synth.dispose();
-      metronomeRef.current?.loop?.dispose();
-    };
-  }, []);
-
-  useEffect(() => {
-    const currentMetronome = metronomeRef.current;
-    if (currentMetronome?.loop) {
-      currentMetronome.loop.dispose();
-      currentMetronome.loop = null;
-    }
-
-    if (isMetronomeOn && currentMetronome) {
-      const loop = new Tone.Loop(time => {
-        if (!metronomeRef.current) return;
-
-        const ticks = Tone.Transport.getTicksAtTime(time);
-        const ppq = Tone.Transport.PPQ;
-        const beatsPerBar = timeSignatureValue;
-
-        if (ticks % (ppq * beatsPerBar) === 0) {
-          metronomeRef.current.synth.triggerAttackRelease('C5', '16n', time);
-        } else if (ticks % ppq === 0) {
-          metronomeRef.current.synth.triggerAttackRelease('C4', '16n', time);
-        }
-      }, '4n').start(0);
-      currentMetronome.loop = loop;
-    }
-  }, [isMetronomeOn, timeSignatureValue]);
-
-  useEffect(() => {
-    drumVolume.volume.value = drumVol;
-  }, [drumVol]);
-
-
-  const categories = useMemo(() => [...Object.keys(staticChordData), ...generatedChordSets.map(p => p.name)], [generatedChordSets]);
-  const chordSets = useMemo(() => {
-    const allData = { ...staticChordData, ...generatedChordSets.reduce((acc, curr) => ({ ...acc, [curr.name]: [curr] }), {}) };
-    return allData[category] || [];
-  }, [category, generatedChordSets]);
-  const currentChordSet = useMemo(() => (chordSets[chordSetIndex]?.chords || []).slice(0, 16), [chordSets, chordSetIndex]);
-
-  useEffect(() => {
-    initAudio().then(() => setIsPianoLoaded(true));
-  }, []);
-
-  const scrollToLowestNote = useCallback((notes: string[]) => {
-    if (notes.length === 0 || !pianoRef.current) return;
-    const lowestNote = findLowestNote(notes);
-    if (lowestNote) {
-      pianoRef.current.scrollToNote(lowestNote);
-    }
-  }, []);
-
-  const getNotesForVoicing = useCallback((chordName: string) => {
-    if (voicingMode === 'manual') {
-        return getChordNoteStrings(updateChord(chordName, { inversion: inversionLevel }), octave);
-    }
-    return getChordNoteStrings(chordName, octave);
-  }, [voicingMode, inversionLevel, octave]);
-
-  const humanizedSequence = useMemo(() => {
-      if (voicingMode === 'auto' && isSequencerVoicingOn && sequence.length > 0) {
-          const originalNames = sequence.map(s => s.chordName);
-          const humanizedNames = humanizeProgression(originalNames);
-          return sequence.map((s, i) => ({ ...s, chordName: humanizedNames[i] }));
-      }
-      return sequence;
-  }, [sequence, voicingMode, isSequencerVoicingOn]);
   
-
-  const stopActivePadNotes = useCallback(() => {
-    if (activePadChordNotes.length > 0) {
-      stopChordSound(activePadChordNotes);
-      setActivePadChordNotes([]);
-      setManualDisplayText(null);
-    }
-  }, [activePadChordNotes]);
-
-  const handlePadMouseDown = (chordName: string) => {
-    const notes = getNotesForVoicing(chordName);
-    scrollToLowestNote(notes);
-    startChordSound(notes);
-    setActivePadChordNotes(notes);
-    const parsed = parseChord(chordName);
-    const cleanName = parsed ? `${parsed.root}${parsed.quality}` : chordName;
-    setManualDisplayText({ name: cleanName, notes: getChordNoteStrings(chordName, 0).map(n => n.replace(/[0-9]/g, '')).join(' ') });
-  };
-
-  const handlePadMouseEnter = (chordName: string) => {
-    const notes = getNotesForVoicing(chordName);
-    scrollToLowestNote(notes);
-    const parsed = parseChord(chordName);
-    const cleanName = parsed ? `${parsed.root}${parsed.quality}` : chordName;
-    setManualDisplayText({ name: cleanName, notes: getChordNoteStrings(chordName, 0).map(n => n.replace(/[0-9]/g, '')).join(' ') });
-    setHoveredNotes(notes);
-  };
-  const clearHoveredNotes = () => {
-    setManualDisplayText(null);
-    setHoveredNotes([]);
-  };
-
-  const stopActivePianoNote = useCallback(() => {
-    if (activePianoNote) {
-      stopNoteSound(activePianoNote);
-      setActivePianoNote(null);
-      setManualDisplayText(null);
-    }
-  }, [activePianoNote]);
-
-  const handlePianoMouseDown = (note: string) => {
-    startNoteSound(note);
-    setActivePianoNote(note);
-    setManualDisplayText({ name: note.replace(/[0-9]/g, ''), notes: '' });
-  };
-
-  const handlePianoMouseEnter = (note: string) => {
-    if (activePianoNote) { // Glissando
-      scrollToLowestNote([note]);
-      stopNoteSound(activePianoNote);
-      startNoteSound(note);
-      setActivePianoNote(note);
-      setManualDisplayText({ name: note.replace(/[0-9]/g, ''), notes: '' });
-    }
-  };
-
   useEffect(() => {
-    const handleGlobalMouseUp = () => {
-      stopActivePadNotes();
-      stopActivePianoNote();
-    };
-    window.addEventListener('mouseup', handleGlobalMouseUp);
-    return () => {
-      window.removeEventListener('mouseup', handleGlobalMouseUp);
-    };
-  }, [stopActivePadNotes, stopActivePianoNote]);
+    if (!currentPattern) return;
 
+    // --- Stop and clear previous parts ---
+    chordPart.current?.stop(0).dispose();
+    bassPart.current?.stop(0).dispose();
+    drumParts.current.forEach(part => part.stop(0).dispose());
+    drumParts.current.clear();
+    metronomePart.current?.stop(0).dispose();
 
-  const activePianoNotes = useMemo(() => normalizeNotesForPiano([
-    ...hoveredNotes,
-    ...activePadChordNotes,
-    ...(activePianoNote ? [activePianoNote] : []),
-    ...sequencerActiveNotes,
-    ...sequencerActiveBassNotes,
-    ...activeSequencerManualNotes,
-    ...activeEditorPreviewNotes,
-    ...Array.from(activeKeyboardNotes.values()).flat()
-  ]), [hoveredNotes, activePadChordNotes, activePianoNote, sequencerActiveNotes, sequencerActiveBassNotes, activeSequencerManualNotes, activeEditorPreviewNotes, activeKeyboardNotes]);
+    // --- Rebuild parts for current pattern ---
+    const STEPS_PER_BAR = currentPattern.timeSignature === '4/4' ? 16 : 12;
+    const TOTAL_STEPS = currentPattern.bars * STEPS_PER_BAR;
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-        if (pressedKeysRef.current.has(e.code) || (e.target as HTMLElement).tagName.match(/INPUT|TEXTAREA/)) return;
-        pressedKeysRef.current.add(e.code);
+    // --- Chord Part ---
+    const sequenceForPlayback = isSequencerVoicingOn && voicingMode === 'auto'
+        ? humanizeProgression(currentPattern.sequence.map(c => c.chordName))
+        : currentPattern.sequence.map(c => c.chordName);
 
-        const padIndex = CODE_TO_PAD_INDEX[e.code];
-        if (padIndex !== undefined && padIndex < currentChordSet.length) {
-            e.preventDefault();
-            const chordName = currentChordSet[padIndex];
-            const notes = getNotesForVoicing(chordName);
-            scrollToLowestNote(notes);
-            startChordSound(notes);
-            setActiveKeyboardNotes(prev => new Map(prev).set(e.code, notes));
-            setActiveKeyboardPadIndices(prev => new Set(prev).add(padIndex));
-            const parsed = parseChord(chordName);
-            const cleanName = parsed ? `${parsed.root}${parsed.quality}` : chordName;
-            setManualDisplayText({ name: cleanName, notes: getChordNoteStrings(chordName, 0).map(n => n.replace(/[0-9]/g, '')).join(' ') });
-        }
-    };
+    const chordEvents = currentPattern.sequence.map((chord, index) => {
+        const chordNameToUse = sequenceForPlayback[index];
+        return {
+            time: `${Math.floor(chord.start / 4)}:${(chord.start % 4)}`,
+            duration: `${Math.floor(chord.duration / 4)}:${(chord.duration % 4)}`,
+            chordName: chordNameToUse,
+            id: chord.id,
+        };
+    });
 
-    const handleKeyUp = (e: KeyboardEvent) => {
-        pressedKeysRef.current.delete(e.code);
-        const padIndex = CODE_TO_PAD_INDEX[e.code];
-        if (padIndex !== undefined) {
-          e.preventDefault();
-          const notes = activeKeyboardNotes.get(e.code);
-          if (notes) {
-              stopChordSound(notes);
-              setActiveKeyboardNotes(prev => {
-                  const newMap = new Map(prev);
-                  newMap.delete(e.code);
-                  if (newMap.size === 0) {
-                    setManualDisplayText(null);
-                  }
-                  return newMap;
-              });
+    chordPart.current = new Tone.Part((time, value) => {
+        const notes = getChordNoteStrings(value.chordName, 0);
+        sampler.triggerAttackRelease(notes, value.duration, time);
+        Tone.Draw.schedule(() => {
+            setPlayingChordId(value.id);
+            setSequencerActiveNotes(notes);
+            setSequencerDisplayText({ name: value.chordName, notes: notes.join(' ')});
+        }, time);
+    }, chordEvents).start(0);
+
+    // --- Bass Part ---
+     const bassEvents = currentPattern.bassSequence.map(note => ({
+        time: `${Math.floor(note.start / 4)}:${(note.start % 4)}`,
+        duration: `${Math.floor(note.duration / 4)}:${(note.duration % 4)}`,
+        noteName: note.noteName,
+        id: note.id,
+    }));
+    
+    bassPart.current = new Tone.Part((time, value) => {
+        bassSynth.triggerAttackRelease(value.noteName, value.duration, time);
+        Tone.Draw.schedule(() => {
+          // You might want a separate state for the playing bass note if needed
+        }, time);
+    }, bassEvents).start(0);
+
+    // --- Drum Part ---
+    if (isDrumsEnabled) {
+      DRUM_SOUNDS.forEach(sound => {
+        const events = [];
+        for (let i = 0; i < TOTAL_STEPS; i++) {
+          if (currentPattern.drumPattern[sound]?.[i]) {
+            events.push(i);
           }
-          setActiveKeyboardPadIndices(prev => {
-              const newSet = new Set(prev);
-              newSet.delete(padIndex);
-              return newSet;
-          });
         }
-    };
+        const part = new Tone.Part((time) => {
+          drumPlayers.player(sound).start(time);
+        }, events.map(step => `${Math.floor(step / 4)}:${(step % 4)}`)).start(0);
+        drumParts.current.set(sound, part);
+      });
+    }
 
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
+    // --- Metronome Part ---
+    if (isMetronomeOn) {
+      const beats = Array.from({ length: currentPattern.bars * (currentPattern.timeSignature === '4/4' ? 4 : 3) }, (_, i) => i);
+      metronomePart.current = new Tone.Part(time => {
+        metronome.current?.start(time);
+      }, beats).start(0);
+    }
+    
     return () => {
-        window.removeEventListener('keydown', handleKeyDown);
-        window.removeEventListener('keyup', handleKeyUp);
+        chordPart.current?.stop(0).dispose();
+        bassPart.current?.stop(0).dispose();
+        drumParts.current.forEach(part => part.stop(0).dispose());
+        drumParts.current.clear();
+        metronomePart.current?.stop(0).dispose();
     };
-  }, [currentChordSet, getNotesForVoicing, scrollToLowestNote]);
+}, [currentPattern, isSequencerVoicingOn, voicingMode, isDrumsEnabled, isMetronomeOn]);
 
-  const addChordToSequencer = (chordName: string, start: number) => {
-    const newChord: SequenceChord = { id: generateId(), chordName, start, duration: 8 };
-    updatePattern(currentPatternId, { sequence: [...sequence, newChord] });
-  };
-  const updateSequencerChord = (id: string, newProps: Partial<SequenceChord>) => {
-    const newSequence = sequence.map(c => c.id === id ? { ...c, ...newProps } : c);
-    updatePattern(currentPatternId, { sequence: newSequence });
-  };
-  const removeSequencerChord = (id: string) => {
-    const newSequence = sequence.filter(c => c.id !== id);
-    updatePattern(currentPatternId, { sequence: newSequence });
-  };
-  const playSequencerChordPreview = (chordName: string) => {
-    if (isSequencerClickMuted) return;
-    const notes = getChordNoteStrings(chordName, octave);
-    scrollToLowestNote(notes);
-    playChordOnce(notes, '8n');
-    setActiveSequencerManualNotes(notes);
-    setTimeout(() => setActiveSequencerManualNotes([]), Tone.Time('8n').toMilliseconds());
-  };
-  
-  const handleChordSelect = (id: string, e: React.MouseEvent) => {
-    const isSelected = selectedChordIds.has(id);
-    if (e.shiftKey) {
-      const newSelection = new Set(selectedChordIds);
-      if (isSelected) newSelection.delete(id);
-      else newSelection.add(id);
-      setSelectedChordIds(newSelection);
-    } else if (e.ctrlKey || e.metaKey) {
-       const newSelection = new Set(selectedChordIds);
-       if (isSelected) newSelection.delete(id);
-       else newSelection.add(id);
-       setSelectedChordIds(newSelection);
-    } else {
-      if (!isSelected) {
-        setSelectedChordIds(new Set([id]));
-      }
-    }
-  };
-  const stopActiveManualNotes = () => {};
-
-  const handleGenerate = async (prompt: string) => {
-    setIsGenerating(true);
-    setError(null);
-    try {
-      const chords = await generateProgression(prompt, songKey);
-      if (chords.length > 0) {
-        const newSet: ChordSet = { name: prompt, chords };
-        setGeneratedChordSets(prev => [newSet, ...prev]);
-        setCategory(prompt);
-        setChordSetIndex(0);
-      } else {
-        setError("AI returned no chords. Please try a different prompt.");
-      }
-    } catch (e) {
-      setError("Failed to generate progression. Please check your prompt or API key.");
-      console.error(e);
-    }
-    setIsGenerating(false);
-  };
-  
-  const togglePlay = useCallback(() => {
-    if (Tone.context.state !== 'running') {
-      Tone.start();
-    }
+  const handlePlayPause = useCallback(() => {
     if (Tone.Transport.state === 'started') {
       Tone.Transport.pause();
       setIsPlaying(false);
     } else {
+      Tone.start(); // Ensure audio context is running
       Tone.Transport.start();
       setIsPlaying(true);
     }
   }, []);
 
-  const handleStop = () => {
-    setIsPlaying(false);
+  const handleStop = useCallback(() => {
     Tone.Transport.stop();
-    setPlayheadPosition(0);
+    Tone.Transport.position = 0;
+    setIsPlaying(false);
     setPlayingChordId(null);
-    setPlayingBassNoteId(null);
-    setActiveDrumStep(null);
-  };
-
-  const handlePanic = () => {
-    handleStop();
-    Tone.Transport.cancel();
-    sampler.releaseAll();
-    bassSynth.triggerRelease();
-    DRUM_SOUNDS.forEach(sound => drumPlayers.player(sound).stop());
-    setActivePadChordNotes([]);
-    setActivePianoNote(null);
-    setActiveSequencerManualNotes([]);
     setSequencerActiveNotes([]);
-    setSequencerActiveBassNotes([]);
-    setActiveEditorPreviewNotes([]);
-    setActiveKeyboardNotes(new Map());
-  };
+    setSequencerDisplayText(null);
+    setActiveDrumStep(null);
+  }, []);
 
-  const handleSeek = (beats: number) => {
-    Tone.Transport.ticks = beats * Tone.Transport.PPQ;
-    if (!isPlaying) {
+  const handlePanic = useCallback(() => {
+    // Stop transport and cancel all scheduled events
+    Tone.Transport.stop();
+    Tone.Transport.cancel();
+    // Release all active voices on the synths
+    sampler.releaseAll();
+    // FIX: MonoSynth does not have a `releaseAll` method. `triggerRelease` is used to stop the single voice of the synth.
+    bassSynth.triggerRelease();
+    drumPlayers.stopAll();
+    
+    // Reset state
+    setIsPlaying(false);
+    setPlayingChordId(null);
+    setSequencerActiveNotes([]);
+    setActivePadChordNotes([]);
+    setSequencerDisplayText(null);
+    setActiveDrumStep(null);
+    
+    // It's often good to reset position as well
+    Tone.Transport.position = 0;
+  }, []);
+
+  const handleSeek = (positionInBeats: number) => {
+    Tone.Transport.position = `${Math.floor(positionInBeats / 4)}:${positionInBeats % 4}:0`;
+    setPlayheadPosition(positionInBeats);
+  };
+  
+  // --- Animation frame loop for playhead ---
+  useEffect(() => {
+    let animationFrameId: number;
+    const update = () => {
+      const beats = Tone.Transport.seconds * (Tone.Transport.bpm.value / 60);
       setPlayheadPosition(beats);
-    }
-  };
-
-  const handleCategoryChange = (newCategory: string) => {
-    setCategory(newCategory);
-    setChordSetIndex(0);
-  };
-  
-  const handleMetronomeToggle = () => {
-    if (Tone.context.state !== 'running') {
-      Tone.start();
-    }
-    setIsMetronomeOn(v => !v);
-  };
-
-  useEffect(() => {
-    const animate = () => {
-      if (Tone.Transport.state === 'started') {
-        const positionInBeats = Tone.Transport.ticks / Tone.Transport.PPQ;
-        setPlayheadPosition(positionInBeats);
-      }
-      animationFrameRef.current = requestAnimationFrame(animate);
-    };
-
-    if (isPlaying) {
-      animationFrameRef.current = requestAnimationFrame(animate);
-    } else {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-    }
-    return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-    };
-  }, [isPlaying]);
-
-  useEffect(() => {
-    if (chordPartRef.current) {
-      chordPartRef.current.dispose();
-      chordPartRef.current = null;
-    }
-
-    if (humanizedSequence && humanizedSequence.length > 0) {
-        const partEvents = humanizedSequence.map(s => {
-            return {
-                time: Tone.Time('16n').toSeconds() * s.start,
-                duration: Tone.Time('16n').toSeconds() * s.duration,
-                chord: s,
-            };
-        });
-
-        const part = new Tone.Part<{ time: number; duration: number; chord: SequenceChord }>((time, event) => {
-            const notes = getChordNoteStrings(event.chord.chordName, octave);
-            sampler.triggerAttackRelease(notes, event.duration, time);
-            
-            Tone.Draw.schedule(() => {
-                scrollToLowestNote(notes);
-                setPlayingChordId(event.chord.id);
-                setSequencerActiveNotes(notes);
-            }, time);
-
-            Tone.Draw.schedule(() => {
-                setPlayingChordId(null);
-                setSequencerActiveNotes([]);
-            }, time + event.duration * 0.95);
-
-        }, partEvents).start(0);
-        chordPartRef.current = part;
-    } else {
-        setPlayingChordId(null);
-    }
-
-    return () => {
-      chordPartRef.current?.dispose();
-      chordPartRef.current = null;
-    };
-  }, [humanizedSequence, octave, scrollToLowestNote]);
-  
-  useEffect(() => {
-    if (bassPartRef.current) {
-      bassPartRef.current.dispose();
-      bassPartRef.current = null;
-    }
-  
-    if (bassSequence && bassSequence.length > 0) {
-      const partEvents = bassSequence.map(note => ({
-        time: Tone.Time('16n').toSeconds() * note.start,
-        duration: Tone.Time('16n').toSeconds() * note.duration,
-        noteName: note.noteName,
-        id: note.id,
-      }));
-  
-      const part = new Tone.Part<{ time: number; duration: number; noteName: string; id: string }>((time, event) => {
-        bassSynth.triggerAttackRelease(event.noteName, event.duration, time);
-        
-        Tone.Draw.schedule(() => {
-          setPlayingBassNoteId(event.id);
-          setSequencerActiveBassNotes([event.noteName]);
-        }, time);
-  
-        Tone.Draw.schedule(() => {
-          setPlayingBassNoteId(null);
-          setSequencerActiveBassNotes([]);
-        }, time + event.duration * 0.95);
-  
-      }, partEvents).start(0);
-      bassPartRef.current = part;
-    } else {
-      setPlayingBassNoteId(null);
-    }
-  
-    return () => {
-      bassPartRef.current?.dispose();
-      bassPartRef.current = null;
-    };
-  }, [bassSequence]);
-  
-
-  useEffect(() => {
-    if (drumSequenceRef.current) {
-      drumSequenceRef.current.dispose();
-      drumSequenceRef.current = null;
-    }
-
-    if (isDrumsEnabled && drumPattern) {
-      const stepsPerBar = timeSignature === '4/4' ? 16 : 12;
-      const totalSteps = bars * stepsPerBar;
       
-      const sequence = new Tone.Sequence<number>((time, step) => {
-        DRUM_SOUNDS.forEach(sound => {
-          if (drumPattern[sound]?.[step]) {
-            drumPlayers.player(sound).start(time);
-          }
-        });
-        Tone.Draw.schedule(() => {
-          setActiveDrumStep(step);
-        }, time);
-      }, Array.from({ length: totalSteps }, (_, i) => i), '16n').start(0);
+      if (isDrumsEnabled && isPlaying) {
+          const stepsPerBeat = 4;
+          const totalSteps = (currentPattern?.bars || 4) * (currentPattern?.timeSignature === '4/4' ? 16 : 12);
+          const currentStep = Math.floor(beats * stepsPerBeat) % totalSteps;
+          setActiveDrumStep(currentStep);
+      } else {
+          setActiveDrumStep(null);
+      }
 
-      drumSequenceRef.current = sequence;
+      animationFrameId = requestAnimationFrame(update);
+    };
+    if (isPlaying) {
+      animationFrameId = requestAnimationFrame(update);
     } else {
       setActiveDrumStep(null);
     }
+    return () => cancelAnimationFrame(animationFrameId);
+  }, [isPlaying, isDrumsEnabled, currentPattern]);
+  
+  // Reset sequencer display when playback stops
+  useEffect(() => {
+    if (!isPlaying) {
+      const timeout = setTimeout(() => {
+        setPlayingChordId(null);
+        setSequencerActiveNotes([]);
+        setSequencerDisplayText(null);
+      }, 200);
+      return () => clearTimeout(timeout);
+    }
+  }, [isPlaying]);
 
-    return () => {
-      drumSequenceRef.current?.dispose();
-      drumSequenceRef.current = null;
+  // --- Volume Controls ---
+  useEffect(() => {
+    Tone.getDestination().volume.value = isMuted ? -Infinity : masterVolume;
+  }, [masterVolume, isMuted]);
+
+  useEffect(() => {
+    drumVolume.volume.value = isMuted ? -Infinity : 0; // Drum volume is relative to master
+  }, [isMuted]);
+
+  // --- Keyboard Shortcuts ---
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Prevent shortcuts when typing in an input/textarea
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      if (e.code === 'Space') {
+        e.preventDefault();
+        handlePlayPause();
+      } else if (e.code === 'Enter' && e.shiftKey) {
+        e.preventDefault();
+        handleStop();
+      } else if ((e.metaKey || e.ctrlKey) && e.code === 'KeyZ') {
+        e.preventDefault();
+        undo();
+      } else if ((e.metaKey || e.ctrlKey) && e.code === 'KeyY') {
+        e.preventDefault();
+        redo();
+      } else if ((e.metaKey || e.ctrlKey) && e.code === 'KeyC') {
+        if (selectedChordIds.size > 0 && currentPattern) {
+            e.preventDefault();
+            const chordsToCopy = currentPattern.sequence.filter(c => selectedChordIds.has(c.id));
+            setClipboard(chordsToCopy);
+        }
+      } else if ((e.metaKey || e.ctrlKey) && e.code === 'KeyV') {
+          if (clipboard.length > 0 && currentPattern) {
+              e.preventDefault();
+              const startPoint = Math.floor(playheadPosition * 4); // convert beats to 16th steps
+              const firstChordStart = clipboard[0].start;
+
+              const newChords = clipboard.map(c => ({
+                  ...c,
+                  id: generateId(),
+                  start: startPoint + (c.start - firstChordStart)
+              }));
+              
+              const newSequence = [...currentPattern.sequence, ...newChords];
+              setPatterns(pats => pats.map(p => p.id === currentPattern.id ? { ...p, sequence: newSequence } : p));
+          }
+      }
+      else if (e.code === 'Delete' || e.code === 'Backspace') {
+        if (selectedChordIds.size > 0) {
+          e.preventDefault();
+          handleRemoveChords(selectedChordIds);
+        }
+      } else {
+        const padIndex = CODE_TO_PAD_INDEX[e.code];
+        if (padIndex !== undefined && padIndex < displayedChords.length) {
+          e.preventDefault();
+          const chordName = displayedChords[padIndex];
+          if (chordName && chordName !== '...') {
+            setActiveKeyboardPadIndices(prev => new Set(prev).add(padIndex));
+            handlePadMouseDown(chordName);
+          }
+        }
+      }
     };
-  }, [isDrumsEnabled, drumPattern, bars, timeSignature]);
+    
+    const handleKeyUp = (e: KeyboardEvent) => {
+      const padIndex = CODE_TO_PAD_INDEX[e.code];
+      if (padIndex !== undefined) {
+        setActiveKeyboardPadIndices(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(padIndex);
+          return newSet;
+        });
+        handlePadMouseUp();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [handlePlayPause, handleStop, undo, redo, selectedChordIds, handleRemoveChords, clipboard, currentPattern, playheadPosition, setPatterns, displayedChords, handlePadMouseDown, handlePadMouseUp]);
+  
+  // --- Pattern Controls ---
+  const handleSelectPattern = (id: string) => setCurrentPatternId(id);
 
   const handleAddPattern = () => {
-    setPatterns(prev => {
-      const newName = `Pattern ${prev.length + 1}`;
-      const newPattern = createNewPattern(
-        newName,
-        currentPattern.bars,
-        currentPattern.timeSignature,
-        currentPattern.drumPattern
-      );
-      return [...prev, newPattern];
-    });
+    const newName = `Pattern ${patterns.length + 1}`;
+    const newPattern = createNewPattern(newName, 4, '4/4');
+    setPatterns(p => [...p, newPattern]);
+    setCurrentPatternId(newPattern.id);
   };
 
   const handleDeletePattern = (id: string) => {
-    setPatterns(prev => {
-      const newPatterns = prev.filter(p => p.id !== id);
-      if (currentPatternId === id) {
-        setCurrentPatternId(newPatterns[0]?.id || '');
-      }
-      return newPatterns;
-    });
+    if (patterns.length <= 1) return; // Can't delete the last pattern
+    
+    setDialog({ type: 'deletePattern', data: { id, name: patterns.find(p => p.id === id)?.name }});
+  };
+
+  const confirmDeletePattern = (id: string) => {
+    const newPatterns = patterns.filter(p => p.id !== id);
+    setPatterns(newPatterns);
+    if (currentPatternId === id) {
+      setCurrentPatternId(newPatterns[0].id);
+    }
+    setDialog(null);
   };
 
   const handleRenamePattern = (id: string, newName: string) => {
-    if (newName.trim()) {
-      updatePattern(id, { name: newName.trim() });
-    }
+    setPatterns(pats => pats.map(p => p.id === id ? { ...p, name: newName } : p));
   };
   
   const handleCopyPattern = (id: string) => {
-    const patternToCopy = patterns.find(p => p.id === id);
-    if (!patternToCopy) return;
+      const patternToCopy = patterns.find(p => p.id === id);
+      if (!patternToCopy) return;
 
-    setPatterns(prev => {
-      const newPattern = {
-        ...patternToCopy,
-        id: generateId(),
-        name: `${patternToCopy.name} Copy`
+      const newPattern: Pattern = {
+          ...patternToCopy,
+          id: generateId(),
+          name: `${patternToCopy.name} Copy`,
       };
-      const originalIndex = prev.findIndex(p => p.id === id);
-      const newPatterns = [...prev];
-      newPatterns.splice(originalIndex + 1, 0, newPattern);
-      return newPatterns;
-    });
+      setPatterns(pats => [...pats, newPattern]);
+      setCurrentPatternId(newPattern.id);
   };
 
   const handleReorderPatterns = (draggedId: string, targetId: string) => {
-    setPatterns(prev => {
-      const draggedIndex = prev.findIndex(p => p.id === draggedId);
-      const targetIndex = prev.findIndex(p => p.id === targetId);
-      if (draggedIndex === -1 || targetIndex === -1) return prev;
+    const draggedIndex = patterns.findIndex(p => p.id === draggedId);
+    const targetIndex = patterns.findIndex(p => p.id === targetId);
 
-      const newPatterns = [...prev];
-      const [draggedItem] = newPatterns.splice(draggedIndex, 1);
-      newPatterns.splice(targetIndex, 0, draggedItem);
-      return newPatterns;
-    });
+    if (draggedIndex === -1 || targetIndex === -1) return;
+
+    const newPatterns = [...patterns];
+    const [draggedItem] = newPatterns.splice(draggedIndex, 1);
+    newPatterns.splice(targetIndex, 0, draggedItem);
+    setPatterns(newPatterns);
   };
 
-  const onTimeSignatureChange = (patternId: string, ts: '4/4' | '3/4') => {
+  const handleToggleBarMode = (patternId: string) => {
     const pattern = patterns.find(p => p.id === patternId);
-    if (pattern && pattern.timeSignature !== ts) {
-      setTimeSignatureChangeRequest({ patternId, newTimeSignature: ts });
-    }
-  };
-
-  const handleConfirmTimeSignatureChange = () => {
-    if (!timeSignatureChangeRequest) return;
-    const { patternId, newTimeSignature } = timeSignatureChangeRequest;
-    const oldPattern = patterns.find(p => p.id === patternId);
-    if (!oldPattern) return;
-
-    const oldStepsPerBar = oldPattern.timeSignature === '4/4' ? 16 : 12;
-    const newStepsPerBar = newTimeSignature === '4/4' ? 16 : 12;
-    const newDrumPattern = { ...oldPattern.drumPattern };
-
-    DRUM_SOUNDS.forEach(sound => {
-      const oldTrack = oldPattern.drumPattern[sound] || [];
-      const newTrack: boolean[] = [];
-      for (let bar = 0; bar < oldPattern.bars; bar++) {
-        const oldBar = oldTrack.slice(bar * oldStepsPerBar, (bar + 1) * oldStepsPerBar);
-        const newBar = [...oldBar, ...Array(newStepsPerBar).fill(false)].slice(0, newStepsPerBar);
-        newTrack.push(...newBar);
-      }
-      newDrumPattern[sound] = newTrack;
-    });
-
-    updatePattern(patternId, { timeSignature: newTimeSignature, drumPattern: newDrumPattern, bassSequence: [] });
-    setTimeSignatureChangeRequest(null);
-  };
-  
-  const toggleDrumEditor = () => {
-    if (isDrumEditorOpen) {
-      setIsDrumEditorClosing(true);
-      setTimeout(() => {
-        setIsDrumEditorOpen(false);
-        setIsDrumEditorClosing(false);
-      }, 300);
-    } else {
-      setIsDrumEditorOpen(true);
-    }
-  };
-
-  const updateDrumPattern = (sound: DrumSound, step: number, value: boolean) => {
-    const newDrumPattern = { ...drumPattern };
-    const newTrack = [...(newDrumPattern[sound] || [])];
-    newTrack[step] = value;
-    newDrumPattern[sound] = newTrack;
-    updatePattern(currentPatternId, { drumPattern: newDrumPattern as Record<DrumSound, boolean[]> });
-  };
-  
-  const handleApplyDrumPreset = (presetPattern: Record<DrumSound, boolean[]>) => {
-    const newPattern = createExpandedDrumPattern(presetPattern, bars, timeSignature);
-    updatePattern(currentPatternId, { drumPattern: newPattern });
-  };
-  
-  const playEditorPreview = useCallback((chordName: string) => {
-    const notes = getChordNoteStrings(chordName, octave);
-    scrollToLowestNote(notes);
-    playChordOnce(notes, '4n');
-    setActiveEditorPreviewNotes(notes);
-  }, [octave, scrollToLowestNote]);
-
-  const stopActiveEditorPreviewNotes = () => {
-    setActiveEditorPreviewNotes([]);
-  };
-
-  const handleGenerateBass = (style: 'root') => {
-    if (!currentPattern) return;
+    if (!pattern) return;
     
-    // For now, only 'root' style is implemented
-    if (style === 'root') {
-      const newBassSequence = currentPattern.sequence.map(chord => {
-        const parsed = parseChord(chord.chordName);
-        const rootNote = parsed?.bass || parsed?.root;
+    const newBars = pattern.bars === 4 ? 8 : 4;
 
-        let noteOctave = 2;
-        if (rootNote) {
-            const noteIndex = NOTE_TO_INDEX[rootNote];
-            if (!isNaN(noteIndex) && noteIndex > 6) { // If it's G or higher, drop an octave to avoid jumping too high
-                noteOctave = 1;
-            }
+    if (newBars === 4) {
+        const stepsPerBar = pattern.timeSignature === '4/4' ? 16 : 12;
+        const chordsInSecondHalf = pattern.sequence.some(c => c.start >= 4 * stepsPerBar);
+        const drumsInSecondHalf = DRUM_SOUNDS.some(sound => 
+            pattern.drumPattern[sound]?.some((step, i) => step && i >= 4 * stepsPerBar)
+        );
+
+        if (chordsInSecondHalf || drumsInSecondHalf) {
+            setDialog({ type: 'barMode', data: { patternId, newBars }});
+            return;
         }
-        
-        const noteName = rootNote ? `${rootNote}${noteOctave}` : 'C2';
-        return {
-          id: generateId(),
-          noteName,
-          start: chord.start,
-          duration: chord.duration,
-        };
-      });
-      updatePattern(currentPatternId, { bassSequence: newBassSequence });
     }
+    
+    confirmToggleBarMode(patternId, newBars);
   };
 
-  // Sequencer display logic
-  useEffect(() => {
-    if (isPlaying && playingChordId) {
-      const activeChord = humanizedSequence.find(c => c.id === playingChordId);
-      if (activeChord) {
-        const parsed = parseChord(activeChord.chordName);
-        const cleanName = parsed ? `${parsed.root}${parsed.quality}`.replace(INVERSION_REGEX, '').trim() : activeChord.chordName;
-        const notesString = getChordNoteStrings(activeChord.chordName, 0).map(n => n.replace(/[0-9]/g, '')).join(' ');
-        setSequencerDisplayText({ name: cleanName, notes: notesString });
-      }
-    } else {
-      setSequencerDisplayText(null); // Clear when playback stops or between chords
+  const confirmToggleBarMode = (patternId: string, newBars: 4 | 8) => {
+    setPatterns(pats => pats.map(p => {
+        if (p.id === patternId) {
+            const stepsPerBar = p.timeSignature === '4/4' ? 16 : 12;
+            const newTotalSteps = newBars * stepsPerBar;
+
+            const newSequence = p.sequence.filter(c => c.start < newTotalSteps);
+
+            const newDrumPattern = { ...p.drumPattern };
+            DRUM_SOUNDS.forEach(sound => {
+                newDrumPattern[sound] = p.drumPattern[sound].slice(0, newTotalSteps);
+            });
+
+            return { ...p, bars: newBars, sequence: newSequence, drumPattern: newDrumPattern };
+        }
+        return p;
+    }));
+    setDialog(null);
+  };
+  
+  const handleTimeSignatureChange = (patternId: string, ts: '4/4' | '3/4') => {
+      const pattern = patterns.find(p => p.id === patternId);
+      if (!pattern || pattern.timeSignature === ts) return;
+
+      setDialog({ type: 'timeSignature', data: { patternId, newTimeSignature: ts }});
+  };
+
+  const confirmTimeSignatureChange = (patternId: string, newTimeSignature: '4/4' | '3/4') => {
+      setPatterns(pats => pats.map(p => {
+        if (p.id === patternId) {
+            // Reset sequences and drum patterns when changing time signature
+            return {
+                ...p,
+                timeSignature: newTimeSignature,
+                sequence: [],
+                bassSequence: [],
+                drumPattern: createExpandedDrumPattern(EMPTY_DRUM_PATTERNS[newTimeSignature], p.bars, newTimeSignature)
+            };
+        }
+        return p;
+      }));
+      setDialog(null);
+  };
+
+  const handleDrumPatternChange = (sound: DrumSound, step: number, value: boolean) => {
+      if (!currentPattern) return;
+      const newDrumPattern = { ...currentPattern.drumPattern };
+      newDrumPattern[sound][step] = value;
+      setPatterns(pats => pats.map(p => p.id === currentPattern.id ? { ...p, drumPattern: newDrumPattern } : p));
+  };
+
+  const handleApplyDrumPreset = (presetPattern: Record<DrumSound, boolean[]>) => {
+    if (!currentPattern) return;
+    const expandedPattern = createExpandedDrumPattern(presetPattern, currentPattern.bars, currentPattern.timeSignature);
+    setPatterns(pats => pats.map(p => p.id === currentPattern.id ? { ...p, drumPattern: expandedPattern } : p));
+  };
+  
+  // --- Bassline Generation ---
+  const handleGenerateBassline = useCallback((style: 'root') => {
+    if (!currentPattern || currentPattern.sequence.length === 0) return;
+    
+    let newBassSequence: SequenceBassNote[] = [];
+
+    if (style === 'root') {
+        currentPattern.sequence.forEach(chord => {
+            const notes = getChordNoteStrings(chord.chordName, 0); // Get notes in root position octave 0
+            const lowestNote = findLowestNote(notes);
+            if (lowestNote) {
+                const bassNoteName = lowestNote.replace(/\d/, '2'); // Put it in octave 2
+                newBassSequence.push({
+                    id: generateId(),
+                    noteName: bassNoteName,
+                    start: chord.start,
+                    duration: chord.duration,
+                });
+            }
+        });
     }
-  }, [isPlaying, playingChordId, humanizedSequence]);
 
-  const displayText = useMemo(() => {
-    return sequencerDisplayText ?? manualDisplayText;
-  }, [sequencerDisplayText, manualDisplayText]);
+    setPatterns(pats => pats.map(p => p.id === currentPattern.id ? { ...p, bassSequence: newBassSequence } : p));
 
+  }, [currentPattern, setPatterns]);
+  
+  // --- Dialog Rendering ---
+  const renderDialog = () => {
+    if (!dialog) return null;
+
+    if (dialog.type === 'deletePattern') {
+        return (
+            <ConfirmationDialog
+                title="Delete Pattern"
+                message={<p>Are you sure you want to delete the pattern "<strong>{dialog.data.name}</strong>"? This action cannot be undone.</p>}
+                confirmText="Delete"
+                onConfirm={() => confirmDeletePattern(dialog.data.id)}
+                onCancel={() => setDialog(null)}
+            />
+        );
+    }
+    
+    if (dialog.type === 'timeSignature') {
+        return (
+            <ConfirmationDialog
+                title="Change Time Signature"
+                message={<p>Changing the time signature will clear the current chord sequence and drum pattern. Are you sure you want to continue?</p>}
+                onConfirm={() => confirmTimeSignatureChange(dialog.data.patternId, dialog.data.newTimeSignature)}
+                onCancel={() => setDialog(null)}
+            />
+        );
+    }
+    
+    if (dialog.type === 'barMode') {
+      return (
+          <ConfirmationDialog
+              title="Change Pattern Length"
+              message={<p>Reducing the pattern length will remove all notes and drum hits from the second half. This action cannot be undone. Are you sure you want to continue?</p>}
+              onConfirm={() => confirmToggleBarMode(dialog.data.patternId, dialog.data.newBars)}
+              onCancel={() => setDialog(null)}
+          />
+      );
+    }
+
+    return null;
+  };
 
   if (!isAppReady) {
-    return <LoadingScreen isLoaded={isPianoLoaded} onStart={() => {
-      setIsAppReady(true);
-      requestFullScreen();
-    }} />;
+    return <LoadingScreen isLoaded={isPianoLoaded} onStart={handleStart} />;
   }
 
   return (
-    <div className="flex h-screen bg-gray-900 text-white overflow-hidden">
-      <main className="relative flex-1 flex flex-col min-h-0 min-w-0">
-        {!isSidebarOpen && (
-            <button
-                onClick={() => setIsSidebarOpen(true)}
-                className="absolute top-4 right-4 z-30 p-2 bg-gray-700/80 rounded-full text-white hover:bg-gray-600 transition-colors hidden lg:block"
-                aria-label="Open sidebar"
-                title="Open Sidebar"
-            >
-                <HamburgerIcon className="w-6 h-6" />
-            </button>
-        )}
-        <Header />
-        <ArrangementView
-          patterns={patterns}
-          currentPattern={currentPattern}
-          onSelectPattern={setCurrentPatternId}
-          onAddPattern={handleAddPattern}
-          onDeletePattern={handleDeletePattern}
-          onRenamePattern={handleRenamePattern}
-          onCopyPattern={handleCopyPattern}
-          onReorderPatterns={handleReorderPatterns}
-          bpm={bpm}
-          onBpmChange={setBpm}
-          onToggleBarMode={() => updatePattern(currentPatternId, { bars: bars === 4 ? 8 : 4 })}
-          onTimeSignatureChange={onTimeSignatureChange}
-          isDrumsEnabled={isDrumsEnabled}
-          onToggleDrumsEnabled={() => setIsDrumsEnabled(v => !v)}
-          onToggleDrumEditor={toggleDrumEditor}
-          isDrumEditorOpen={isDrumEditorOpen}
-          isMetronomeOn={isMetronomeOn}
-          onMetronomeToggle={handleMetronomeToggle}
-          isPianoVisible={isPianoVisible}
-          onTogglePiano={() => setIsPianoVisible(v => !v)}
-          onUndo={undo}
-          onRedo={redo}
-          canUndo={canUndo}
-          canRedo={canRedo}
-          basslineStyle={basslineStyle}
-          onSetBasslineStyle={setBasslineStyle}
-          onGenerateBass={handleGenerateBass}
-        />
-        <div 
-          className="relative flex-1 min-h-0 overflow-y-auto"
-          ref={mainAreaRef}
-        >
-          <div 
-            className="flex flex-col h-full"
-            onClick={(e) => {
-              if (e.target === e.currentTarget) {
-                setSelectedChordIds(new Set());
-              }
-            }}
-          >
-              <Sequencer
-                sequence={sequence}
-                bassSequence={bassSequence}
-                onAddChord={addChordToSequencer}
-                onUpdateChord={updateSequencerChord}
-                onRemoveChord={removeSequencerChord}
-                onChordDoubleClick={chord => setEditingChord(chord)}
-                onPlayChord={playSequencerChordPreview}
-                onChordSelect={handleChordSelect}
-                onDeselect={() => setSelectedChordIds(new Set())}
-                onChordMouseUp={stopActiveManualNotes}
-                playheadPosition={playheadPosition}
-                playingChordId={playingChordId}
-                playingBassNoteId={playingBassNoteId}
-                selectedChordIds={selectedChordIds}
-                bars={bars}
-                timeSignature={timeSignature}
-                onSeek={handleSeek}
-                isClickMuted={isSequencerClickMuted}
-                onMuteToggle={() => setIsSequencerClickMuted(v => !v)}
-              />
-
-              <div className={`relative transition-all duration-300 ease-in-out ${isPianoVisible ? 'h-52 mt-0' : 'h-12 mt-[10px]'}`}>
-                  {/* Piano container, always h-40 */}
-                  <div className="absolute top-0 left-0 right-0 h-40 overflow-hidden">
-                      <div className={`absolute inset-0 transition-transform duration-300 ease-in-out ${isPianoVisible ? 'translate-y-0' : '-translate-y-full'}`}>
-                          <Piano 
-                            ref={pianoRef}
-                            highlightedNotes={activePianoNotes}
-                            pressedNotes={activePianoNotes}
-                            onKeyMouseDown={handlePianoMouseDown}
-                            onKeyMouseEnter={handlePianoMouseEnter}
-                            onKeyMouseLeave={stopActivePianoNote}
-                            onPianoMouseLeave={stopActivePianoNote}
-                          />
-                      </div>
-                  </div>
-                  {/* Hover Display container */}
-                  <div className="absolute bottom-0 left-0 right-0 h-12">
-                      <HoverDisplay data={displayText} />
-                  </div>
-              </div>
-
-              {/* This spacer fills the REMAINING empty area, preventing clicks on the background from deselecting chords. */}
-              <div className="flex-1" />
-
-            {error && <div className="text-red-500 text-center pointer-events-auto">{error}</div>}
-          </div>
-        </div>
-        
-        <div className={`transition-all duration-300 ease-in-out ${isDrumEditorOpen && !isDrumEditorClosing ? 'max-h-80' : 'max-h-0'} overflow-hidden`}>
-            {isDrumEditorOpen && drumPattern && (
-              <DrumEditor 
-                pattern={drumPattern}
-                onPatternChange={updateDrumPattern}
-                volume={drumVol}
-                onVolumeChange={setDrumVol}
-                activeStep={activeDrumStep}
-                bars={bars}
-                timeSignature={timeSignature}
-                onClose={toggleDrumEditor}
-                presets={PRESET_DRUM_PATTERNS}
-                onApplyPreset={handleApplyDrumPreset}
-              />
-            )}
-        </div>
-
-        <TransportControls 
-          isPlaying={isPlaying}
-          onPlayPause={togglePlay}
-          onStop={handleStop}
-          onPanic={handlePanic}
-          playheadPosition={playheadPosition}
-          bars={bars}
-          timeSignature={timeSignature}
-          masterVolume={masterVolume}
-          onMasterVolumeChange={setMasterVolume}
-          isMuted={isMuted}
-          onMuteToggle={() => setIsMuted(v => !v)}
-        />
-      </main>
-      <SidePanel
-        isOpen={isSidebarOpen}
-        onClose={() => setIsSidebarOpen(false)}
-        chords={currentChordSet}
-        songKey={songKey}
-        setSongKey={setSongKey}
-        category={category}
-        setCategory={handleCategoryChange}
-        chordSetIndex={chordSetIndex}
-        setChordSetIndex={setChordSetIndex}
-        categories={categories}
-        chordSets={chordSets}
-        keys={KEY_OPTIONS}
-        onPadMouseDown={handlePadMouseDown}
-        onPadMouseUp={stopActivePadNotes}
-        onPadMouseEnter={handlePadMouseEnter}
-        onPadMouseLeave={clearHoveredNotes}
-        isPianoLoaded={isPianoLoaded}
-        octave={octave}
-        setOctave={setOctave}
-        inversionLevel={inversionLevel}
-        setInversionLevel={setInversionLevel}
-        voicingMode={voicingMode}
-        setVoicingMode={setVoicingMode}
-        onGenerate={handleGenerate}
-        isGenerating={isGenerating}
-        keyLabels={KEY_LABELS}
-        isSequencerVoicingOn={isSequencerVoicingOn}
-        setIsSequencerVoicingOn={setIsSequencerVoicingOn}
-        activeKeyboardPadIndices={activeKeyboardPadIndices}
-      />
-      
-      {editingChord && (
+    <div className="h-screen w-screen flex flex-col bg-gray-900 text-white select-none">
+      {renderDialog()}
+      {activeChordEditor && (
         <ChordEditor 
-          chord={editingChord} 
-          onClose={() => {
-            setEditingChord(null);
-            stopActiveEditorPreviewNotes();
-          }}
+          chord={activeChordEditor} 
+          onClose={() => setActiveChordEditor(null)}
           onApply={(newChordName) => {
-            updateSequencerChord(editingChord.id, { chordName: newChordName });
-            setEditingChord(null);
-            stopActiveEditorPreviewNotes();
+            handleUpdateChord(activeChordEditor.id, { chordName: newChordName });
           }}
-          onPreview={playEditorPreview}
+          onPreview={(chordName) => playChordOnce(getChordNoteStrings(chordName, 0), '8n')}
           updateChordUtil={updateChord}
         />
       )}
+      <Header />
       
-      {timeSignatureChangeRequest && (
-        <ConfirmationDialog
-          title="Change Time Signature"
-          message={<>Changing the time signature will adjust the drum pattern and may alter its feel.<br/>This action cannot be undone. Do you want to continue?</>}
-          onConfirm={handleConfirmTimeSignatureChange}
-          onCancel={() => setTimeSignatureChangeRequest(null)}
-          confirmText="Change"
+      <main ref={mainAreaRef} className="flex flex-1 min-h-0">
+        <div className="flex-1 flex flex-col min-w-0">
+          <HoverDisplay data={sequencerDisplayText || manualDisplayText} />
+          <ArrangementView 
+            patterns={patterns}
+            currentPattern={currentPattern}
+            onSelectPattern={handleSelectPattern}
+            onAddPattern={handleAddPattern}
+            onDeletePattern={handleDeletePattern}
+            onRenamePattern={handleRenamePattern}
+            onCopyPattern={handleCopyPattern}
+            onReorderPatterns={handleReorderPatterns}
+            bpm={bpm}
+            onBpmChange={setBpm}
+            onToggleBarMode={handleToggleBarMode}
+            onTimeSignatureChange={handleTimeSignatureChange}
+            isDrumsEnabled={isDrumsEnabled}
+            onToggleDrumsEnabled={() => setIsDrumsEnabled(v => !v)}
+            onToggleDrumEditor={() => setIsDrumEditorOpen(v => !v)}
+            isDrumEditorOpen={isDrumEditorOpen}
+            isMetronomeOn={isMetronomeOn}
+            onMetronomeToggle={() => setIsMetronomeOn(v => !v)}
+            isPianoVisible={isPianoVisible}
+            onTogglePiano={() => setIsPianoVisible(v => !v)}
+            onUndo={undo}
+            onRedo={redo}
+            canUndo={canUndo}
+            canRedo={canRedo}
+            basslineStyle={basslineStyle}
+            onSetBasslineStyle={setBasslineStyle}
+            onGenerateBass={handleGenerateBassline}
+          />
+          <div className="flex-1 overflow-x-auto overflow-y-hidden custom-sequencer-scrollbar">
+            <Sequencer
+              sequence={currentPattern?.sequence || []}
+              bassSequence={currentPattern?.bassSequence || []}
+              onAddChord={handleAddChord}
+              onUpdateChord={handleUpdateChord}
+              onRemoveChord={(id) => handleRemoveChords(new Set([id]))}
+              onChordDoubleClick={setActiveChordEditor}
+              onPlayChord={(name) => playChordOnce(getChordNoteStrings(name, 0), '8n')}
+              onChordSelect={handleChordSelect}
+              onDeselect={handleDeselect}
+              onChordMouseUp={() => { /* Handled by global mouseup in drag effect */}}
+              playheadPosition={playheadPosition}
+              playingChordId={playingChordId}
+              playingBassNoteId={null} // Update if you add bass note highlighting
+              selectedChordIds={selectedChordIds}
+              bars={currentPattern?.bars || 4}
+              timeSignature={currentPattern?.timeSignature || '4/4'}
+              onSeek={handleSeek}
+              isClickMuted={isSequencerClickMuted}
+              onMuteToggle={() => setIsSequencerClickMuted(v => !v)}
+            />
+          </div>
+           {isDrumEditorOpen && currentPattern && (
+                <DrumEditor
+                    pattern={currentPattern.drumPattern}
+                    onPatternChange={handleDrumPatternChange}
+                    volume={0} // Placeholder for individual drum volume
+                    onVolumeChange={() => {}} // Placeholder
+                    activeStep={activeDrumStep}
+                    bars={currentPattern.bars}
+                    timeSignature={currentPattern.timeSignature}
+                    onClose={() => setIsDrumEditorOpen(false)}
+                    presets={PRESET_DRUM_PATTERNS}
+                    onApplyPreset={handleApplyDrumPreset}
+                />
+            )}
+           {isPianoVisible && (
+              <div className="p-2 bg-gray-800/50">
+                  <Piano 
+                    ref={pianoRef}
+                    highlightedNotes={normalizeNotesForPiano([...hoveredNotes, ...sequencerActiveNotes])}
+                    pressedNotes={normalizeNotesForPiano([...activePadChordNotes, ...(activePianoNote ? [activePianoNote] : [])])}
+                    onKeyMouseDown={handlePianoKeyDown}
+                    onKeyMouseEnter={(note) => { if (activePianoNote) handlePianoKeyDown(note); }}
+                    onKeyMouseLeave={() => { if (activePianoNote) handlePianoKeyUp(activePianoNote); }}
+                    onPianoMouseLeave={() => { if (activePianoNote) handlePianoKeyUp(activePianoNote); }}
+                  />
+              </div>
+            )}
+          <TransportControls 
+            isPlaying={isPlaying}
+            onPlayPause={handlePlayPause}
+            onStop={handleStop}
+            onPanic={handlePanic}
+            playheadPosition={playheadPosition}
+            bars={currentPattern?.bars || 4}
+            timeSignature={currentPattern?.timeSignature || '4/4'}
+            masterVolume={masterVolume}
+            onMasterVolumeChange={setMasterVolume}
+            isMuted={isMuted}
+            onMuteToggle={() => setIsMuted(m => !m)}
+          />
+        </div>
+        <SidePanel
+          isOpen={isSidebarOpen}
+          onClose={() => setIsSidebarOpen(false)}
+          chords={displayedChords}
+          songKey={songKey}
+          setSongKey={setSongKey}
+          category={category}
+          setCategory={setCategory}
+          chordSetIndex={chordSetIndex}
+          setChordSetIndex={setChordSetIndex}
+          categories={Object.keys(staticChordData)}
+          chordSets={chordSets}
+          keys={KEY_OPTIONS}
+          onPadMouseDown={handlePadMouseDown}
+          onPadMouseUp={handlePadMouseUp}
+          onPadMouseEnter={handlePadHover}
+          onPadMouseLeave={handlePadLeave}
+          isPianoLoaded={isPianoLoaded}
+          octave={octave}
+          setOctave={setOctave}
+          inversionLevel={inversionLevel}
+          setInversionLevel={setInversionLevel}
+          voicingMode={voicingMode}
+          setVoicingMode={setVoicingMode}
+          onGenerate={handleGenerate}
+          isGenerating={isGenerating}
+          keyLabels={KEY_LABELS}
+          isSequencerVoicingOn={isSequencerVoicingOn}
+          setIsSequencerVoicingOn={setIsSequencerVoicingOn}
+          activeKeyboardPadIndices={activeKeyboardPadIndices}
         />
-      )}
+        {!isSidebarOpen && (
+          <button
+            onClick={() => setIsSidebarOpen(true)}
+            className="absolute right-0 top-1/2 -translate-y-1/2 bg-gray-800/80 hover:bg-indigo-600/80 p-2 rounded-l-md transition-colors"
+            aria-label="Open sidebar"
+            title="Open Sidebar"
+          >
+            <HamburgerIcon className="w-6 h-6" />
+          </button>
+        )}
+      </main>
+      <style>{`
+        .custom-sequencer-scrollbar::-webkit-scrollbar { height: 8px; }
+        .custom-sequencer-scrollbar::-webkit-scrollbar-track { background: #1f2937; }
+        .custom-sequencer-scrollbar::-webkit-scrollbar-thumb { background: #4f46e5; border-radius: 4px; }
+        .custom-sequencer-scrollbar::-webkit-scrollbar-thumb:hover { background: #6366f1; }
+      `}</style>
     </div>
   );
 };
