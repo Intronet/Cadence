@@ -216,16 +216,18 @@ export const ArrangementView: React.FC<ArrangementViewProps> = ({
         </button>
       </div>
 
-      <div className="flex items-center justify-between gap-4 px-[10px]">
-        <div className="flex items-center gap-4">
+      <div className="flex items-center justify-between gap-4 px-[10px] border-t border-gray-700 mt-2 pt-2">
+        <div className="flex-1 flex items-center gap-4">
           <EditablePatternName pattern={currentPattern} onRename={onRenamePattern} />
         </div>
 
-        <div className="flex items-center gap-2">
-            <button onClick={onUndo} disabled={!canUndo} className={`${regularButtonClasses} disabled:opacity-50 disabled:cursor-not-allowed h-10`} title="Undo (Ctrl+Z)"><UndoIcon className="w-5 h-5" /></button>
-            <button onClick={onRedo} disabled={!canRedo} className={`${regularButtonClasses} disabled:opacity-50 disabled:cursor-not-allowed h-10`} title="Redo (Ctrl+Y)"><RedoIcon className="w-5 h-5" /></button>
+        <div className="flex-shrink-0 flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <button onClick={onUndo} disabled={!canUndo} className={`${regularButtonClasses} disabled:opacity-50 disabled:cursor-not-allowed h-10`} title="Undo (Ctrl+Z)"><UndoIcon className="w-5 h-5" /></button>
+              <button onClick={onRedo} disabled={!canRedo} className={`${regularButtonClasses} disabled:opacity-50 disabled:cursor-not-allowed h-10`} title="Redo (Ctrl+Y)"><RedoIcon className="w-5 h-5" /></button>
+            </div>
             
-            <div className="h-6 w-px bg-gray-600 mx-2" />
+            <div className="h-6 w-px bg-gray-600" />
             
             {/* Transport */}
             <div className="flex items-center gap-2">
@@ -235,7 +237,10 @@ export const ArrangementView: React.FC<ArrangementViewProps> = ({
                 <button onClick={onStop} className={`${regularButtonClasses} w-12 h-10 flex items-center justify-center`} title="Stop">
                     <StopIcon className="w-6 h-6" />
                 </button>
+                <button onClick={onMetronomeToggle} className={`${isMetronomeOn ? primaryButtonClasses : regularButtonClasses} h-10`} title="Toggle Metronome"><MetronomeIcon className="w-5 h-5" /></button>
             </div>
+            
+            <div className="h-6 w-px bg-gray-600" />
 
             <div className="flex items-center gap-4">
                 {/* Time Display */}
@@ -262,31 +267,28 @@ export const ArrangementView: React.FC<ArrangementViewProps> = ({
                     />
                     <label className="text-sm font-semibold text-gray-400">BPM</label>
                 </div>
+                 <div className="flex items-center gap-2">
+                      <select
+                          value={currentPattern.timeSignature}
+                          onChange={(e) => onTimeSignatureChange(currentPattern.id, e.target.value as '4/4' | '3/4')}
+                          className="bg-gray-700 border border-gray-600 text-gray-200 text-sm rounded-[4px] focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent block p-1.5 transition-all duration-200 cursor-pointer h-10"
+                          title="Set pattern time signature"
+                      >
+                          <option value="4/4">4/4</option>
+                          <option value="3/4">3/4</option>
+                      </select>
+                      <button
+                          onClick={() => onToggleBarMode(currentPattern.id)}
+                          className="px-3 text-sm font-semibold rounded-[4px] bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 focus:ring-offset-gray-800 h-10"
+                          title="Toggle pattern length"
+                      >
+                          {currentPattern.bars} Bars
+                      </button>
+                  </div>
             </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2">
-              <select
-                  value={currentPattern.timeSignature}
-                  onChange={(e) => onTimeSignatureChange(currentPattern.id, e.target.value as '4/4' | '3/4')}
-                  className="bg-gray-700 border border-gray-600 text-gray-200 text-sm rounded-[4px] focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent block p-1.5 transition-all duration-200 cursor-pointer"
-                  title="Set pattern time signature"
-              >
-                  <option value="4/4">4/4</option>
-                  <option value="3/4">3/4</option>
-              </select>
-              <button
-                  onClick={() => onToggleBarMode(currentPattern.id)}
-                  className="px-3 py-1.5 text-sm font-semibold rounded-[4px] bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 focus:ring-offset-gray-800"
-                  title="Toggle pattern length"
-              >
-                  {currentPattern.bars} Bars
-              </button>
-          </div>
-          <div className="h-6 w-px bg-gray-600 mx-1" />
-          <button onClick={onMetronomeToggle} className={`${isMetronomeOn ? primaryButtonClasses : regularButtonClasses} h-10`} title="Toggle Metronome"><MetronomeIcon className="w-5 h-5" /></button>
-          <div className="h-6 w-px bg-gray-600 mx-1" />
+        <div className="flex-1 flex items-center justify-end gap-2">
           <button onClick={onToggleDrumsEnabled} className={`${isDrumsEnabled ? primaryButtonClasses : regularButtonClasses} h-10`} title="Toggle Drums"><DrumIcon className="w-5 h-5" /></button>
           <button onClick={onToggleDrumEditor} className={`${isDrumEditorOpen ? primaryButtonClasses : regularButtonClasses} h-10`} title="Toggle Drum Editor"><DrumEditorIcon className="w-5 h-5" /></button>
           <div className="h-6 w-px bg-gray-600 mx-1" />
@@ -300,7 +302,7 @@ export const ArrangementView: React.FC<ArrangementViewProps> = ({
              <input
                type="range" min={-40} max={6} step={1} value={masterVolume}
                onChange={(e) => onMasterVolumeChange(parseFloat(e.target.value))}
-               className="w-24 h-2 bg-gray-600 rounded-[4px] appearance-none cursor-pointer"
+               className="w-24 h-2 bg-gray-600 rounded-[4px] appearance-none cursor-pointer range-slider"
              />
           </div>
           <button onClick={onPanic} className={`${dangerButtonClasses} h-10`} title="Panic! (Stop all sound)">
@@ -308,6 +310,36 @@ export const ArrangementView: React.FC<ArrangementViewProps> = ({
           </button>
         </div>
       </div>
+       <style>{`
+        .range-slider::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 16px;
+          height: 16px;
+          border-radius: 50%;
+          background: #818cf8; /* indigo-400 */
+          cursor: pointer;
+          transition: background .2s;
+        }
+        
+        .range-slider::-moz-range-thumb {
+          width: 16px;
+          height: 16px;
+          border-radius: 50%;
+          background: #818cf8;
+          cursor: pointer;
+          border: none;
+          transition: background .2s;
+        }
+
+        .range-slider:hover::-webkit-slider-thumb {
+            background: #a78bfa; /* purple-400 */
+        }
+
+        .range-slider:hover::-moz-range-thumb {
+            background: #a78bfa;
+        }
+      `}</style>
     </div>
   );
 };
