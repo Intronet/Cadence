@@ -235,7 +235,7 @@ export const Toolkit: React.FC<ToolkitProps> = ({
   }, [pianosWidth, controlsWidth, voicingWidth, height]);
 
 
-  const onPadDragStart = (e: React.DragEvent<HTMLButtonElement>, chordName: string) => {
+  const onPadDragStart = (e: React.DragEvent<HTMLDivElement>, chordName: string) => {
     let finalChordName = chordName;
     let finalOctave = octave;
 
@@ -251,27 +251,12 @@ export const Toolkit: React.FC<ToolkitProps> = ({
       chordName: finalChordName,
       octave: finalOctave,
     };
-
-    const dragImage = e.currentTarget;
-    const rect = dragImage.getBoundingClientRect();
-    const offsetX = e.clientX - rect.left;
-    const offsetY = e.clientY - rect.top;
-
-    // Use a clone to ensure consistent drag image styling and size
-    const clone = dragImage.cloneNode(true) as HTMLElement;
-    clone.style.position = 'absolute';
-    clone.style.top = '-9999px';
-    clone.style.left = '-9999px';
-    clone.style.width = quarterNoteWidth > 0 ? `${quarterNoteWidth}px` : `${rect.width}px`;
-    clone.style.height = `${rect.height}px`;
-    document.body.appendChild(clone);
-
-    e.dataTransfer.setDragImage(clone, offsetX, offsetY);
-    e.dataTransfer.setData("application/json", JSON.stringify(dragData));
-    e.dataTransfer.effectAllowed = "copy";
     
-    // Clean up clone after the drag frame is captured
-    setTimeout(() => document.body.removeChild(clone), 0);
+    const dragDataJson = JSON.stringify(dragData);
+
+    // Use only text/plain for maximum browser compatibility, especially with Firefox.
+    e.dataTransfer.setData("text/plain", dragDataJson);
+    e.dataTransfer.effectAllowed = "copy";
   };
 
   const handleVerticalResizeMouseDown = (e: React.MouseEvent) => {

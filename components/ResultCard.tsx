@@ -7,7 +7,7 @@ interface PadGridProps {
   onPadMouseUp: () => void;
   onPadMouseEnter: (chordName: string) => void;
   onPadMouseLeave: () => void;
-  onPadDragStart: (e: React.DragEvent, chordName: string) => void;
+  onPadDragStart: (e: React.DragEvent<HTMLDivElement>, chordName: string) => void;
   isPianoLoaded: boolean;
   inversionLevel: number;
   voicingMode: 'off' | 'manual' | 'auto';

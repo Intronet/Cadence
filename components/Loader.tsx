@@ -1,5 +1,3 @@
-
-
 import React from 'react';
 
 interface PadProps {
@@ -8,8 +6,7 @@ interface PadProps {
   onMouseUp: () => void;
   onMouseEnter: (chordName: string) => void;
   onMouseLeave: () => void;
-  // FIX: Specified HTMLButtonElement for the DragEvent to provide a more accurate type for the event handler.
-  onDragStart: (e: React.DragEvent<HTMLButtonElement>) => void;
+  onDragStart: (e: React.DragEvent<HTMLDivElement>) => void;
   isLoaded: boolean;
   keyLabel?: string;
   isPressedByKeyboard?: boolean;
@@ -34,18 +31,41 @@ export const Pad: React.FC<PadProps> = ({ chordName, onMouseDown, onMouseUp, onM
     return `${chordName}${keyHint}\nPlay or drag onto\nsequencer timeline`;
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      if (!finalIsDisabled) {
+        onMouseDown(chordName);
+      }
+    }
+  };
+
+  const handleKeyUp = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      if (!finalIsDisabled) {
+        onMouseUp();
+      }
+    }
+  };
+
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={finalIsDisabled ? -1 : 0}
       onMouseDown={(e) => { if (e.button === 0 && !finalIsDisabled) onMouseDown(chordName); }}
       onMouseUp={onMouseUp}
-      onMouseEnter={() => onMouseEnter(chordName)}
+      onMouseEnter={() => !finalIsDisabled && onMouseEnter(chordName)}
       onMouseLeave={() => {
-        onMouseUp();
-        onMouseLeave();
+        if (!finalIsDisabled) {
+            onMouseUp();
+            onMouseLeave();
+        }
       }}
-      onDragStart={onDragStart}
+      onDragStart={finalIsDisabled ? undefined : onDragStart}
+      onKeyDown={handleKeyDown}
+      onKeyUp={handleKeyUp}
       draggable={!finalIsDisabled}
-      disabled={finalIsDisabled}
       className={`${baseClasses} ${finalIsDisabled ? disabledClasses : enabledClasses} ${isPressedByKeyboard && !finalIsDisabled ? keyboardPressedClasses : ''}`}
       aria-label={`Play chord ${chordName}`}
       title={getTooltipText()}
@@ -54,6 +74,6 @@ export const Pad: React.FC<PadProps> = ({ chordName, onMouseDown, onMouseUp, onM
       <span className="text-white text-center font-semibold text-xs sm:text-sm break-words pointer-events-none [text-shadow:0_1px_2px_rgba(0,0,0,0.5)]">
         {chordName}
       </span>
-    </button>
+    </div>
   );
 };

@@ -238,7 +238,8 @@ export const Sequencer: React.FC<SequencerProps> = ({
   onWidthChange
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [dragOverStep, setDragOverStep] = useState<number | null>(null);
+  const ghostBlockRef0 = useRef<HTMLDivElement>(null);
+  const ghostBlockRef1 = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(0);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; chord: SequenceChord } | null>(null);
   const [draggingState, setDraggingState] = useState<{
@@ -361,34 +362,64 @@ export const Sequencer: React.FC<SequencerProps> = ({
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
     if (stepWidth === 0) return;
+
     const target = e.currentTarget as HTMLDivElement;
+    const lane = Number(target.dataset.lane) || 0;
+    const ghostBlockRef = lane === 0 ? ghostBlockRef0 : ghostBlockRef1;
+    const otherGhostBlockRef = lane === 0 ? ghostBlockRef1 : ghostBlockRef0;
+
+    if (otherGhostBlockRef.current) {
+      otherGhostBlockRef.current.style.display = 'none';
+    }
+    if (!ghostBlockRef.current) return;
+
     const rect = target.getBoundingClientRect();
     const x = e.clientX - rect.left - TRACK_PADDING;
-
     const stepInLane = Math.floor(x / stepWidth);
-    const lane = Number(target.dataset.lane) || 0;
-    const baseStep = lane * stepsPerLane;
-    const totalStep = baseStep + stepInLane;
-
-    setDragOverStep(Math.max(0, Math.min(TOTAL_STEPS - DEFAULT_CHORD_DURATION, totalStep)));
+    const clampedStep = Math.max(0, Math.min(stepsPerLane - DEFAULT_CHORD_DURATION, stepInLane));
+    
+    ghostBlockRef.current.style.display = 'block';
+    ghostBlockRef.current.style.left = `${clampedStep * stepWidth + TRACK_PADDING}px`;
+    ghostBlockRef.current.style.width = `${DEFAULT_CHORD_DURATION * stepWidth}px`;
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
-    const jsonData = e.dataTransfer.getData("application/json");
-    if (jsonData && dragOverStep !== null) {
+    if (ghostBlockRef0.current) ghostBlockRef0.current.style.display = 'none';
+    if (ghostBlockRef1.current) ghostBlockRef1.current.style.display = 'none';
+
+    if (stepWidth === 0) return;
+    const target = e.currentTarget as HTMLDivElement;
+    const rect = target.getBoundingClientRect();
+    const x = e.clientX - rect.left - TRACK_PADDING;
+    const stepInLane = Math.floor(x / stepWidth);
+    const lane = Number(target.dataset.lane) || 0;
+    const baseStep = lane * stepsPerLane;
+    
+    const totalStep = baseStep + stepInLane;
+    const dropStep = Math.max(0, Math.min(TOTAL_STEPS - DEFAULT_CHORD_DURATION, totalStep));
+
+    // Use only text/plain for maximum browser compatibility.
+    const jsonData = e.dataTransfer.getData("text/plain");
+
+    if (jsonData) {
       try {
         const data = JSON.parse(jsonData);
-        onAddChord(data.chordName, dragOverStep, data.octave);
+        if (data.chordName && typeof data.chordName === 'string') {
+          onAddChord(data.chordName, dropStep, data.octave);
+        }
       } catch (error) {
-        console.error("Error handling drop with JSON data:", error);
+        console.error("Failed to parse dropped data:", error);
       }
     }
-    setDragOverStep(null);
   };
   
-  const handleDragLeave = () => setDragOverStep(null);
+  const handleContainerDragLeave = () => {
+    if (ghostBlockRef0.current) ghostBlockRef0.current.style.display = 'none';
+    if (ghostBlockRef1.current) ghostBlockRef1.current.style.display = 'none';
+  };
   
   const handleTrackClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (!(e.target as HTMLElement).closest('.chord-block')) {
@@ -422,7 +453,7 @@ export const Sequencer: React.FC<SequencerProps> = ({
   const playheadLeftInLane = (playheadPosition % beatsPerLane) * beatWidth;
 
   const renderGrid = (height: number) => (
-    <div className="absolute inset-0" style={{ left: `${TRACK_PADDING}px`, right: `${TRACK_PADDING}px`, height: `${height}px` }}>
+    <div className="absolute inset-0 pointer-events-none" style={{ left: `${TRACK_PADDING}px`, right: `${TRACK_PADDING}px`, height: `${height}px` }}>
        {Array.from({ length: stepsPerLane }).map((_, i) => {
           const isBeat = i % SUBDIVISION === 0;
           let borderColorClass = i % STEPS_PER_BAR === 0 ? 'border-gray-600' : isBeat ? 'border-gray-700' : 'border-gray-800';
@@ -452,6 +483,7 @@ export const Sequencer: React.FC<SequencerProps> = ({
 
   const renderSequencerLane = (laneIndex: 0 | 1) => {
     const barOffset = laneIndex * 4;
+    const ghostBlockRef = laneIndex === 0 ? ghostBlockRef0 : ghostBlockRef1;
     return (
       <div className='relative bg-gray-800'>
         <div className="relative flex items-center">
@@ -473,7 +505,7 @@ export const Sequencer: React.FC<SequencerProps> = ({
             data-lane={laneIndex}
             className="relative w-full bg-gray-900/50"
             style={{ height: `${CHORD_TRACK_HEIGHT}px` }}
-            onDragOver={handleDragOver} onDrop={handleDrop} onDragLeave={handleDragLeave}
+            onDragOver={handleDragOver} onDrop={handleDrop}
             onClick={handleTrackClick}
             title={`SEQUENCER:\nDrag chords here, or click to position the playhead.`}
         >
@@ -503,9 +535,15 @@ export const Sequencer: React.FC<SequencerProps> = ({
                 />
               );
             })}
-            {dragOverStep !== null && Math.floor(dragOverStep / stepsPerLane) === laneIndex && (
-              <div className="absolute bg-indigo-500/30 rounded-[4px] pointer-events-none" style={{ left: `${(dragOverStep % stepsPerLane) * stepWidth + TRACK_PADDING}px`, width: `${DEFAULT_CHORD_DURATION * stepWidth}px`, height: `${CHORD_BLOCK_HEIGHT}px`, bottom: `${TRACK_VERTICAL_PADDING}px` }}/>
-            )}
+            <div
+                ref={ghostBlockRef}
+                className="absolute bg-indigo-500/30 rounded-[4px] pointer-events-none"
+                style={{
+                    display: 'none',
+                    height: `${CHORD_BLOCK_HEIGHT}px`,
+                    bottom: `${TRACK_VERTICAL_PADDING}px`,
+                }}
+            />
         </div>
          {/* Bass Track or Spacer */}
          {hasBass ? (
@@ -545,7 +583,11 @@ export const Sequencer: React.FC<SequencerProps> = ({
   };
 
   return (
-    <div className="w-full flex flex-col min-w-[600px]" onClick={handleContainerClick}>
+    <div 
+      className="w-full flex flex-col min-w-[600px]" 
+      onClick={handleContainerClick}
+      onDragLeave={handleContainerDragLeave}
+    >
        <style>{`
         @keyframes fade-in-fast {
           from { opacity: 0; transform: scale(0.98); }
@@ -564,7 +606,7 @@ export const Sequencer: React.FC<SequencerProps> = ({
           </React.Fragment>
         )}
 
-        {sequence.length === 0 && dragOverStep === null && (
+        {sequence.length === 0 && (
           <div className="absolute top-1/2 -translate-y-1/2 text-gray-600 font-semibold pointer-events-none" style={{left: barWidth / 2 + 16, transform: 'translate(-50%, -50%)', top: '65px' }}>
             Drag a chord from the side panel to start
           </div>
