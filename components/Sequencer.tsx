@@ -11,7 +11,7 @@ interface SequencerProps {
   onUpdateChord: (id: string, newProps: Partial<SequenceChord>) => void;
   onRemoveChord: (id: string) => void;
   onChordDoubleClick: (chord: SequenceChord) => void;
-  onPlayChord: (chordName: string) => void;
+  onPlayChord: (chord: SequenceChord) => void;
   onChordSelect: (id: string, e: MouseEvent) => void;
   onDeselect: () => void;
   onChordMouseUp: () => void;
@@ -24,9 +24,10 @@ interface SequencerProps {
   onSeek: (positionInBeats: number) => void;
   isClickMuted: boolean;
   onMuteToggle: () => void;
+  onWidthChange: (width: number) => void;
 }
 
-const DEFAULT_CHORD_DURATION = 8; // A half note (8 * 16th steps)
+const DEFAULT_CHORD_DURATION = 4; // A quarter note (4 * 16th steps)
 const TRACK_PADDING = 10; // horizontal padding in px
 const RULER_HEIGHT = 24; // Corresponds to h-6 in tailwind
 const CHORD_BLOCK_HEIGHT = 68; // 10px taller
@@ -89,7 +90,7 @@ interface ChordBlockProps {
   stepsPerLane: number;
   onRemove: (id: string) => void;
   onDoubleClick: (chord: SequenceChord) => void;
-  onPlayChord: (chordName: string) => void;
+  onPlayChord: (chord: SequenceChord) => void;
   onChordSelect: (id: string, e: MouseEvent<HTMLDivElement>) => void;
   onChordMouseUp: () => void;
   playingChordId: string | null;
@@ -109,7 +110,7 @@ const ChordBlock: React.FC<ChordBlockProps> = ({
     
     onChordSelect(chord.id, e);
     if (!isClickMuted) {
-      onPlayChord(chord.chordName);
+      onPlayChord(chord);
     }
     
     const target = e.target as HTMLElement;
@@ -152,7 +153,8 @@ const ChordBlock: React.FC<ChordBlockProps> = ({
 export const Sequencer: React.FC<SequencerProps> = ({
   sequence, bassSequence, onAddChord, onUpdateChord, onRemoveChord, onChordDoubleClick,
   onPlayChord, onChordSelect, onDeselect, onChordMouseUp, playheadPosition, 
-  playingChordId, playingBassNoteId, selectedChordIds, bars, timeSignature, onSeek, isClickMuted, onMuteToggle
+  playingChordId, playingBassNoteId, selectedChordIds, bars, timeSignature, onSeek, isClickMuted, onMuteToggle,
+  onWidthChange
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [dragOverStep, setDragOverStep] = useState<number | null>(null);
@@ -181,14 +183,26 @@ export const Sequencer: React.FC<SequencerProps> = ({
   const playheadHeight = hasBass ? CHORD_TRACK_HEIGHT + BASS_TRACK_HEIGHT : CHORD_TRACK_HEIGHT;
 
   useEffect(() => {
-    const calculateWidth = () => {
-      if (containerRef.current) setContainerWidth(containerRef.current.offsetWidth);
+    const calculateWidth = (entries: ResizeObserverEntry[]) => {
+        if (entries[0]) {
+            const newWidth = entries[0].contentRect.width;
+            setContainerWidth(newWidth);
+            onWidthChange(newWidth);
+        }
     };
-    calculateWidth();
     const resizeObserver = new ResizeObserver(calculateWidth);
-    if (containerRef.current) resizeObserver.observe(containerRef.current);
-    return () => resizeObserver.disconnect();
-  }, []);
+    const currentContainer = containerRef.current;
+    if (currentContainer) {
+        setContainerWidth(currentContainer.offsetWidth);
+        onWidthChange(currentContainer.offsetWidth);
+        resizeObserver.observe(currentContainer);
+    }
+    return () => {
+        if (currentContainer) {
+            resizeObserver.unobserve(currentContainer);
+        }
+    };
+  }, [onWidthChange]);
 
   const stepsPerLane = STEPS_PER_BAR * 4;
   const gridWidth = containerWidth > 0 ? containerWidth - (TRACK_PADDING * 2) : 0;

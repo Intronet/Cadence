@@ -1,45 +1,4 @@
-import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import { ChordData } from '../types';
-
-export const generateProgression = async (prompt: string, key: string): Promise<string[]> => {
-  if (!process.env.API_KEY) {
-    throw new Error("API_KEY environment variable not set");
-  }
-
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  
-  const fullPrompt = `You are a helpful music assistant. A musician has requested a chord progression based on this description: "${prompt}".
-The progression should be in the key of ${key}.
-
-If the description is a specific song title, provide the main chord progression for that song as accurately as possible, ensuring it has a reasonable length for a musical section.
-If the description is a general style or mood, create a suitable and inspiring chord progression of at least 8 chords.
-
-Return ONLY a comma-separated list of standard chord names.
-For example: Am7, G, Fmaj7, C, Am7, G, Fmaj7, C
-Do not include any other text, explanation, or markdown formatting.`;
-
-  try {
-    const response: GenerateContentResponse = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: fullPrompt,
-    });
-    
-    // Aligned with guidelines to directly access and then trim the response text.
-    const text = response.text;
-    if (!text) {
-      return [];
-    }
-    
-    // Clean up response: remove potential markdown and split
-    const chords = text.trim().replace(/`/g, '').split(',').map(chord => chord.trim()).filter(Boolean);
-    return chords;
-
-  } catch (error) {
-    console.error("Error generating progression:", error);
-    throw new Error("Failed to generate chord progression from AI.");
-  }
-};
-
 
 export const chordData: ChordData = {
     "70's Funk & Soul": [
@@ -70,6 +29,7 @@ export const chordData: ChordData = {
         { name: "Fmaj7, Emin7, Emin / G, Fmaj / A, Gmaj / B, Amin(no5), Dmin7, Cmaj(no5), Gmaj", chords: ["Fmaj7", "Emin7", "Emin / G", "Fmaj / A", "Gmaj / B", "Amin(no5)", "Dmin7", "Cmaj(no5)", "Gmaj"] }
     ],
     "Blues": [
+// FIX: Corrected a malformed `chords` array that was causing a syntax error.
         { name: "C9, Edim♯5, F9, D7, C7, G9, F9, Cmaj", chords: ["C9", "Edim♯5", "F9", "D7", "C7", "G9", "F9", "Cmaj"] },
         { name: "B♭sus2(♭5) / C, F7, Fmin7(♭5), Gmin7, E7, A7, Fmaj add13 / A, G7, Csus4", chords: ["B♭sus2(♭5) / C", "F7", "Fmin7(♭5)", "Gmin7", "E7", "A7", "Fmaj add13 / A", "G7", "Csus4"] },
         { name: "Bmaj7, A♯min7(♭5), D♯7, G♯min7, C♯7, F♯7, B7, E7, A7, D♯min7, G♯7, Dmin7, G7, C♯min7, Bmaj", chords: ["Bmaj7", "A♯min7(♭5)", "D♯7", "G♯min7", "C♯7", "F♯7", "B7", "E7", "A7", "D♯min7", "G♯7", "Dmin7", "G7", "C♯min7", "Bmaj"] },

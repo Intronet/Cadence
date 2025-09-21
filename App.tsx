@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { Header } from './components/Header';
-import { SidePanel } from './components/SidePanel';
 import { chordData as staticChordData } from './services/geminiService';
 import { 
   transposeProgression, 
@@ -23,21 +22,21 @@ import {
   KEY_SIGNATURES,
   NOTE_TO_INDEX,
   transposeChord,
-  findLowestNote
+  findLowestNote,
+  generateDiatonicChords,
+  hasSeventh
 } from './index';
-import { KEY_OPTIONS, ChordSet, SequenceChord, Pattern, DrumSound, DrumPatternPreset, SequenceBassNote } from './types';
+import { ROOT_NOTE_OPTIONS, SCALE_MODE_OPTIONS, ChordSet, SequenceChord, Pattern, DrumSound, DrumPatternPreset, SequenceBassNote } from './types';
 import { Piano, PianoHandle } from './components/Piano';
-import { generateProgression } from './services/geminiService';
 import { HoverDisplay } from './components/HoverDisplay';
 import { Sequencer } from './components/Sequencer';
 import * as Tone from 'tone';
-import { TransportControls } from './components/TransportControls';
 import { ChordEditor } from './components/ChordEditor';
 import { DrumEditor } from './components/DrumMachine';
 import { PRESET_DRUM_PATTERNS, DRUM_SOUNDS, EMPTY_DRUM_PATTERNS } from './components/drums/drumPatterns';
 import { ArrangementView } from './components/PatternControls';
-import { HamburgerIcon } from './components/icons/HamburgerIcon';
 import { ConfirmationDialog } from './components/ConfirmationDialog';
+import { Toolkit } from './components/Toolkit';
 
 
 // --- History Hook ---
@@ -68,7 +67,7 @@ const useHistory = <T,>(initialState: T) => {
 
   const redo = useCallback(() => {
     if (index < history.length - 1) {
-      setIndex(i => i + 1);
+      setIndex(i => i - 1);
     }
   }, [index, history.length]);
 
@@ -86,24 +85,34 @@ const useHistory = <T,>(initialState: T) => {
 const generateId = () => `_${Math.random().toString(36).substr(2, 9)}`;
 
 // --- Loading Screen Component ---
-const LoadingScreen: React.FC<{ isLoaded: boolean; onStart: () => void; }> = ({ isLoaded, onStart }) => {
+const LoadingScreen: React.FC<{ isLoaded: boolean; onStart: () => void; isFadingOut: boolean }> = ({ isLoaded, onStart, isFadingOut }) => {
   const [progress, setProgress] = useState(0);
   const [isButtonEnabled, setIsButtonEnabled] = useState(false);
+  const [loadingText, setLoadingText] = useState('Loading audio samples...');
 
   useEffect(() => {
     if (isLoaded) {
       setProgress(100); 
 
-      const timer = setTimeout(() => {
-        setIsButtonEnabled(true);
-      }, 2500);
+      const animationDuration = 2500;
+      
+      const textTimer = setTimeout(() => {
+        setLoadingText('Loaded audio samples');
+      }, animationDuration);
 
-      return () => clearTimeout(timer);
+      const buttonTimer = setTimeout(() => {
+        setIsButtonEnabled(true);
+      }, animationDuration);
+
+      return () => {
+        clearTimeout(textTimer);
+        clearTimeout(buttonTimer);
+      };
     }
   }, [isLoaded]);
 
   return (
-    <div className="fixed inset-0 bg-gray-900 z-50 flex flex-col items-center justify-center text-white overflow-hidden">
+    <div className={`fixed inset-0 bg-gray-900 z-50 flex flex-col items-center justify-center text-white overflow-hidden transition-opacity duration-[1500ms] ease-out ${isFadingOut ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
       <div className="absolute inset-0 z-0 opacity-30">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-600 rounded-full filter blur-3xl animate-blob"></div>
         <div className="absolute top-1/2 right-1/4 w-80 h-80 bg-indigo-600 rounded-full filter blur-3xl animate-blob animation-delay-2000"></div>
@@ -129,7 +138,7 @@ const LoadingScreen: React.FC<{ isLoaded: boolean; onStart: () => void; }> = ({ 
         >
           Click to Start
         </button>
-        {!isLoaded && <p className="text-gray-400 mt-4">Loading audio samples...</p>}
+        <p className="text-gray-400 mt-4">{loadingText}</p>
       </div>
 
        <style>{`
@@ -245,26 +254,25 @@ const requestFullScreen = () => {
 };
 
 const App: React.FC = () => {
-  const [isAppReady, setIsAppReady] = useState(false);
-  const [songKey, setSongKey] = useState<string>('C');
-  const [category, setCategory] = useState<string>(Object.keys(staticChordData)[0]);
+  const [isLoaderVisible, setIsLoaderVisible] = useState(true);
+  const [isLoaderFadingOut, setIsLoaderFadingOut] = useState(false);
+  const [isPianoLoaded, setIsPianoLoaded] = useState(false);
+  
+  const [songRootNote, setSongRootNote] = useState<string>('C');
+  const [songMode, setSongMode] = useState<string>('Major');
+  const [category, setCategory] = useState<string>('Diatonic Chords');
   const [chordSetIndex, setChordSetIndex] = useState(0);
   const [octave, setOctave] = useState(0);
   const [inversionLevel, setInversionLevel] = useState(0); 
   const [voicingMode, setVoicingMode] = useState<'off' | 'manual' | 'auto'>('auto');
-  const [isPianoLoaded, setIsPianoLoaded] = useState(false);
   const [activePadChordNotes, setActivePadChordNotes] = useState<string[]>([]);
   const [activePianoNote, setActivePianoNote] = useState<string | null>(null);
-  const [generatedChordSets, setGeneratedChordSets] = useState<ChordSet[]>([]);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [hoveredNotes, setHoveredNotes] = useState<string[]>([]);
   const [manualDisplayText, setManualDisplayText] = useState<{ name: string; notes: string } | null>(null);
   const [sequencerDisplayText, setSequencerDisplayText] = useState<{ name: string; notes: string } | null>(null);
   const mainAreaRef = useRef<HTMLDivElement>(null);
   const pianoRef = useRef<PianoHandle>(null);
   
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isPianoVisible, setIsPianoVisible] = useState(false);
 
   const [masterVolume, setMasterVolume] = useState(0); // in dB
@@ -286,14 +294,13 @@ const App: React.FC = () => {
   const [playingChordId, setPlayingChordId] = useState<string | null>(null);
   const [sequencerActiveNotes, setSequencerActiveNotes] = useState<string[]>([]);
   const [activeSequencerManualNotes, setActiveSequencerManualNotes] = useState<string[]>([]);
-  const [isSequencerVoicingOn, setIsSequencerVoicingOn] = useState(true);
   const [isSequencerClickMuted, setIsSequencerClickMuted] = useState(false);
   const [selectedChordIds, setSelectedChordIds] = useState<Set<string>>(new Set());
   const [clipboard, setClipboard] = useState<Array<Omit<SequenceChord, 'id'>>>([]);
   const chordPartRef = useRef<Tone.Part | null>(null);
   const bassPartRef = useRef<Tone.Part | null>(null);
   const animationFrameRef = useRef<number | null>(null);
-  const prevSongKeyRef = useRef<string>(songKey);
+  const prevSongRootRef = useRef<string>(songRootNote);
 
   const currentPattern = useMemo(() => patterns.find(p => p.id === currentPatternId) ?? patterns[0], [patterns, currentPatternId]);
   const sequence = useMemo(() => currentPattern?.sequence || [], [currentPattern]);
@@ -302,6 +309,7 @@ const App: React.FC = () => {
   const timeSignature = useMemo(() => currentPattern?.timeSignature ?? '4/4', [currentPattern]);
   const timeSignatureValue = useMemo(() => timeSignature === '4/4' ? 4 : 3, [timeSignature]);
   
+  const [sequencerWidth, setSequencerWidth] = useState(0);
   const [sequencerActiveBassNotes, setSequencerActiveBassNotes] = useState<string[]>([]);
   const [playingBassNoteId, setPlayingBassNoteId] = useState<string | null>(null);
   const [basslineStyle, setBasslineStyle] = useState<'root'>('root');
@@ -311,9 +319,26 @@ const App: React.FC = () => {
   const [activeKeyboardPadIndices, setActiveKeyboardPadIndices] = useState<Set<number>>(new Set());
   const pressedKeysRef = useRef<Set<string>>(new Set());
 
+  const handleStart = () => {
+    requestFullScreen();
+    // Delay the start of the fade-out by 0.5 seconds
+    setTimeout(() => {
+      setIsLoaderFadingOut(true);
+      // Set a timer to remove the loader from the DOM after the fade-out animation completes
+      setTimeout(() => {
+        setIsLoaderVisible(false);
+      }, 1500); // This is the duration of the fade-out animation
+    }, 500); // This is the delay before the fade-out starts
+  };
+
   const updatePattern = useCallback((id: string, updates: Partial<Pattern>) => {
     setPatterns(prev => prev.map(p => (p.id === id ? { ...p, ...updates } : p)));
   }, [setPatterns]);
+
+  const handleTogglePiano = () => {
+    setIsPianoVisible(v => !v);
+  };
+
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -387,25 +412,6 @@ const App: React.FC = () => {
     Tone.Destination.mute = isMuted;
   }, [isMuted]);
 
-  useEffect(() => {
-    if (prevSongKeyRef.current !== songKey && sequence.length > 0) {
-      const oldKey = prevSongKeyRef.current;
-      const newKey = songKey;
-      const oldKeyIndex = parseNote(oldKey);
-      const newKeyIndex = parseNote(newKey);
-      if (!isNaN(oldKeyIndex) && !isNaN(newKeyIndex)) {
-        const interval = newKeyIndex - oldKeyIndex;
-        const useSharps = KEY_SIGNATURES[newKey] !== 'flats';
-        const newSequence = sequence.map(seqChord => ({
-          ...seqChord,
-          chordName: transposeChord(seqChord.chordName, interval, useSharps),
-        }));
-        setPatterns(prev => prev.map(p => p.id === currentPatternId ? { ...p, sequence: newSequence } : p));
-      }
-    }
-    prevSongKeyRef.current = songKey;
-  }, [songKey, sequence, currentPatternId, setPatterns]);
-
   const [isMetronomeOn, setIsMetronomeOn] = useState(false);
   const metronomeRef = useRef<{ synth: Tone.Synth, loop: Tone.Loop | null } | null>(null);
 
@@ -419,6 +425,13 @@ const App: React.FC = () => {
   const [isDrumEditorClosing, setIsDrumEditorClosing] = useState(false);
   const drumSequenceRef = useRef<Tone.Sequence<number> | null>(null);
   const drumPattern = useMemo(() => currentPattern?.drumPattern, [currentPattern]);
+  
+  const [isChordMachineOpen, setIsChordMachineOpen] = useState(true);
+  const [isChordMachineClosing, setIsChordMachineClosing] = useState(false);
+  const [chordMachineHeight, setChordMachineHeight] = useState(290);
+  const [isResizingChordMachine, setIsResizingChordMachine] = useState(false);
+  const [drumEditorHeight, setDrumEditorHeight] = useState(290);
+  const [isResizingDrums, setIsResizingDrums] = useState(false);
 
   const [timeSignatureChangeRequest, setTimeSignatureChangeRequest] = useState<{ patternId: string, newTimeSignature: '4/4' | '3/4' } | null>(null);
 
@@ -491,12 +504,37 @@ const App: React.FC = () => {
   }, [drumVol]);
 
 
-  const categories = useMemo(() => [...Object.keys(staticChordData), ...generatedChordSets.map(p => p.name)], [generatedChordSets]);
+  const categories = useMemo(() => ['Diatonic Chords', ...Object.keys(staticChordData)], []);
+
   const chordSets = useMemo(() => {
-    const allData = { ...staticChordData, ...generatedChordSets.reduce((acc, curr) => ({ ...acc, [curr.name]: [curr] }), {}) };
-    return allData[category] || [];
-  }, [category, generatedChordSets]);
-  const currentChordSet = useMemo(() => (chordSets[chordSetIndex]?.chords || []).slice(0, 16), [chordSets, chordSetIndex]);
+    if (category === 'Diatonic Chords') {
+      return [{ name: `${songRootNote} ${songMode}`, chords: [] }];
+    }
+    return staticChordData[category] || [];
+  }, [category, songRootNote, songMode]);
+  
+  const displayedChords = useMemo(() => {
+    if (category === 'Diatonic Chords') {
+      return generateDiatonicChords(songRootNote, songMode);
+    }
+    const originalChords = (chordSets[chordSetIndex]?.chords || []).slice(0, 16);
+
+    if (songRootNote === 'C') {
+        return originalChords;
+    }
+
+    const sourceKeyIndex = NOTE_TO_INDEX['C'];
+    const targetKeyIndex = parseNote(songRootNote);
+
+    if (isNaN(sourceKeyIndex) || isNaN(targetKeyIndex)) {
+        return originalChords;
+    }
+
+    const interval = targetKeyIndex - sourceKeyIndex;
+    const useSharps = KEY_SIGNATURES[songRootNote] !== 'flats';
+
+    return originalChords.map(chord => transposeChord(chord, interval, useSharps));
+  }, [category, songRootNote, songMode, chordSets, chordSetIndex]);
 
   useEffect(() => {
     initAudio().then(() => setIsPianoLoaded(true));
@@ -512,19 +550,20 @@ const App: React.FC = () => {
 
   const getNotesForVoicing = useCallback((chordName: string) => {
     if (voicingMode === 'manual') {
-        return getChordNoteStrings(updateChord(chordName, { inversion: inversionLevel }), octave);
+      const actualInversion = Math.abs(inversionLevel);
+      const isThirdInvPossible = hasSeventh(chordName);
+      const cappedInversion = !isThirdInvPossible && actualInversion >= 3 ? 2 : actualInversion;
+
+      const octaveAdjustment = inversionLevel < 0 ? -1 : 0;
+      return getChordNoteStrings(updateChord(chordName, { inversion: cappedInversion }), octave + octaveAdjustment);
     }
     return getChordNoteStrings(chordName, octave);
   }, [voicingMode, inversionLevel, octave]);
 
   const humanizedSequence = useMemo(() => {
-      if (voicingMode === 'auto' && isSequencerVoicingOn && sequence.length > 0) {
-          const originalNames = sequence.map(s => s.chordName);
-          const humanizedNames = humanizeProgression(originalNames);
-          return sequence.map((s, i) => ({ ...s, chordName: humanizedNames[i] }));
-      }
-      return sequence;
-  }, [sequence, voicingMode, isSequencerVoicingOn]);
+    // Auto-voicing for sequencer has been disabled per user request.
+    return sequence;
+  }, [sequence]);
   
 
   const stopActivePadNotes = useCallback(() => {
@@ -611,9 +650,9 @@ const App: React.FC = () => {
         pressedKeysRef.current.add(e.code);
 
         const padIndex = CODE_TO_PAD_INDEX[e.code];
-        if (padIndex !== undefined && padIndex < currentChordSet.length) {
+        if (padIndex !== undefined && padIndex < displayedChords.length) {
             e.preventDefault();
-            const chordName = currentChordSet[padIndex];
+            const chordName = displayedChords[padIndex];
             const notes = getNotesForVoicing(chordName);
             scrollToLowestNote(notes);
             startChordSound(notes);
@@ -656,10 +695,16 @@ const App: React.FC = () => {
         window.removeEventListener('keydown', handleKeyDown);
         window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [currentChordSet, getNotesForVoicing, scrollToLowestNote]);
+  }, [displayedChords, getNotesForVoicing, scrollToLowestNote]);
 
   const addChordToSequencer = (chordName: string, start: number) => {
-    const newChord: SequenceChord = { id: generateId(), chordName, start, duration: 8 };
+    const newChord: SequenceChord = { 
+      id: generateId(), 
+      chordName, 
+      start, 
+      duration: 4, 
+      octave: octave 
+    };
     updatePattern(currentPatternId, { sequence: [...sequence, newChord] });
   };
   const updateSequencerChord = (id: string, newProps: Partial<SequenceChord>) => {
@@ -670,9 +715,9 @@ const App: React.FC = () => {
     const newSequence = sequence.filter(c => c.id !== id);
     updatePattern(currentPatternId, { sequence: newSequence });
   };
-  const playSequencerChordPreview = (chordName: string) => {
+  const playSequencerChordPreview = (chord: SequenceChord) => {
     if (isSequencerClickMuted) return;
-    const notes = getChordNoteStrings(chordName, octave);
+    const notes = getChordNoteStrings(chord.chordName, chord.octave);
     scrollToLowestNote(notes);
     playChordOnce(notes, '8n');
     setActiveSequencerManualNotes(notes);
@@ -699,26 +744,6 @@ const App: React.FC = () => {
   };
   const stopActiveManualNotes = () => {};
 
-  const handleGenerate = async (prompt: string) => {
-    setIsGenerating(true);
-    setError(null);
-    try {
-      const chords = await generateProgression(prompt, songKey);
-      if (chords.length > 0) {
-        const newSet: ChordSet = { name: prompt, chords };
-        setGeneratedChordSets(prev => [newSet, ...prev]);
-        setCategory(prompt);
-        setChordSetIndex(0);
-      } else {
-        setError("AI returned no chords. Please try a different prompt.");
-      }
-    } catch (e) {
-      setError("Failed to generate progression. Please check your prompt or API key.");
-      console.error(e);
-    }
-    setIsGenerating(false);
-  };
-  
   const togglePlay = useCallback(() => {
     if (Tone.context.state !== 'running') {
       Tone.start();
@@ -814,7 +839,7 @@ const App: React.FC = () => {
         });
 
         const part = new Tone.Part<{ time: number; duration: number; chord: SequenceChord }>((time, event) => {
-            const notes = getChordNoteStrings(event.chord.chordName, octave);
+            const notes = getChordNoteStrings(event.chord.chordName, event.chord.octave);
             sampler.triggerAttackRelease(notes, event.duration, time);
             
             Tone.Draw.schedule(() => {
@@ -838,7 +863,7 @@ const App: React.FC = () => {
       chordPartRef.current?.dispose();
       chordPartRef.current = null;
     };
-  }, [humanizedSequence, octave, scrollToLowestNote]);
+  }, [humanizedSequence, scrollToLowestNote]);
   
   useEffect(() => {
     if (bassPartRef.current) {
@@ -1014,6 +1039,18 @@ const App: React.FC = () => {
       setIsDrumEditorOpen(true);
     }
   };
+  
+  const toggleChordMachine = () => {
+    if (isChordMachineOpen) {
+      setIsChordMachineClosing(true);
+      setTimeout(() => {
+        setIsChordMachineOpen(false);
+        setIsChordMachineClosing(false);
+      }, 300);
+    } else {
+      setIsChordMachineOpen(true);
+    }
+  };
 
   const updateDrumPattern = (sound: DrumSound, step: number, value: boolean) => {
     const newDrumPattern = { ...drumPattern };
@@ -1028,12 +1065,12 @@ const App: React.FC = () => {
     updatePattern(currentPatternId, { drumPattern: newPattern });
   };
   
-  const playEditorPreview = useCallback((chordName: string) => {
-    const notes = getChordNoteStrings(chordName, octave);
+  const playEditorPreview = useCallback((chordName: string, baseOctave: number) => {
+    const notes = getChordNoteStrings(chordName, baseOctave);
     scrollToLowestNote(notes);
     playChordOnce(notes, '4n');
     setActiveEditorPreviewNotes(notes);
-  }, [octave, scrollToLowestNote]);
+  }, [scrollToLowestNote]);
 
   const stopActiveEditorPreviewNotes = () => {
     setActiveEditorPreviewNotes([]);
@@ -1087,27 +1124,17 @@ const App: React.FC = () => {
     return sequencerDisplayText ?? manualDisplayText;
   }, [sequencerDisplayText, manualDisplayText]);
 
-
-  if (!isAppReady) {
-    return <LoadingScreen isLoaded={isPianoLoaded} onStart={() => {
-      setIsAppReady(true);
-      requestFullScreen();
-    }} />;
-  }
+  const stepsPerLane = (timeSignature === '4/4' ? 16 : 12) * 4;
+  const TRACK_PADDING = 10;
+  const gridWidth = sequencerWidth > 0 ? sequencerWidth - (TRACK_PADDING * 2) : 0;
+  const stepWidth = gridWidth > 0 ? gridWidth / stepsPerLane : 0;
+  const quarterNoteWidth = stepWidth * 4;
 
   return (
     <div className="flex h-screen bg-gray-900 text-white overflow-hidden">
+      {isLoaderVisible && <LoadingScreen isLoaded={isPianoLoaded} onStart={handleStart} isFadingOut={isLoaderFadingOut} />}
+
       <main className="relative flex-1 flex flex-col min-h-0 min-w-0">
-        {!isSidebarOpen && (
-            <button
-                onClick={() => setIsSidebarOpen(true)}
-                className="absolute top-4 right-4 z-30 p-2 bg-gray-700/80 rounded-full text-white hover:bg-gray-600 transition-colors hidden lg:block"
-                aria-label="Open sidebar"
-                title="Open Sidebar"
-            >
-                <HamburgerIcon className="w-6 h-6" />
-            </button>
-        )}
         <Header />
         <ArrangementView
           patterns={patterns}
@@ -1129,7 +1156,7 @@ const App: React.FC = () => {
           isMetronomeOn={isMetronomeOn}
           onMetronomeToggle={handleMetronomeToggle}
           isPianoVisible={isPianoVisible}
-          onTogglePiano={() => setIsPianoVisible(v => !v)}
+          onTogglePiano={handleTogglePiano}
           onUndo={undo}
           onRedo={redo}
           canUndo={canUndo}
@@ -1137,6 +1164,17 @@ const App: React.FC = () => {
           basslineStyle={basslineStyle}
           onSetBasslineStyle={setBasslineStyle}
           onGenerateBass={handleGenerateBass}
+          isPlaying={isPlaying}
+          onPlayPause={togglePlay}
+          onStop={handleStop}
+          onPanic={handlePanic}
+          playheadPosition={playheadPosition}
+          masterVolume={masterVolume}
+          onMasterVolumeChange={setMasterVolume}
+          isMuted={isMuted}
+          onMuteToggle={() => setIsMuted(v => !v)}
+          isChordMachineOpen={isChordMachineOpen}
+          onToggleChordMachine={toggleChordMachine}
         />
         <Sequencer
           sequence={sequence}
@@ -1158,6 +1196,7 @@ const App: React.FC = () => {
           onSeek={handleSeek}
           isClickMuted={isSequencerClickMuted}
           onMuteToggle={() => setIsSequencerClickMuted(v => !v)}
+          onWidthChange={setSequencerWidth}
         />
         <div 
           className="relative flex-1 min-h-0 overflow-y-auto"
@@ -1195,11 +1234,52 @@ const App: React.FC = () => {
               {/* This spacer fills the REMAINING empty area, preventing clicks on the background from deselecting chords. */}
               <div className="flex-1" />
 
-            {error && <div className="text-red-500 text-center pointer-events-auto">{error}</div>}
           </div>
         </div>
         
-        <div className={`transition-all duration-300 ease-in-out ${isDrumEditorOpen && !isDrumEditorClosing ? 'max-h-80' : 'max-h-0'} overflow-hidden`}>
+        <div 
+          className={`transition-height duration-300 ease-in-out overflow-hidden ${isResizingChordMachine ? '!duration-0' : ''}`}
+          style={{ height: isChordMachineOpen && !isChordMachineClosing ? `${chordMachineHeight}px` : '0px' }}
+        >
+            {isChordMachineOpen && (
+              <Toolkit 
+                onClose={toggleChordMachine}
+                keyLabels={KEY_LABELS}
+                isPianoLoaded={isPianoLoaded}
+                height={chordMachineHeight}
+                setHeight={setChordMachineHeight}
+                setIsResizing={setIsResizingChordMachine}
+                quarterNoteWidth={quarterNoteWidth}
+                chords={displayedChords}
+                songRootNote={songRootNote}
+                setSongRootNote={setSongRootNote}
+                songMode={songMode}
+                setSongMode={setSongMode}
+                category={category}
+                setCategory={handleCategoryChange}
+                chordSetIndex={chordSetIndex}
+                setChordSetIndex={setChordSetIndex}
+                categories={categories}
+                chordSets={chordSets}
+                onPadMouseDown={handlePadMouseDown}
+                onPadMouseUp={stopActivePadNotes}
+                onPadMouseEnter={handlePadMouseEnter}
+                onPadMouseLeave={clearHoveredNotes}
+                octave={octave}
+                setOctave={setOctave}
+                inversionLevel={inversionLevel}
+                setInversionLevel={setInversionLevel}
+                voicingMode={voicingMode}
+                setVoicingMode={setVoicingMode}
+                activeKeyboardPadIndices={activeKeyboardPadIndices}
+              />
+            )}
+        </div>
+        
+        <div 
+          className={`transition-height duration-300 ease-in-out overflow-hidden ${isResizingDrums ? '!duration-0' : ''}`}
+          style={{ height: isDrumEditorOpen && !isDrumEditorClosing ? `${drumEditorHeight}px` : '0px' }}
+        >
             {isDrumEditorOpen && drumPattern && (
               <DrumEditor 
                 pattern={drumPattern}
@@ -1212,55 +1292,21 @@ const App: React.FC = () => {
                 onClose={toggleDrumEditor}
                 presets={PRESET_DRUM_PATTERNS}
                 onApplyPreset={handleApplyDrumPreset}
+                height={drumEditorHeight}
+                setHeight={setDrumEditorHeight}
+                setIsResizing={setIsResizingDrums}
               />
             )}
         </div>
 
-        <TransportControls 
-          isPlaying={isPlaying}
-          onPlayPause={togglePlay}
-          onStop={handleStop}
-          onPanic={handlePanic}
-          playheadPosition={playheadPosition}
-          bars={bars}
-          timeSignature={timeSignature}
-          masterVolume={masterVolume}
-          onMasterVolumeChange={setMasterVolume}
-          isMuted={isMuted}
-          onMuteToggle={() => setIsMuted(v => !v)}
-        />
+        <div className="h-[30px] bg-gray-800 flex-shrink-0 border-t border-gray-700 flex items-center justify-center text-sm text-gray-400">
+          {(isResizingChordMachine || isResizingDrums) && 
+            <span>
+              {isResizingChordMachine ? `Chord Machine Height: ${Math.round(chordMachineHeight)}px` : `Drum Editor Height: ${Math.round(drumEditorHeight)}px`}
+            </span>
+          }
+        </div>
       </main>
-      <SidePanel
-        isOpen={isSidebarOpen}
-        onClose={() => setIsSidebarOpen(false)}
-        chords={currentChordSet}
-        songKey={songKey}
-        setSongKey={setSongKey}
-        category={category}
-        setCategory={handleCategoryChange}
-        chordSetIndex={chordSetIndex}
-        setChordSetIndex={setChordSetIndex}
-        categories={categories}
-        chordSets={chordSets}
-        keys={KEY_OPTIONS}
-        onPadMouseDown={handlePadMouseDown}
-        onPadMouseUp={stopActivePadNotes}
-        onPadMouseEnter={handlePadMouseEnter}
-        onPadMouseLeave={clearHoveredNotes}
-        isPianoLoaded={isPianoLoaded}
-        octave={octave}
-        setOctave={setOctave}
-        inversionLevel={inversionLevel}
-        setInversionLevel={setInversionLevel}
-        voicingMode={voicingMode}
-        setVoicingMode={setVoicingMode}
-        onGenerate={handleGenerate}
-        isGenerating={isGenerating}
-        keyLabels={KEY_LABELS}
-        isSequencerVoicingOn={isSequencerVoicingOn}
-        setIsSequencerVoicingOn={setIsSequencerVoicingOn}
-        activeKeyboardPadIndices={activeKeyboardPadIndices}
-      />
       
       {editingChord && (
         <ChordEditor 

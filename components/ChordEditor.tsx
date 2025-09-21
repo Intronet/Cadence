@@ -9,7 +9,7 @@ interface ChordEditorProps {
   chord: SequenceChord;
   onClose: () => void;
   onApply: (newChordName: string) => void;
-  onPreview: (chordName: string) => void;
+  onPreview: (chordName: string, baseOctave: number) => void;
   updateChordUtil: (original: string, updates: any) => string;
 }
 
@@ -40,8 +40,8 @@ export const ChordEditor: React.FC<ChordEditorProps> = ({ chord, onClose, onAppl
   const parsedPreview = useMemo(() => parseChord(previewChord), [previewChord]);
 
   useEffect(() => {
-    onPreview(previewChord);
-  }, [previewChord, onPreview]);
+    onPreview(previewChord, chord.octave);
+  }, [previewChord, onPreview, chord.octave]);
 
   const handleUpdate = (updates: any) => {
     setPreviewChord(prev => updateChordUtil(prev, updates));

@@ -29,6 +29,37 @@ export const KEY_SIGNATURES: { [key: string]: 'sharps' | 'flats' } = {
   'A#': 'flats', 'D#': 'flats', 'G#': 'flats',
 };
 
+export const SCALE_MODE_MAPPING: { [mode: string]: { intervals: number[], qualities: string[] } } = {
+    'Major':      { intervals: [0, 2, 4, 5, 7, 9, 11], qualities: ['Maj7', 'min7', 'min7', 'Maj7', '7', 'min7', 'min7(b5)'] },
+    'Minor':      { intervals: [0, 2, 3, 5, 7, 8, 10], qualities: ['min7', 'min7(b5)', 'Maj7', 'min7', 'min7', 'Maj7', '7'] },
+    'Dorian':     { intervals: [0, 2, 3, 5, 7, 9, 10], qualities: ['min7', 'min7', 'Maj7', '7', 'min7', 'min7(b5)', 'Maj7'] },
+    'Phrygian':   { intervals: [0, 1, 3, 5, 7, 8, 10], qualities: ['min7', 'Maj7', '7', 'min7', 'min7(b5)', 'Maj7', 'min7'] },
+    'Lydian':     { intervals: [0, 2, 4, 6, 7, 9, 11], qualities: ['Maj7', '7', 'min7', 'min7(b5)', 'Maj7', 'min7', 'min7'] },
+    'Mixolydian': { intervals: [0, 2, 4, 5, 7, 9, 10], qualities: ['7', 'min7', 'min7(b5)', 'Maj7', 'min7', 'min7', 'Maj7'] },
+    'Locrian':    { intervals: [0, 1, 3, 5, 6, 8, 10], qualities: ['min7(b5)', 'Maj7', 'min7', 'min7', 'Maj7', '7', 'min7'] },
+};
+
+export const generateDiatonicChords = (rootNote: string, mode: string): string[] => {
+    const modeData = SCALE_MODE_MAPPING[mode];
+    
+    // Fallback to Major scale for modes not yet implemented in the mapping
+    const effectiveModeData = modeData || SCALE_MODE_MAPPING['Major'];
+
+    const rootNoteIndex = parseNote(rootNote);
+    if (isNaN(rootNoteIndex)) return Array(7).fill('...');
+
+    const useSharps = KEY_SIGNATURES[rootNote] !== 'flats';
+
+    const chords = effectiveModeData.intervals.map((interval, i) => {
+        const noteName = transposeNote(rootNote, interval, useSharps);
+        const quality = effectiveModeData.qualities[i];
+        return `${noteName}${quality}`;
+    });
+
+    return chords;
+};
+
+
 // --- Circle of Fifths Data ---
 export const CIRCLE_OF_FIFTHS_SHARPS = ['C', 'G', 'D', 'A', 'E', 'B', 'F#', 'C#'];
 export const CIRCLE_OF_FIFTHS_FLATS = ['F', 'Bb', 'Eb', 'Ab', 'Db', 'Gb', 'Cb'];

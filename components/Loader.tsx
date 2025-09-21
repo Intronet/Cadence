@@ -1,3 +1,5 @@
+
+
 import React from 'react';
 
 interface PadProps {
@@ -6,7 +8,8 @@ interface PadProps {
   onMouseUp: () => void;
   onMouseEnter: (chordName: string) => void;
   onMouseLeave: () => void;
-  onDragStart: (e: React.DragEvent) => void;
+  // FIX: Specified HTMLButtonElement for the DragEvent to provide a more accurate type for the event handler.
+  onDragStart: (e: React.DragEvent<HTMLButtonElement>) => void;
   isLoaded: boolean;
   keyLabel?: string;
   isPressedByKeyboard?: boolean;
@@ -48,7 +51,7 @@ export const Pad: React.FC<PadProps> = ({ chordName, onMouseDown, onMouseUp, onM
       title={getTitle()}
     >
       {keyLabel && <span className="absolute top-1.5 left-2.5 text-xs text-gray-400 font-mono pointer-events-none">{keyLabel}</span>}
-      <span className="text-white text-center font-semibold text-sm sm:text-base break-words pointer-events-none [text-shadow:0_1px_2px_rgba(0,0,0,0.5)]">
+      <span className="text-white text-center font-semibold text-xs sm:text-sm break-words pointer-events-none [text-shadow:0_1px_2px_rgba(0,0,0,0.5)]">
         {chordName}
       </span>
     </button>

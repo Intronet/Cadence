@@ -14,6 +14,10 @@ interface DrumEditorProps {
   onClose: () => void;
   presets: DrumPatternPreset[];
   onApplyPreset: (pattern: Record<DrumSound, boolean[]>) => void;
+  // FIX: Added height, setHeight, and setIsResizing props to support resizable panel functionality.
+  height: number;
+  setHeight: (height: number) => void;
+  setIsResizing: (isResizing: boolean) => void;
 }
 
 const soundLabels: Record<DrumSound, string> = {
@@ -36,6 +40,9 @@ export const DrumEditor: React.FC<DrumEditorProps> = ({
   onClose,
   presets,
   onApplyPreset,
+  height,
+  setHeight,
+  setIsResizing,
 }) => {
   const stepButtonBase = "w-full h-full rounded-[3px] transition-colors duration-100 border";
 
@@ -56,10 +63,41 @@ export const DrumEditor: React.FC<DrumEditorProps> = ({
     e.target.value = "";
   };
 
+  const handleResizeMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+    const startY = e.clientY;
+    const startHeight = height;
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+        const deltaY = moveEvent.clientY - startY;
+        const newHeight = startHeight - deltaY;
+        
+        const MIN_HEIGHT = 200;
+        const MAX_HEIGHT = window.innerHeight * 0.8;
+
+        setHeight(Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, newHeight)));
+    };
+
+    const handleMouseUp = () => {
+        setIsResizing(false);
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+  };
+
 
   return (
-    <div className="flex-shrink-0 bg-gray-800 rounded-[3px] border border-gray-700 p-3 mt-2">
-      <div className="flex justify-between items-center mb-2">
+    <div className="relative flex flex-col h-full flex-shrink-0 bg-gray-800 rounded-[3px] border border-gray-700 p-3 mt-2">
+      <div 
+        onMouseDown={handleResizeMouseDown}
+        className="absolute -top-1 left-0 right-0 h-2 cursor-row-resize z-20"
+        title="Drag to resize"
+      />
+      <div className="flex justify-between items-center mb-2 flex-shrink-0">
         <h3 className="text-xl font-bold text-indigo-300">Drum Editor</h3>
         <div className="flex items-center gap-4">
           <select
@@ -96,10 +134,10 @@ export const DrumEditor: React.FC<DrumEditorProps> = ({
         </div>
       </div>
       
-      <div className="grid grid-cols-[80px_1fr] gap-x-4 pt-2 mt-2 border-t border-gray-700">
+      <div className="grid grid-cols-[80px_1fr] gap-x-4 pt-2 mt-2 border-t border-gray-700 flex-1 min-h-0">
         <div className="flex flex-col gap-1">
           {DRUM_SOUNDS.map(sound => (
-            <div key={sound} className="h-7 flex items-center justify-end pr-2 text-sm font-semibold text-gray-300">
+            <div key={sound} className="h-8 flex items-center justify-end pr-2 text-sm font-semibold text-gray-300">
               {soundLabels[sound]}
             </div>
           ))}
@@ -133,7 +171,7 @@ export const DrumEditor: React.FC<DrumEditorProps> = ({
                   return (
                     <div
                       key={`${sound}-${step}`}
-                      className={`h-7 p-px rounded-[3px] ${isBeat ? 'bg-gray-700/50' : 'bg-transparent'}`}
+                      className={`h-8 p-px rounded-[3px] ${isBeat ? 'bg-gray-700/50' : 'bg-transparent'}`}
                     >
                       <button
                         onClick={() => onPatternChange(sound, step, !isActive)}

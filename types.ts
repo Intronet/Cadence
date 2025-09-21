@@ -1,19 +1,54 @@
-export const KEY_OPTIONS = [
-  { value: 'C', label: 'C Major / A Minor' },
-  { value: 'G', label: 'G Major / E Minor' },
-  { value: 'D', label: 'D Major / B Minor' },
-  { value: 'A', label: 'A Major / F# Minor' },
-  { value: 'E', label: 'E Major / C# Minor' },
-  { value: 'B', label: 'B Major / G# Minor' },
-  { value: 'F#', label: 'F# Major / D# Minor' },
-  { value: 'C#', label: 'C# Major / A# Minor' },
-  { value: 'F', label: 'F Major / D Minor' },
-  { value: 'Bb', label: 'Bb Major / G Minor' },
-  { value: 'Eb', label: 'Eb Major / C Minor' },
-  { value: 'Ab', label: 'Ab Major / F Minor' },
-  { value: 'Db', label: 'Db Major / Bb Minor' },
-  { value: 'Gb', label: 'Gb Major / Eb Minor' },
-  { value: 'Cb', label: 'Cb Major / Ab Minor' },
+export const ROOT_NOTE_OPTIONS = [
+    { value: 'C', label: 'C' },
+    { value: 'C#', label: 'C♯/D♭' },
+    { value: 'D', label: 'D' },
+    { value: 'D#', label: 'D♯/E♭' },
+    { value: 'E', label: 'E' },
+    { value: 'F', label: 'F' },
+    { value: 'F#', label: 'F♯/G♭' },
+    { value: 'G', label: 'G' },
+    { value: 'G#', label: 'G♯/A♭' },
+    { value: 'A', label: 'A' },
+    { value: 'A#', label: 'A♯/B♭' },
+    { value: 'B', label: 'B' },
+];
+
+export const SCALE_MODE_OPTIONS = [
+    { value: 'Major', label: 'Major' },
+    { value: 'Minor', label: 'Minor' },
+    { value: 'Dorian', label: 'Dorian' },
+    { value: 'Mixolydian', label: 'Mixolydian' },
+    { value: 'Lydian', label: 'Lydian' },
+    { value: 'Phrygian', label: 'Phrygian' },
+    { value: 'Locrian', label: 'Locrian' },
+    { value: 'Whole Tone', label: 'Whole Tone' },
+    { value: 'Half-whole Diminished', label: 'Half-whole Dim.' },
+    { value: 'Whole-half Diminished', label: 'Whole-half Dim.' },
+    { value: 'Minor Blues', label: 'Minor Blues' },
+    { value: 'Minor Pentatonic', label: 'Minor Pentatonic' },
+    { value: 'Major Pentatonic', label: 'Major Pentatonic' },
+    { value: 'Harmonic Minor', label: 'Harmonic Minor' },
+    { value: 'Harmonic Major', label: 'Harmonic Major' },
+    { value: 'Dorian #4', label: 'Dorian #4' },
+    { value: 'Phrygian Dominant', label: 'Phrygian Dominant' },
+    { value: 'Melodic Minor', label: 'Melodic Minor' },
+    { value: 'Lydian Augmented', label: 'Lydian Augmented' },
+    { value: 'Lydian Dominant', label: 'Lydian Dominant' },
+    { value: 'Super Locrian', label: 'Super Locrian' },
+    { value: '8-Tone Spanish', label: '8-Tone Spanish' },
+    { value: 'Bhairav', label: 'Bhairav' },
+    { value: 'Hungarian Minor', label: 'Hungarian Minor' },
+    { value: 'Hirajoshi', label: 'Hirajoshi' },
+    { value: 'In-Sen', label: 'In-Sen' },
+    { value: 'Iwato', label: 'Iwato' },
+    { value: 'Kumoi', label: 'Kumoi' },
+    { value: 'Pelog Selisir', label: 'Pelog Selisir' },
+    { value: 'Pelog Tembung', label: 'Pelog Tembung' },
+    { value: 'Messiaen 3', label: 'Messiaen 3' },
+    { value: 'Messiaen 4', label: 'Messiaen 4' },
+    { value: 'Messiaen 5', label: 'Messiaen 5' },
+    { value: 'Messiaen 6', label: 'Messiaen 6' },
+    { value: 'Messiaen 7', label: 'Messiaen 7' },
 ];
 
 export interface ChordSet {
@@ -30,6 +65,7 @@ export interface SequenceChord {
   chordName: string;
   start: number; // in 16th note steps (0-127 for 8 bars)
   duration: number; // in 16th note steps
+  octave: number; // The octave offset for this specific chord
 }
 
 export interface SequenceBassNote {

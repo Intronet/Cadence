@@ -1,10 +1,13 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Pattern } from '../types';
 import { MusicNoteIcon } from './icons/MusicNoteIcon';
 import { MetronomeIcon } from './icons/MetronomeIcon';
 import { PianoIcon } from './icons/PianoIcon';
 import { UndoIcon } from './icons/UndoIcon';
 import { RedoIcon } from './icons/RedoIcon';
+import { SpeakerIcon } from './icons/SpeakerIcon';
+import { SpeakerOffIcon } from './icons/SpeakerOffIcon';
+import { ToolboxIcon } from './icons/ToolboxIcon';
 
 interface ArrangementViewProps {
   patterns: Pattern[];
@@ -34,8 +37,34 @@ interface ArrangementViewProps {
   basslineStyle: 'root';
   onSetBasslineStyle: (style: 'root') => void;
   onGenerateBass: (style: 'root') => void;
+  isPlaying: boolean;
+  onPlayPause: () => void;
+  onStop: () => void;
+  onPanic: () => void;
+  playheadPosition: number;
+  masterVolume: number;
+  onMasterVolumeChange: (volume: number) => void;
+  isMuted: boolean;
+  onMuteToggle: () => void;
+  isChordMachineOpen: boolean;
+  onToggleChordMachine: () => void;
 }
 
+const PlayIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" {...props}><path d="M8 5v14l11-7z" /></svg>
+);
+const PauseIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" {...props}><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" /></svg>
+);
+const StopIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" {...props}><path d="M6 6h12v12H6z" /></svg>
+);
+const PanicIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+  <svg {...props} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" >
+    <circle cx="12" cy="12" r="10" />
+    <rect x="9" y="9" width="6" height="6" fill="currentColor" stroke="none" />
+  </svg>
+);
 const TrashIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
   <svg viewBox="0 0 20 20" fill="currentColor" {...props}>
     <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
@@ -106,9 +135,22 @@ export const ArrangementView: React.FC<ArrangementViewProps> = ({
   bpm, onBpmChange, onToggleBarMode, onTimeSignatureChange, isDrumsEnabled, onToggleDrumsEnabled, onToggleDrumEditor, isDrumEditorOpen,
   isMetronomeOn, onMetronomeToggle, isPianoVisible, onTogglePiano,
   onUndo, onRedo, canUndo, canRedo,
-  basslineStyle, onSetBasslineStyle, onGenerateBass
+  basslineStyle, onSetBasslineStyle, onGenerateBass,
+  isPlaying, onPlayPause, onStop, onPanic, playheadPosition,
+  masterVolume, onMasterVolumeChange, isMuted, onMuteToggle,
+  isChordMachineOpen, onToggleChordMachine
 }) => {
   const [draggedPatternId, setDraggedPatternId] = useState<string | null>(null);
+
+  const timeDisplay = useMemo(() => {
+    const stepsPerBar = currentPattern?.timeSignature === '4/4' ? 16 : 12;
+    if (!stepsPerBar) return "01:1:1";
+    const totalSixteenths = Math.floor(playheadPosition * 4);
+    const bar = Math.floor(totalSixteenths / stepsPerBar) + 1;
+    const beat = Math.floor((totalSixteenths % stepsPerBar) / 4) + 1;
+    const sixteenth = (totalSixteenths % 4) + 1;
+    return `${String(bar).padStart(2, '0')}:${beat}:${sixteenth}`;
+  }, [playheadPosition, currentPattern?.timeSignature]);
 
   if (!currentPattern) return null;
 
@@ -117,6 +159,11 @@ export const ArrangementView: React.FC<ArrangementViewProps> = ({
     const change = e.deltaY < 0 ? 1 : -1;
     onBpmChange(Math.max(40, Math.min(240, bpm + change)));
   };
+  
+  const baseButtonClasses = "p-2 rounded-[3px] transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 focus:ring-offset-gray-800";
+  const regularButtonClasses = `${baseButtonClasses} bg-gray-700 text-gray-300 hover:bg-gray-600`;
+  const primaryButtonClasses = `${baseButtonClasses} bg-indigo-600 text-white shadow-md hover:bg-indigo-500`;
+  const dangerButtonClasses = `${baseButtonClasses} bg-gray-700 text-gray-300 hover:bg-red-600 hover:text-white`;
 
   return (
     <div className="flex-shrink-0 flex flex-col gap-2 pt-2 pb-2 bg-gray-800/50 border-y border-gray-700">
@@ -176,19 +223,42 @@ export const ArrangementView: React.FC<ArrangementViewProps> = ({
       </div>
 
       <div className="flex justify-between items-center mt-1 pt-2 border-t border-gray-700/60 px-[10px]">
-        <EditablePatternName pattern={currentPattern} onRename={onRenamePattern} />
-        <div className="flex items-center gap-4">
-            <div className="flex items-center gap-1 border-r border-gray-600 pr-3">
-              <button onClick={onRedo} disabled={!canRedo} className="p-2 rounded-full transition-colors disabled:text-gray-600 disabled:bg-transparent text-gray-300 hover:enabled:bg-gray-600" title={`Redo\n{Ctrl+Y}`}>
-                  <RedoIcon className="w-5 h-5"/>
-              </button>
-              <button onClick={onUndo} disabled={!canUndo} className="p-2 rounded-full transition-colors disabled:text-gray-600 disabled:bg-transparent text-gray-300 hover:enabled:bg-gray-600" title={`Undo\n{Ctrl+Z}`}>
-                  <UndoIcon className="w-5 h-5"/>
-              </button>
+        {/* Left Side */}
+        <div className="flex items-center gap-3">
+          <EditablePatternName pattern={currentPattern} onRename={onRenamePattern} />
+          <div className="flex items-center gap-1 border-l border-gray-600 pl-3">
+            <button onClick={onUndo} disabled={!canUndo} className="p-2 rounded-full transition-colors disabled:text-gray-600 disabled:bg-transparent text-gray-300 hover:enabled:bg-gray-600" title={`Undo\n{Ctrl+Z}`}>
+                <UndoIcon className="w-5 h-5"/>
+            </button>
+            <button onClick={onRedo} disabled={!canRedo} className="p-2 rounded-full transition-colors disabled:text-gray-600 disabled:bg-transparent text-gray-300 hover:enabled:bg-gray-600" title={`Redo\n{Ctrl+Y}`}>
+                <RedoIcon className="w-5 h-5"/>
+            </button>
+          </div>
+        </div>
+        
+        {/* Center Transport */}
+        <div className="flex items-center gap-2">
+           <button onClick={onStop} className={regularButtonClasses} aria-label="Stop" title={`SEQUENCER:\nStop playback and return to start`}>
+              <StopIcon className="w-5 h-5" />
+           </button>
+           <button onClick={onPlayPause} className={primaryButtonClasses} aria-label={isPlaying ? 'Pause' : 'Play'} title={isPlaying ? 'Pause' : 'Play'}>
+             {isPlaying ? <PauseIcon className="w-5 h-5" /> : <PlayIcon className="w-5 h-5" />}
+           </button>
+           <button onClick={onPanic} className={dangerButtonClasses} aria-label="Panic: Stop all sound" title={`SEQUENCER:\nPanic:\nImmediately stop all sound`}>
+             <PanicIcon className="w-5 h-5" />
+           </button>
+        </div>
+
+        {/* Right Side */}
+        <div className="flex items-center gap-3">
+            <div className="bg-black/25 rounded-[3px] px-3 py-1 shadow-[inset_0_2px_4px_rgba(0,0,0,0.5)]">
+              <div className="font-mono text-sm leading-normal text-white tracking-wider" style={{textShadow: '0 1px 2px rgba(0,0,0,0.5)'}}>
+                {timeDisplay}
+              </div>
             </div>
+
             <div className="flex items-center gap-2">
                 <span className="text-sm font-medium text-gray-400">BPM</span>
-                <input type="range" min="40" max="240" value={bpm} onChange={e => onBpmChange(Number(e.target.value))} onWheel={handleBpmWheel} className="w-24 h-2 bg-gray-600 rounded-[3px] appearance-none cursor-pointer range-slider" title={`Tempo:\nAdjust BPM`}/>
                 <input type="number" value={bpm} onChange={e => onBpmChange(Number(e.target.value))} onWheel={handleBpmWheel} className="w-16 bg-gray-900 border border-gray-600 text-center rounded-[3px] p-1 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent" title={`Tempo:\nSet precise BPM`}/>
             </div>
             <div className="flex items-center bg-gray-700 rounded-[3px] p-1">
@@ -202,40 +272,31 @@ export const ArrangementView: React.FC<ArrangementViewProps> = ({
                 >3/4</button>
             </div>
             <button onClick={() => onToggleBarMode(currentPattern.id)} className="px-3 py-1 text-sm font-semibold rounded-[3px] bg-gray-700 text-gray-300 hover:bg-gray-600" title={`Toggle pattern length\nbetween 4 and 8 bars`}>{currentPattern.bars === 8 ? '8 Bars' : '4 Bars'}</button>
-            <div className="flex items-center gap-2" title={`DRUMS:\nEnable or disable drums`}>
-                <span className="text-sm font-medium text-gray-400">Drums</span>
-                <button
-                    type="button"
-                    onClick={onToggleDrumsEnabled}
-                    className={`${isDrumsEnabled ? 'bg-indigo-600' : 'bg-gray-600'} relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-gray-800`}
-                    role="switch"
-                    aria-checked={isDrumsEnabled}
-                >
-                    <span aria-hidden="true" className={`${isDrumsEnabled ? 'translate-x-5' : 'translate-x-0'} pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`}/>
-                </button>
-            </div>
-            <div className="flex items-center gap-2 border-l border-gray-600 pl-4">
-                <span className="text-sm font-medium text-gray-400">Bassline</span>
-                <select 
-                    value={basslineStyle} 
-                    onChange={e => onSetBasslineStyle(e.target.value as 'root')}
-                    className="bg-gray-700 border border-gray-600 text-gray-200 text-sm rounded-[3px] focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent block p-1.5 transition-all duration-200 cursor-pointer"
-                >
-                    <option value="root">Root Notes</option>
-                    <option value="fifth" disabled>Root & Fifth</option>
-                    <option value="arpeggio" disabled>Arpeggio</option>
-                    <option value="walking" disabled>Walking Bass</option>
-                </select>
-                <button onClick={() => onGenerateBass(basslineStyle)} className="px-3 py-1 text-sm font-semibold rounded-[3px] bg-indigo-600 text-white hover:bg-indigo-700">
-                    Generate
-                </button>
+
+            <div className="flex items-center gap-2 border-l border-gray-600 pl-3">
+              <span className="text-sm font-medium text-gray-400">Bass</span>
+              <button onClick={() => onGenerateBass(basslineStyle)} className="px-3 py-1 text-sm font-semibold rounded-[3px] bg-indigo-600 text-white hover:bg-indigo-700">Generate</button>
             </div>
              <div className="flex items-center gap-2 pl-2 border-l border-gray-600">
+                <button onClick={onToggleDrumsEnabled} className={`p-2 rounded-full transition-colors ${isDrumsEnabled ? 'bg-indigo-600 text-white' : 'text-gray-300 bg-gray-700 hover:bg-gray-600'}`} title={`DRUMS:\nToggle Drums`}>
+                    <MusicNoteIcon className="w-5 h-5"/>
+                </button>
                 <button onClick={onMetronomeToggle} className={`p-2 rounded-full transition-colors ${isMetronomeOn ? 'bg-indigo-600 text-white' : 'text-gray-300 bg-gray-700 hover:bg-gray-600'}`} title={`METRONOME\nToggle Metronome`}>
                     <MetronomeIcon className="w-5 h-5"/>
                 </button>
                 <button onClick={onTogglePiano} className={`p-2 rounded-full transition-colors ${isPianoVisible ? 'bg-indigo-600 text-white' : 'text-gray-300 bg-gray-700 hover:bg-gray-600'}`} title={`PIANO\nToggle Piano Keyboard`}><PianoIcon className="w-5 h-5"/></button>
-                <button onClick={onToggleDrumEditor} className={`p-2 rounded-full transition-colors ${isDrumEditorOpen ? 'bg-indigo-600 text-white' : 'text-gray-300 bg-gray-700 hover:bg-gray-600'}`} title={`DRUMS\nToggle Drum Editor`}><MusicNoteIcon className="w-5 h-5"/></button>
+                <button onClick={onToggleDrumEditor} className={`p-2 rounded-full transition-colors ${isDrumEditorOpen ? 'bg-indigo-600 text-white' : 'text-gray-300 bg-gray-700 hover:bg-gray-600'}`} title={`DRUMS\nToggle Drum Editor`}>
+                    <svg viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5"><path d="M10 3.5a.75.75 0 01.75.75v1.5h1.5a.75.75 0 010 1.5h-1.5v1.5a.75.75 0 01-1.5 0v-1.5h-1.5a.75.75 0 010-1.5h1.5v-1.5a.75.75 0 01.75-.75z"></path><path fillRule="evenodd" d="M9.59 10.51a.75.75 0 011.05-.14 8 8 0 014.28 7.37.75.75 0 01-1.48.24 6.5 6.5 0 00-11.76 0 .75.75 0 01-1.48-.24 8 8 0 014.28-7.37.75.75 0 01.14 1.05l-1.09 1.52a.75.75 0 01-1.2-.86l1.09-1.52z" clipRule="evenodd"></path></svg>
+                </button>
+                 <button onClick={onToggleChordMachine} className={`p-2 rounded-full transition-colors ${isChordMachineOpen ? 'bg-indigo-600 text-white' : 'text-gray-300 bg-gray-700 hover:bg-gray-600'}`} title={`CHORD MACHINE\nToggle Chord Machine`}>
+                    <ToolboxIcon className="w-5 h-5"/>
+                </button>
+            </div>
+            <div className="flex items-center gap-2 pl-2 border-l border-gray-600">
+              <input type="range" min={-60} max={6} step={1} value={isMuted ? -60 : masterVolume} onChange={(e) => onMasterVolumeChange(parseFloat(e.target.value))} className="w-24 h-2 bg-gray-600 rounded-[3px] appearance-none cursor-pointer range-slider" aria-label="Master volume" title={`SEQUENCER:\nMaster Volume: ${masterVolume.toFixed(1)} dB`} disabled={isMuted}/>
+              <button onClick={onMuteToggle} className={regularButtonClasses} aria-label={isMuted ? 'Unmute' : 'Mute'} title={`SEQUENCER:\n${isMuted ? 'Unmute All Audio' : 'Mute All Audio'}`}>
+                {isMuted ? <SpeakerOffIcon className="w-5 h-5" /> : <SpeakerIcon className="w-5 h-5" />}
+              </button>
             </div>
         </div>
       </div>
