@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, MouseEvent, useEffect, useMemo } from 'react';
-import { SequenceChord, SequenceBassNote, ArticulationType } from '../types';
+import { SequenceChord, SequenceBassNote, Articulation, ArpeggioRate } from '../types';
 import * as Tone from 'tone';
 import { SpeakerIcon } from './icons/SpeakerIcon';
 import { SpeakerOffIcon } from './icons/SpeakerOffIcon';
@@ -148,8 +148,8 @@ const ChordBlock: React.FC<ChordBlockProps> = ({
       title={`${chord.chordName}\nDrag to move.\nDrag edge to resize.\nHold {Ctrl} for precision.\nDouble-click to edit.\nSelect and press Delete or Backspace to remove.`}
     >
       <div className="absolute top-1 left-1 pointer-events-none">
-        {chord.articulation === 'arpeggio' && <ArpeggioIcon className="w-3.5 h-3.5 text-sky-200"><title>Arpeggio</title></ArpeggioIcon>}
-        {chord.articulation === 'strum' && <StrumIcon className="w-3.5 h-3.5 text-sky-200"><title>Strum</title></StrumIcon>}
+        {chord.articulation?.type === 'arpeggio' && <ArpeggioIcon className="w-3.5 h-3.5 text-sky-200"><title>Arpeggio</title></ArpeggioIcon>}
+        {chord.articulation?.type === 'strum' && <StrumIcon className="w-3.5 h-3.5 text-sky-200"><title>Strum</title></StrumIcon>}
       </div>
       <span className="truncate px-2 pointer-events-none">{chord.chordName}</span>
       <div className={`resize-handle absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize`} />
@@ -164,13 +164,11 @@ interface ContextMenuProps {
   y: number;
   chord: SequenceChord;
   onClose: () => void;
-  onSetArticulation: (id: string, type: ArticulationType | null) => void;
+  onSetArticulation: (id: string, articulation: Articulation | null) => void;
 }
 
 const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, chord, onClose, onSetArticulation }) => {
   const menuRef = useRef<HTMLDivElement>(null);
-  const [isSubMenuOpen, setIsSubMenuOpen] = useState(false);
-  const subMenuTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     const handleClickOutside = (e: globalThis.MouseEvent) => {
@@ -182,36 +180,14 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, chord, onClose, onSetAr
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [onClose]);
 
-  // Clear timer on unmount
-  useEffect(() => {
-    return () => {
-      if (subMenuTimerRef.current) {
-        clearTimeout(subMenuTimerRef.current);
-      }
-    };
-  }, []);
-
-  const handleSubMenuEnter = () => {
-    if (subMenuTimerRef.current) {
-      clearTimeout(subMenuTimerRef.current);
-      subMenuTimerRef.current = null;
-    }
-    setIsSubMenuOpen(true);
-  };
-
-  const handleSubMenuLeave = () => {
-    subMenuTimerRef.current = window.setTimeout(() => {
-      setIsSubMenuOpen(false);
-    }, 200); // 200ms delay to allow moving between menu and submenu
-  };
 
   const menuStyle: React.CSSProperties = {
     top: `${y}px`,
     left: `${x}px`,
   };
 
-  const handleSelect = (type: ArticulationType | null) => {
-    onSetArticulation(chord.id, type);
+  const handleSelect = (articulation: Articulation | null) => {
+    onSetArticulation(chord.id, articulation);
     onClose();
   };
   
@@ -225,25 +201,28 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, chord, onClose, onSetAr
   return (
     <div ref={menuRef} style={menuStyle} className="fixed bg-gray-800 border border-gray-600 rounded-[4px] shadow-lg p-1 w-48 z-30 animate-fade-in-fast">
         <div className="text-xs text-gray-400 px-3 py-1 border-b border-gray-700 mb-1 truncate">{chord.chordName}</div>
-        <div 
-          className="relative"
-          onMouseEnter={handleSubMenuEnter}
-          onMouseLeave={handleSubMenuLeave}
-        >
-          <div className="w-full text-left px-3 py-1.5 text-sm rounded-[4px] flex justify-between items-center text-gray-200 hover:bg-gray-600 cursor-default">
-            Articulations <span className="text-gray-400">▶</span>
+        
+        <div className="px-3 py-1.5 text-sm text-gray-200 flex justify-between items-center">
+          <span>Arpeggio</span>
+          <div className="flex items-center gap-1">
+            {(['8n', '16n', '32n'] as ArpeggioRate[]).map(rate => (
+              <button
+                key={rate}
+                onClick={() => handleSelect({ type: 'arpeggio', rate })}
+                className={`px-2 py-0.5 rounded text-xs font-semibold ${
+                  chord.articulation?.type === 'arpeggio' && chord.articulation.rate === rate
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                }`}
+              >
+                {rate.replace('n', 'th')}
+              </button>
+            ))}
           </div>
-          {isSubMenuOpen && (
-            <div 
-              className="absolute left-full top-0 -mt-1 ml-1 bg-gray-800 border border-gray-600 rounded-[4px] shadow-lg p-1 w-48"
-              onMouseEnter={handleSubMenuEnter}
-              onMouseLeave={handleSubMenuLeave}
-            >
-              <MenuItem onClick={() => handleSelect('arpeggio')} isSelected={chord.articulation === 'arpeggio'}>Arpeggio</MenuItem>
-              <MenuItem onClick={() => handleSelect('strum')} isSelected={chord.articulation === 'strum'}>Strumming</MenuItem>
-            </div>
-          )}
         </div>
+
+        <MenuItem onClick={() => handleSelect({ type: 'strum' })} isSelected={chord.articulation?.type === 'strum'}>Strumming</MenuItem>
+
         <div className="h-px bg-gray-700 my-1"/>
         <MenuItem onClick={() => handleSelect(null)} isSelected={!chord.articulation}>None</MenuItem>
     </div>
@@ -428,8 +407,8 @@ export const Sequencer: React.FC<SequencerProps> = ({
     setContextMenu({ x: e.clientX, y: e.clientY, chord });
   }, [onInteraction]);
   
-  const handleSetArticulation = (id: string, type: ArticulationType | null) => {
-    onUpdateChord(id, { articulation: type });
+  const handleSetArticulation = (id: string, articulation: Articulation | null) => {
+    onUpdateChord(id, { articulation });
   };
 
 

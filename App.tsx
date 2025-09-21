@@ -26,7 +26,7 @@ import {
   generateDiatonicChords,
   hasSeventh
 } from './index';
-import { ROOT_NOTE_OPTIONS, SCALE_MODE_OPTIONS, ChordSet, SequenceChord, Pattern, DrumSound, DrumPatternPreset, SequenceBassNote, ArticulationType } from './types';
+import { ROOT_NOTE_OPTIONS, SCALE_MODE_OPTIONS, ChordSet, SequenceChord, Pattern, DrumSound, DrumPatternPreset, SequenceBassNote, Articulation, ArpeggioRate } from './types';
 import { Piano, PianoHandle } from './components/Piano';
 import { HoverDisplay } from './components/HoverDisplay';
 import { Sequencer } from './components/Sequencer';
@@ -852,18 +852,23 @@ const App: React.FC = () => {
               setPlayingChordId(event.chord.id);
             }, time);
 
-            if (event.chord.articulation === 'arpeggio') {
-                const singleNoteDuration = event.duration / notes.length;
-                notes.forEach((note, index) => {
-                    const attackTime = time + (index * singleNoteDuration);
+            if (event.chord.articulation?.type === 'arpeggio') {
+                const rate = event.chord.articulation.rate || '16n';
+                const singleNoteDuration = Tone.Time(rate).toSeconds();
+                const noteCount = Math.floor(event.duration / singleNoteDuration);
+
+                for (let i = 0; i < noteCount; i++) {
+                    const note = notes[i % notes.length];
+                    const attackTime = time + i * singleNoteDuration;
+                    
                     if (attackTime < time + event.duration) {
                         sampler.triggerAttackRelease(note, singleNoteDuration * 0.95, attackTime);
                         Tone.Draw.schedule(() => {
                             setSequencerActiveNotes([note]);
                         }, attackTime);
                     }
-                });
-            } else if (event.chord.articulation === 'strum') {
+                }
+            } else if (event.chord.articulation?.type === 'strum') {
                 const strumDelay = 0.04;
                  Tone.Draw.schedule(() => {
                     setSequencerActiveNotes([]);
