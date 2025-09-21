@@ -109,9 +109,9 @@ export const ChordEditor: React.FC<ChordEditorProps> = ({ chord, onClose, onAppl
         
         {/* Action Buttons */}
         <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 flex gap-3">
-          <button onClick={handleApply} className="p-3 rounded-full bg-green-600 hover:bg-green-500 transition-colors shadow-lg"><CheckIcon className="w-6 h-6 text-white" /></button>
-          <button onClick={handleRestore} className="p-3 rounded-full bg-gray-600 hover:bg-gray-500 transition-colors shadow-lg"><UndoIcon className="w-6 h-6 text-white" /></button>
-          <button onClick={onClose} className="p-3 rounded-full bg-red-600 hover:bg-red-500 transition-colors shadow-lg"><XIcon className="w-6 h-6 text-white" /></button>
+          <button onClick={handleApply} className="p-3 rounded-[4px] bg-green-600 hover:bg-green-500 transition-colors shadow-lg"><CheckIcon className="w-6 h-6 text-white" /></button>
+          <button onClick={handleRestore} className="p-3 rounded-[4px] bg-gray-600 hover:bg-gray-500 transition-colors shadow-lg"><UndoIcon className="w-6 h-6 text-white" /></button>
+          <button onClick={onClose} className="p-3 rounded-[4px] bg-red-600 hover:bg-red-500 transition-colors shadow-lg"><XIcon className="w-6 h-6 text-white" /></button>
         </div>
       </div>
        <style>{`
@@ -203,7 +203,7 @@ const ModifierArc: React.FC<{
         return (
           <button
             key={btn.label}
-            className={`absolute w-14 h-8 rounded-[3px] flex items-center justify-center font-semibold text-xs transition-colors
+            className={`absolute w-14 h-8 rounded-[4px] flex items-center justify-center font-semibold text-xs transition-colors
               ${isActive ? 'bg-sky-500 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}
             `}
             style={{ transform: `translate(${x}px, ${y}px) translate(-50%, -50%)` }}

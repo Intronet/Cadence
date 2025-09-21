@@ -89,7 +89,7 @@ export const Piano = forwardRef<PianoHandle, PianoProps>(({ highlightedNotes, pr
     <div className="w-full">
        <div 
         ref={scrollContainerRef}
-        className="w-full overflow-x-auto overflow-y-hidden rounded-[3px] shadow-lg border border-gray-800"
+        className="w-full overflow-x-auto overflow-y-hidden rounded-[4px] shadow-lg border border-gray-800"
         style={{ scrollbarWidth: 'thin', scrollbarColor: '#4f46e5 #374151' }}
         onWheel={handleWheelScroll}
       >
@@ -110,7 +110,7 @@ export const Piano = forwardRef<PianoHandle, PianoProps>(({ highlightedNotes, pr
                 onMouseDown={(e) => { if (e.button === 0) onKeyMouseDown(noteName); }}
                 onMouseEnter={() => onKeyMouseEnter(noteName)}
                 onMouseLeave={onKeyMouseLeave}
-                className={`relative flex-1 border-r border-gray-800 rounded-b-[3px] text-gray-800 flex items-end justify-center pb-2 font-semibold select-none transition-all duration-75
+                className={`relative flex-1 border-r border-gray-800 rounded-b-[4px] text-gray-800 flex items-end justify-center pb-2 font-semibold select-none transition-all duration-75
                   ${isHighlighted ? 'bg-sky-400 border-sky-600' : 'bg-gray-100'}
                   ${isPressed ? 'transform translate-y-px shadow-inner-strong' : 'shadow-md'}
                 `}
@@ -147,7 +147,7 @@ export const Piano = forwardRef<PianoHandle, PianoProps>(({ highlightedNotes, pr
                 onMouseEnter={() => onKeyMouseEnter(noteName)}
                 onMouseLeave={onKeyMouseLeave}
                 style={{ left: `${left}%`, width: `${blackKeyWidth}%` }}
-                className={`absolute top-0 h-20 rounded-b-[3px] border-2 border-gray-900 z-10 select-none transition-all duration-75
+                className={`absolute top-0 h-20 rounded-b-[4px] border-2 border-gray-900 z-10 select-none transition-all duration-75
                   ${isHighlighted ? 'bg-sky-400 border-sky-600' : 'bg-gray-800'}
                   ${isPressed ? 'h-[4.9rem] bg-gray-900' : ''}
                 `}

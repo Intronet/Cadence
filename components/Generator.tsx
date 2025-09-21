@@ -23,7 +23,7 @@ export const Generator: React.FC<GeneratorProps> = ({ onGenerate, isGenerating }
         <button
           type="submit"
           disabled={isGenerating || !prompt.trim()}
-          className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-[3px] shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 focus:ring-offset-gray-800 disabled:bg-indigo-500/50 disabled:cursor-not-allowed transition-colors"
+          className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-[4px] shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 focus:ring-offset-gray-800 disabled:bg-indigo-500/50 disabled:cursor-not-allowed transition-colors"
         >
           {isGenerating ? (
              <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -40,7 +40,7 @@ export const Generator: React.FC<GeneratorProps> = ({ onGenerate, isGenerating }
         value={prompt}
         onChange={(e) => setPrompt(e.target.value)}
         placeholder="Describe a progression (e.g., 'dreamy lofi') or enter a song title"
-        className="bg-gray-800 border-2 border-gray-700 text-gray-200 text-sm rounded-[3px] focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent block w-full p-2.5 transition-all duration-200 resize-none h-20 disabled:opacity-50"
+        className="bg-gray-800 border-2 border-gray-700 text-gray-200 text-sm rounded-[4px] focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent block w-full p-2.5 transition-all duration-200 resize-none h-20 disabled:opacity-50"
         aria-label="Chord progression description"
         disabled={isGenerating}
       />

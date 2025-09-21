@@ -32,111 +32,76 @@ export const Controls: React.FC<ControlsProps> = ({
   scaleModeOptions,
   progressionRef,
 }) => {
-
-  const selectStyles = "bg-gray-800 border-2 border-gray-700 text-gray-200 text-sm rounded-[3px] focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent block p-2.5 transition-all duration-200 w-full cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed";
   const labelStyles = "block mb-2 text-sm font-medium text-gray-400";
+  const selectStyles = "w-full bg-gray-800 border-2 border-gray-700 text-gray-200 text-sm rounded-[4px] focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent p-2.5 transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed";
   const isDiatonicMode = category === 'Diatonic Chords';
+
+  const progressionOptions = chordSets.map((p, index) => ({
+    value: index.toString(),
+    label: p.name.length > 70 ? p.name.substring(0, 67) + '...' : p.name
+  }));
 
   return (
     <div className="flex flex-col gap-3">
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label htmlFor="song-root-select" className={labelStyles}>Root Note</label>
-          <select 
-            id="song-root-select" 
-            value={songRootNote} 
-            onChange={(e) => setSongRootNote(e.target.value)} 
+          <select
+            id="song-root-select"
+            value={songRootNote}
+            onChange={(e) => setSongRootNote(e.target.value)}
             className={selectStyles}
-            title={`ROOT:\nSet the global root note for\nall chord progressions`}
-            onWheel={(e) => {
-              e.preventDefault();
-              const currentIndex = rootNoteOptions.findIndex(k => k.value === songRootNote);
-              let newIndex = currentIndex;
-              if (e.deltaY < 0) { // Scroll up
-                  newIndex = Math.max(0, currentIndex - 1);
-              } else { // Scroll down
-                  newIndex = Math.min(rootNoteOptions.length - 1, currentIndex + 1);
-              }
-              if (newIndex !== currentIndex) {
-                  setSongRootNote(rootNoteOptions[newIndex].value);
-              }
-            }}
+            title={"ROOT:\nSet the global root note for\nall chord progressions"}
           >
-            {rootNoteOptions.map(k => <option key={k.value} value={k.value}>{k.label}</option>)}
+            {rootNoteOptions.map(option => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
           </select>
         </div>
         <div>
           <label htmlFor="song-mode-select" className={labelStyles}>Mode/Scale</label>
-          <select 
-            id="song-mode-select" 
-            value={songMode} 
-            onChange={(e) => setSongMode(e.target.value)} 
-            className={selectStyles}
+          <select
+            id="song-mode-select"
+            value={songMode}
+            onChange={(e) => setSongMode(e.target.value)}
             disabled={!isDiatonicMode}
-            title={!isDiatonicMode ? "Disabled (select 'Diatonic Chords' category to enable)" : `MODE/SCALE:\nSet the global mode/scale`}
-            onWheel={(e) => {
-              e.preventDefault();
-              if (!isDiatonicMode) return;
-              const currentIndex = scaleModeOptions.findIndex(k => k.value === songMode);
-              let newIndex = currentIndex;
-              if (e.deltaY < 0) { // Scroll up
-                  newIndex = Math.max(0, currentIndex - 1);
-              } else { // Scroll down
-                  newIndex = Math.min(scaleModeOptions.length - 1, currentIndex + 1);
-              }
-              if (newIndex !== currentIndex) {
-                  setSongMode(scaleModeOptions[newIndex].value);
-              }
-            }}
+            className={selectStyles}
+            title={!isDiatonicMode ? "Disabled (select 'Diatonic Chords' to enable)" : "MODE/SCALE:\nSet the global mode/scale"}
           >
-            {scaleModeOptions.map(k => <option key={k.value} value={k.value}>{k.label}</option>)}
+            {scaleModeOptions.map(option => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
           </select>
         </div>
       </div>
       
       <div>
         <label htmlFor="category-select" className={labelStyles}>Category</label>
-        <select 
-          id="category-select" 
-          value={category} 
-          onChange={(e) => setCategory(e.target.value)} 
+        <select
+          id="category-select"
+          value={category}
+          onChange={(e) => setCategory(e.target.value)}
           className={selectStyles}
           title="Select a category of chord progressions"
         >
-          {categories.map((cat) => (
-            <option key={cat} value={cat}>
-              {cat}
-            </option>
+          {categories.map(c => (
+            <option key={c} value={c}>{c}</option>
           ))}
         </select>
       </div>
       
       <div ref={progressionRef}>
         <label htmlFor="chordset-select" className={labelStyles}>Progression</label>
-        <select 
-          id="chordset-select" 
-          value={chordSetIndex} 
-          onChange={(e) => setChordSetIndex(Number(e.target.value))} 
+        <select
+          id="chordset-select"
+          value={chordSetIndex}
+          onChange={(e) => setChordSetIndex(Number(e.target.value))}
+          disabled={isDiatonicMode}
           className={selectStyles}
           title={isDiatonicMode ? "Generated Diatonic Chords" : "Select a specific chord progression from the category"}
-          onWheel={(e) => {
-            e.preventDefault();
-            if (isDiatonicMode) return;
-            let newIndex = chordSetIndex;
-            if (e.deltaY < 0) { // Scroll up
-                newIndex = Math.max(0, chordSetIndex - 1);
-            } else { // Scroll down
-                newIndex = Math.min(chordSets.length - 1, chordSetIndex + 1);
-            }
-            if (newIndex !== chordSetIndex) {
-                setChordSetIndex(newIndex);
-            }
-          }}
         >
-          {chordSets.map((p, index) => (
-            <option key={`${category}-${p.name}-${index}`} value={index}>
-              {p.name.length > 70 ? p.name.substring(0, 67) + '...' : p.name}
-            </option>
+          {progressionOptions.map(option => (
+            <option key={option.value} value={option.value}>{option.label}</option>
           ))}
         </select>
       </div>

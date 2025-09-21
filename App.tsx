@@ -67,7 +67,7 @@ const useHistory = <T,>(initialState: T) => {
 
   const redo = useCallback(() => {
     if (index < history.length - 1) {
-      setIndex(i => i - 1);
+      setIndex(i => i + 1);
     }
   }, [index, history.length]);
 
@@ -134,7 +134,7 @@ const LoadingScreen: React.FC<{ isLoaded: boolean; onStart: () => void; isFading
         <button 
           onClick={onStart} 
           disabled={!isButtonEnabled}
-          className="mt-4 px-6 py-3 bg-indigo-600 rounded-[3px] text-lg font-semibold transition-all duration-300 transform disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100 hover:enabled:bg-indigo-700 hover:enabled:scale-105"
+          className="mt-4 px-6 py-3 bg-indigo-600 rounded-[4px] text-lg font-semibold transition-all duration-300 transform disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100 hover:enabled:bg-indigo-700 hover:enabled:scale-105"
         >
           Click to Start
         </button>
@@ -264,7 +264,7 @@ const App: React.FC = () => {
   const [chordSetIndex, setChordSetIndex] = useState(0);
   const [octave, setOctave] = useState(0);
   const [inversionLevel, setInversionLevel] = useState(0); 
-  const [voicingMode, setVoicingMode] = useState<'off' | 'manual' | 'auto'>('auto');
+  const [voicingMode, setVoicingMode] = useState<'off' | 'manual' | 'auto'>('manual');
   const [activePadChordNotes, setActivePadChordNotes] = useState<string[]>([]);
   const [activePianoNote, setActivePianoNote] = useState<string | null>(null);
   const [hoveredNotes, setHoveredNotes] = useState<string[]>([]);
@@ -312,7 +312,6 @@ const App: React.FC = () => {
   const [sequencerWidth, setSequencerWidth] = useState(0);
   const [sequencerActiveBassNotes, setSequencerActiveBassNotes] = useState<string[]>([]);
   const [playingBassNoteId, setPlayingBassNoteId] = useState<string | null>(null);
-  const [basslineStyle, setBasslineStyle] = useState<'root'>('root');
 
 
   const [activeKeyboardNotes, setActiveKeyboardNotes] = useState<Map<string, string[]>>(new Map());
@@ -1116,35 +1115,6 @@ const App: React.FC = () => {
     setActiveEditorPreviewNotes([]);
   };
 
-  const handleGenerateBass = (style: 'root') => {
-    if (!currentPattern) return;
-    
-    // For now, only 'root' style is implemented
-    if (style === 'root') {
-      const newBassSequence = currentPattern.sequence.map(chord => {
-        const parsed = parseChord(chord.chordName);
-        const rootNote = parsed?.bass || parsed?.root;
-
-        let noteOctave = 2;
-        if (rootNote) {
-            const noteIndex = NOTE_TO_INDEX[rootNote];
-            if (!isNaN(noteIndex) && noteIndex > 6) { // If it's G or higher, drop an octave to avoid jumping too high
-                noteOctave = 1;
-            }
-        }
-        
-        const noteName = rootNote ? `${rootNote}${noteOctave}` : 'C2';
-        return {
-          id: generateId(),
-          noteName,
-          start: chord.start,
-          duration: chord.duration,
-        };
-      });
-      updatePattern(currentPatternId, { bassSequence: newBassSequence });
-    }
-  };
-
   // Sequencer display logic
   useEffect(() => {
     if (isPlaying && playingChordId) {
@@ -1201,9 +1171,6 @@ const App: React.FC = () => {
           onRedo={redo}
           canUndo={canUndo}
           canRedo={canRedo}
-          basslineStyle={basslineStyle}
-          onSetBasslineStyle={setBasslineStyle}
-          onGenerateBass={handleGenerateBass}
           isPlaying={isPlaying}
           onPlayPause={togglePlay}
           onStop={handleStop}

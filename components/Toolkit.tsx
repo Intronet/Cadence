@@ -38,7 +38,6 @@ interface ToolkitProps {
   activeKeyboardPadIndices: Set<number>;
 }
 
-
 const InversionControl: React.FC<{
   inversionLevel: number;
   setInversionLevel: (level: number) => void;
@@ -74,7 +73,7 @@ const InversionControl: React.FC<{
   return (
     <div className={`flex flex-col gap-1 transition-opacity duration-200 ${disabled ? 'opacity-50' : ''}`}>
       <label className="block text-sm font-medium text-gray-400">Inversion</label>
-      <div className="flex flex-col items-center bg-gray-800 border-2 border-gray-700 rounded-[3px] px-2 pt-1 justify-center h-[4rem]">
+      <div className="flex flex-col items-center bg-gray-800 border-2 border-gray-700 rounded-[4px] px-2 pt-1 justify-center h-[4rem]">
         <div className="flex justify-between w-full px-1 text-xs text-gray-400 font-semibold">
           {labels.map((label, index) => (
             <div key={values[index]} className="flex flex-col items-center text-center w-10">
@@ -162,12 +161,12 @@ const VoicingModeControl: React.FC<{
   ] as const;
 
   return (
-    <div className="flex items-center bg-gray-800 border-2 border-gray-700 rounded-[3px] p-1 w-full">
+    <div className="flex items-center bg-gray-800 border-2 border-gray-700 rounded-[4px] p-1 w-full">
       {options.map(option => (
         <button
           key={option.value}
           onClick={() => setMode(option.value)}
-          className={`flex-1 px-3 py-2 text-sm font-semibold rounded-[3px] transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-gray-800
+          className={`flex-1 px-3 py-2 text-sm font-semibold rounded-[4px] transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-gray-800
             ${mode === option.value
               ? 'bg-indigo-600 text-white shadow'
               : 'text-gray-300 hover:bg-gray-700'
@@ -206,7 +205,8 @@ export const Toolkit: React.FC<ToolkitProps> = ({
         const progressionRect = progressionSelectorRef.current.getBoundingClientRect();
         const pianoListRect = pianoListContainerRef.current.getBoundingClientRect();
         
-        const newHeight = progressionRect.bottom - pianoListRect.top;
+        const availableHeight = progressionRect.bottom - pianoListRect.top;
+        const newHeight = availableHeight;
         
         if (newHeight > 20) { // Basic sanity check
           setPianoListHeight(newHeight);
@@ -378,7 +378,7 @@ export const Toolkit: React.FC<ToolkitProps> = ({
   };
 
   return (
-    <div className="relative bg-gray-800 rounded-[3px] border border-gray-700 p-3 h-full mt-2">
+    <div className="relative bg-gray-800 rounded-[4px] border border-gray-700 p-3 h-full mt-2">
       <div 
         onMouseDown={handleVerticalResizeMouseDown}
         className="absolute -top-1 left-0 right-0 h-2 cursor-row-resize z-10"
@@ -399,7 +399,7 @@ export const Toolkit: React.FC<ToolkitProps> = ({
             <div 
               ref={pianoListContainerRef}
               style={{ height: pianoListHeight }}
-              className="overflow-y-auto custom-scrollbar border-2 border-gray-700 rounded-[3px] bg-gray-900 p-1"
+              className="overflow-y-auto custom-scrollbar border-2 border-gray-700 rounded-[4px] bg-[#282828] p-1"
             >
               {pianoOptions.map(piano => (
                 <button 
@@ -408,7 +408,7 @@ export const Toolkit: React.FC<ToolkitProps> = ({
                   className={`w-full text-left p-2 rounded-[2px] transition-colors text-sm font-bold whitespace-normal ${
                     selectedPiano === piano 
                     ? 'bg-indigo-600 text-white' 
-                    : 'bg-transparent text-gray-300 hover:bg-gray-700'
+                    : 'bg-transparent text-gray-300 hover:bg-gray-600'
                   }`}
                 >
                   {piano}
@@ -456,7 +456,7 @@ export const Toolkit: React.FC<ToolkitProps> = ({
 
           {/* Column: Voicing */}
           <div className="flex-shrink-0 overflow-y-auto custom-scrollbar px-4" style={{ width: `${voicingWidth}px` }}>
-              <div className="space-y-3" title={`VOICING:\nControl how chords are played.\n'Off' plays root position.\n'Manual' allows setting octave and inversion.\n'Auto' creates smooth voice leading.`}>
+              <div className="space-y-3" title={`VOICING:\n'Off' plays root position.\n'Manual' allows setting octave & inversion.\n'Auto' creates smooth voice leading.`}>
                   <VoicingModeControl mode={voicingMode} setMode={setVoicingMode} />
                   <div className="flex items-end gap-4 border-t border-gray-700/50 pt-2 mt-2">
                     <div className="flex-grow">
@@ -483,7 +483,7 @@ export const Toolkit: React.FC<ToolkitProps> = ({
                  <div className="flex flex-wrap gap-2">
                     {chords.map((chord, index) => (
                         <div key={`${chord}-${index}`} 
-                             className="bg-indigo-500/80 rounded-[3px] p-[2px] shadow-lg"
+                             className="bg-indigo-500/80 rounded-[4px] p-[2px] shadow-lg"
                              style={{ width: quarterNoteWidth > 0 ? `${quarterNoteWidth}px` : '5rem' }}
                         >
                             <Pad

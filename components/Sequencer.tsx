@@ -67,7 +67,7 @@ const BassBlock: React.FC<BassBlockProps> = ({ note, stepWidth, stepsPerLane, is
 
   return (
     <div
-      className={`absolute rounded-[2px] flex items-center justify-center text-white text-xs font-medium select-none shadow-md transition-colors duration-150 z-10 border
+      className={`absolute rounded-[4px] flex items-center justify-center text-white text-xs font-medium select-none shadow-md transition-colors duration-150 z-10 border
         ${isPlaying ? 'bg-green-500 border-green-300' : 'bg-green-700 border-green-500'}
         cursor-default
       `}
@@ -129,7 +129,7 @@ const ChordBlock: React.FC<ChordBlockProps> = ({
   return (
     <div
       data-has-context-menu="true"
-      className={`absolute rounded-[3px] flex items-center justify-center text-white text-xs font-medium select-none shadow-lg transition-colors duration-150 z-10 chord-block border
+      className={`absolute rounded-[4px] flex items-center justify-center text-white text-xs font-medium select-none shadow-lg transition-colors duration-150 z-10 chord-block border
         ${isSelected ? 'bg-indigo-500 border-yellow-400' : 'bg-indigo-600 border-indigo-400'}
         ${isCurrentlyPlaying ? 'ring-2 ring-sky-400' : ''}
         cursor-grab active:cursor-grabbing
@@ -216,26 +216,26 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, chord, onClose, onSetAr
   };
   
   const MenuItem: React.FC<{ onClick: () => void; children: React.ReactNode; isSelected?: boolean }> = ({ onClick, children, isSelected }) => (
-    <button onClick={onClick} className={`w-full text-left px-3 py-1.5 text-sm rounded-[3px] flex justify-between items-center ${isSelected ? 'font-bold text-white bg-indigo-600' : 'text-gray-200 hover:bg-gray-600'}`}>
+    <button onClick={onClick} className={`w-full text-left px-3 py-1.5 text-sm rounded-[4px] flex justify-between items-center ${isSelected ? 'font-bold text-white bg-indigo-600' : 'text-gray-200 hover:bg-gray-600'}`}>
         {children}
         {isSelected && <span className="text-sky-300">✓</span>}
     </button>
   );
 
   return (
-    <div ref={menuRef} style={menuStyle} className="fixed bg-gray-800 border border-gray-600 rounded-[3px] shadow-lg p-1 w-48 z-30 animate-fade-in-fast">
+    <div ref={menuRef} style={menuStyle} className="fixed bg-gray-800 border border-gray-600 rounded-[4px] shadow-lg p-1 w-48 z-30 animate-fade-in-fast">
         <div className="text-xs text-gray-400 px-3 py-1 border-b border-gray-700 mb-1 truncate">{chord.chordName}</div>
         <div 
           className="relative"
           onMouseEnter={handleSubMenuEnter}
           onMouseLeave={handleSubMenuLeave}
         >
-          <div className="w-full text-left px-3 py-1.5 text-sm rounded-[3px] flex justify-between items-center text-gray-200 hover:bg-gray-600 cursor-default">
+          <div className="w-full text-left px-3 py-1.5 text-sm rounded-[4px] flex justify-between items-center text-gray-200 hover:bg-gray-600 cursor-default">
             Articulations <span className="text-gray-400">▶</span>
           </div>
           {isSubMenuOpen && (
             <div 
-              className="absolute left-full top-0 -mt-1 ml-1 bg-gray-800 border border-gray-600 rounded-[3px] shadow-lg p-1 w-48"
+              className="absolute left-full top-0 -mt-1 ml-1 bg-gray-800 border border-gray-600 rounded-[4px] shadow-lg p-1 w-48"
               onMouseEnter={handleSubMenuEnter}
               onMouseLeave={handleSubMenuLeave}
             >
@@ -520,7 +520,7 @@ export const Sequencer: React.FC<SequencerProps> = ({
               );
             })}
             {dragOverStep !== null && Math.floor(dragOverStep / stepsPerLane) === laneIndex && (
-              <div className="absolute bg-indigo-500/30 rounded-[3px] pointer-events-none" style={{ left: `${(dragOverStep % stepsPerLane) * stepWidth + TRACK_PADDING}px`, width: `${DEFAULT_CHORD_DURATION * stepWidth}px`, height: `${CHORD_BLOCK_HEIGHT}px`, bottom: `${TRACK_VERTICAL_PADDING}px` }}/>
+              <div className="absolute bg-indigo-500/30 rounded-[4px] pointer-events-none" style={{ left: `${(dragOverStep % stepsPerLane) * stepWidth + TRACK_PADDING}px`, width: `${DEFAULT_CHORD_DURATION * stepWidth}px`, height: `${CHORD_BLOCK_HEIGHT}px`, bottom: `${TRACK_VERTICAL_PADDING}px` }}/>
             )}
         </div>
          {/* Bass Track or Spacer */}
