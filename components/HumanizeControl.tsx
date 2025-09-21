@@ -82,7 +82,7 @@ export const HumanizeControl: React.FC<HumanizeControlProps> = ({
       </button>
 
       {isOpen && (
-        <div className="absolute bottom-full right-0 mb-2 w-72 bg-gray-800 border border-gray-700 rounded-[4px] shadow-lg p-4 z-20 animate-fade-in-fast">
+        <div className="absolute top-full right-0 mt-2 w-72 bg-gray-800 border border-gray-700 rounded-[4px] shadow-lg p-4 z-20 animate-fade-in-fast">
             <h4 className="text-md font-bold text-indigo-300 mb-3">Humanize</h4>
             <div className="space-y-4">
                  <CustomSlider
@@ -112,7 +112,7 @@ export const HumanizeControl: React.FC<HumanizeControlProps> = ({
           cursor: pointer; border: none; transition: background .2s;
         }
          @keyframes fade-in-fast {
-          from { opacity: 0; transform: translateY(5px); }
+          from { opacity: 0; transform: translateY(-5px); }
           to { opacity: 1; transform: translateY(0); }
         }
         .animate-fade-in-fast { animation: fade-in-fast 0.15s ease-out forwards; }
