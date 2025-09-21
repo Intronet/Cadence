@@ -60,12 +60,15 @@ export type ChordData = {
   [category: string]: ChordSet[];
 };
 
+export type ArticulationType = 'arpeggio' | 'strum';
+
 export interface SequenceChord {
   id: string;
   chordName: string;
   start: number; // in 16th note steps (0-127 for 8 bars)
   duration: number; // in 16th note steps
   octave: number; // The octave offset for this specific chord
+  articulation?: ArticulationType | null;
 }
 
 export interface SequenceBassNote {

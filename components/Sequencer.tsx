@@ -1,8 +1,10 @@
 import React, { useState, useRef, useCallback, MouseEvent, useEffect, useMemo } from 'react';
-import { SequenceChord, SequenceBassNote } from '../types';
+import { SequenceChord, SequenceBassNote, ArticulationType } from '../types';
 import * as Tone from 'tone';
 import { SpeakerIcon } from './icons/SpeakerIcon';
 import { SpeakerOffIcon } from './icons/SpeakerOffIcon';
+import { ArpeggioIcon } from './icons/ArpeggioIcon';
+import { StrumIcon } from './icons/StrumIcon';
 
 interface SequencerProps {
   sequence: SequenceChord[];
@@ -15,6 +17,7 @@ interface SequencerProps {
   onChordSelect: (id: string, e: MouseEvent) => void;
   onDeselect: () => void;
   onChordMouseUp: () => void;
+  onInteraction: () => void;
   playheadPosition: number; // in beats
   playingChordId: string | null;
   playingBassNoteId: string | null;
@@ -97,11 +100,12 @@ interface ChordBlockProps {
   isSelected: boolean;
   isClickMuted: boolean;
   onDragStart: (chord: SequenceChord, isResizing: boolean, e: React.MouseEvent<HTMLDivElement>) => void;
+  onContextMenu: (e: React.MouseEvent, chord: SequenceChord) => void;
 }
 
 const ChordBlock: React.FC<ChordBlockProps> = ({ 
   chord, stepWidth, stepsPerLane, onRemove, onDoubleClick, onPlayChord, onChordSelect, onChordMouseUp, 
-  playingChordId, isSelected, isClickMuted, onDragStart 
+  playingChordId, isSelected, isClickMuted, onDragStart, onContextMenu
 }) => {
   const isCurrentlyPlaying = chord.id === playingChordId;
 
@@ -140,10 +144,108 @@ const ChordBlock: React.FC<ChordBlockProps> = ({
       onMouseDown={handleMouseDown}
       onMouseUp={onChordMouseUp} // Stop sound on simple click-release
       onDoubleClick={() => onDoubleClick(chord)}
+      onContextMenu={(e) => onContextMenu(e, chord)}
       title={`${chord.chordName}\nDrag to move.\nDrag edge to resize.\nHold {Ctrl} for precision.\nDouble-click to edit.\nSelect and press Delete or Backspace to remove.`}
     >
+      <div className="absolute top-1 left-1 pointer-events-none">
+        {chord.articulation === 'arpeggio' && <ArpeggioIcon className="w-3.5 h-3.5 text-sky-200"><title>Arpeggio</title></ArpeggioIcon>}
+        {chord.articulation === 'strum' && <StrumIcon className="w-3.5 h-3.5 text-sky-200"><title>Strum</title></StrumIcon>}
+      </div>
       <span className="truncate px-2 pointer-events-none">{chord.chordName}</span>
       <div className={`resize-handle absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize`} />
+    </div>
+  );
+};
+
+
+// --- Context Menu Component ---
+interface ContextMenuProps {
+  x: number;
+  y: number;
+  chord: SequenceChord;
+  onClose: () => void;
+  onSetArticulation: (id: string, type: ArticulationType | null) => void;
+}
+
+const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, chord, onClose, onSetArticulation }) => {
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [isSubMenuOpen, setIsSubMenuOpen] = useState(false);
+  const subMenuTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: globalThis.MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [onClose]);
+
+  // Clear timer on unmount
+  useEffect(() => {
+    return () => {
+      if (subMenuTimerRef.current) {
+        clearTimeout(subMenuTimerRef.current);
+      }
+    };
+  }, []);
+
+  const handleSubMenuEnter = () => {
+    if (subMenuTimerRef.current) {
+      clearTimeout(subMenuTimerRef.current);
+      subMenuTimerRef.current = null;
+    }
+    setIsSubMenuOpen(true);
+  };
+
+  const handleSubMenuLeave = () => {
+    subMenuTimerRef.current = window.setTimeout(() => {
+      setIsSubMenuOpen(false);
+    }, 200); // 200ms delay to allow moving between menu and submenu
+  };
+
+  const menuStyle: React.CSSProperties = {
+    top: `${y}px`,
+    left: `${x}px`,
+  };
+
+  const handleSelect = (type: ArticulationType | null) => {
+    onSetArticulation(chord.id, type);
+    onClose();
+  };
+  
+  const MenuItem: React.FC<{ onClick: () => void; children: React.ReactNode; isSelected?: boolean }> = ({ onClick, children, isSelected }) => (
+    <button onClick={onClick} className={`w-full text-left px-3 py-1.5 text-sm rounded-[3px] flex justify-between items-center ${isSelected ? 'font-bold text-white bg-indigo-600' : 'text-gray-200 hover:bg-gray-600'}`}>
+        {children}
+        {isSelected && <span className="text-sky-300">✓</span>}
+    </button>
+  );
+
+  return (
+    <div ref={menuRef} style={menuStyle} className="fixed bg-gray-800 border border-gray-600 rounded-[3px] shadow-lg p-1 w-48 z-30 animate-fade-in-fast">
+        <div className="text-xs text-gray-400 px-3 py-1 border-b border-gray-700 mb-1 truncate">{chord.chordName}</div>
+        <div 
+          className="relative"
+          onMouseEnter={handleSubMenuEnter}
+          onMouseLeave={handleSubMenuLeave}
+        >
+          <div className="w-full text-left px-3 py-1.5 text-sm rounded-[3px] flex justify-between items-center text-gray-200 hover:bg-gray-600 cursor-default">
+            Articulations <span className="text-gray-400">▶</span>
+          </div>
+          {isSubMenuOpen && (
+            <div 
+              className="absolute left-full top-0 -mt-1 ml-1 bg-gray-800 border border-gray-600 rounded-[3px] shadow-lg p-1 w-48"
+              onMouseEnter={handleSubMenuEnter}
+              onMouseLeave={handleSubMenuLeave}
+            >
+              <MenuItem onClick={() => handleSelect('arpeggio')} isSelected={chord.articulation === 'arpeggio'}>Arpeggio</MenuItem>
+              <MenuItem onClick={() => handleSelect('strum')} isSelected={chord.articulation === 'strum'}>Strumming</MenuItem>
+            </div>
+          )}
+        </div>
+        <div className="h-px bg-gray-700 my-1"/>
+        <MenuItem onClick={() => handleSelect(null)} isSelected={!chord.articulation}>None</MenuItem>
     </div>
   );
 };
@@ -152,13 +254,14 @@ const ChordBlock: React.FC<ChordBlockProps> = ({
 // --- Sequencer Component ---
 export const Sequencer: React.FC<SequencerProps> = ({
   sequence, bassSequence, onAddChord, onUpdateChord, onRemoveChord, onChordDoubleClick,
-  onPlayChord, onChordSelect, onDeselect, onChordMouseUp, playheadPosition, 
+  onPlayChord, onChordSelect, onDeselect, onChordMouseUp, onInteraction, playheadPosition, 
   playingChordId, playingBassNoteId, selectedChordIds, bars, timeSignature, onSeek, isClickMuted, onMuteToggle,
   onWidthChange
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [dragOverStep, setDragOverStep] = useState<number | null>(null);
   const [containerWidth, setContainerWidth] = useState(0);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; chord: SequenceChord } | null>(null);
   const [draggingState, setDraggingState] = useState<{
       id: string;
       start: number;
@@ -319,6 +422,17 @@ export const Sequencer: React.FC<SequencerProps> = ({
     onSeek(Math.max(0, Math.min(BEAT_COUNT, positionInBeats)));
   }, [stepWidth, onSeek, BEAT_COUNT, stepsPerLane, onDeselect]);
 
+  const handleContextMenu = useCallback((e: React.MouseEvent, chord: SequenceChord) => {
+    e.preventDefault();
+    onInteraction();
+    setContextMenu({ x: e.clientX, y: e.clientY, chord });
+  }, [onInteraction]);
+  
+  const handleSetArticulation = (id: string, type: ArticulationType | null) => {
+    onUpdateChord(id, { articulation: type });
+  };
+
+
   const beatsPerLane = BEATS_PER_BAR * 4;
   const playheadLane = is8BarMode && playheadPosition >= beatsPerLane ? 1 : 0;
   const playheadLeftInLane = (playheadPosition % beatsPerLane) * beatWidth;
@@ -401,6 +515,7 @@ export const Sequencer: React.FC<SequencerProps> = ({
                   isSelected={selectedChordIds.has(chord.id)}
                   isClickMuted={isClickMuted}
                   onDragStart={handleDragStart}
+                  onContextMenu={handleContextMenu}
                 />
               );
             })}
@@ -447,6 +562,13 @@ export const Sequencer: React.FC<SequencerProps> = ({
 
   return (
     <div className="w-full flex flex-col min-w-[600px]" onClick={handleContainerClick}>
+       <style>{`
+        @keyframes fade-in-fast {
+          from { opacity: 0; transform: scale(0.98); }
+          to { opacity: 1; transform: scale(1); }
+        }
+        .animate-fade-in-fast { animation: fade-in-fast 0.1s ease-out forwards; }
+      `}</style>
       <div className="relative">
         <React.Fragment key="lane-0">
           {renderSequencerLane(0)}
@@ -464,6 +586,15 @@ export const Sequencer: React.FC<SequencerProps> = ({
           </div>
         )}
       </div>
+       {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          chord={contextMenu.chord}
+          onClose={() => setContextMenu(null)}
+          onSetArticulation={handleSetArticulation}
+        />
+      )}
     </div>
   );
 };

@@ -26,7 +26,7 @@ import {
   generateDiatonicChords,
   hasSeventh
 } from './index';
-import { ROOT_NOTE_OPTIONS, SCALE_MODE_OPTIONS, ChordSet, SequenceChord, Pattern, DrumSound, DrumPatternPreset, SequenceBassNote } from './types';
+import { ROOT_NOTE_OPTIONS, SCALE_MODE_OPTIONS, ChordSet, SequenceChord, Pattern, DrumSound, DrumPatternPreset, SequenceBassNote, ArticulationType } from './types';
 import { Piano, PianoHandle } from './components/Piano';
 import { HoverDisplay } from './components/HoverDisplay';
 import { Sequencer } from './components/Sequencer';
@@ -800,6 +800,12 @@ const App: React.FC = () => {
     setIsMetronomeOn(v => !v);
   };
 
+  const handleSequencerInteraction = useCallback(() => {
+    if (isPlaying) {
+      togglePlay();
+    }
+  }, [isPlaying, togglePlay]);
+
   useEffect(() => {
     const animate = () => {
       if (Tone.Transport.state === 'started') {
@@ -840,14 +846,48 @@ const App: React.FC = () => {
 
         const part = new Tone.Part<{ time: number; duration: number; chord: SequenceChord }>((time, event) => {
             const notes = getChordNoteStrings(event.chord.chordName, event.chord.octave);
-            sampler.triggerAttackRelease(notes, event.duration, time);
-            
+            if (!notes || notes.length === 0) return;
+
             Tone.Draw.schedule(() => {
-                scrollToLowestNote(notes);
-                setPlayingChordId(event.chord.id);
-                setSequencerActiveNotes(notes);
+              scrollToLowestNote(notes);
+              setPlayingChordId(event.chord.id);
             }, time);
 
+            if (event.chord.articulation === 'arpeggio') {
+                const singleNoteDuration = event.duration / notes.length;
+                notes.forEach((note, index) => {
+                    const attackTime = time + (index * singleNoteDuration);
+                    if (attackTime < time + event.duration) {
+                        sampler.triggerAttackRelease(note, singleNoteDuration * 0.95, attackTime);
+                        Tone.Draw.schedule(() => {
+                            setSequencerActiveNotes([note]);
+                        }, attackTime);
+                    }
+                });
+            } else if (event.chord.articulation === 'strum') {
+                const strumDelay = 0.04;
+                 Tone.Draw.schedule(() => {
+                    setSequencerActiveNotes([]);
+                }, time);
+                notes.forEach((note, index) => {
+                    const attackTime = time + (index * strumDelay);
+                    if (attackTime < time + event.duration) {
+                        const releaseDuration = event.duration - (index * strumDelay);
+                        if (releaseDuration > 0) {
+                            sampler.triggerAttackRelease(note, releaseDuration, attackTime);
+                        }
+                        Tone.Draw.schedule(() => {
+                            setSequencerActiveNotes(prev => [...prev, note]);
+                        }, attackTime);
+                    }
+                });
+            } else { // Block chord
+                sampler.triggerAttackRelease(notes, event.duration, time);
+                Tone.Draw.schedule(() => {
+                    setSequencerActiveNotes(notes);
+                }, time);
+            }
+            
             Tone.Draw.schedule(() => {
                 setPlayingChordId(null);
                 setSequencerActiveNotes([]);
@@ -1187,6 +1227,7 @@ const App: React.FC = () => {
           onChordSelect={handleChordSelect}
           onDeselect={() => setSelectedChordIds(new Set())}
           onChordMouseUp={stopActiveManualNotes}
+          onInteraction={handleSequencerInteraction}
           playheadPosition={playheadPosition}
           playingChordId={playingChordId}
           playingBassNoteId={playingBassNoteId}
