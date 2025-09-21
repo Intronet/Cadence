@@ -9,7 +9,7 @@ import { StrumIcon } from './icons/StrumIcon';
 interface SequencerProps {
   sequence: SequenceChord[];
   bassSequence: SequenceBassNote[];
-  onAddChord: (chordName: string, start: number) => void;
+  onAddChord: (chordName: string, start: number, octaveOverride?: number) => void;
   onUpdateChord: (id: string, newProps: Partial<SequenceChord>) => void;
   onRemoveChord: (id: string) => void;
   onChordDoubleClick: (chord: SequenceChord) => void;
@@ -376,9 +376,14 @@ export const Sequencer: React.FC<SequencerProps> = ({
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
-    const chordName = e.dataTransfer.getData("text/plain");
-    if (chordName && dragOverStep !== null) {
-      onAddChord(chordName, dragOverStep);
+    const jsonData = e.dataTransfer.getData("application/json");
+    if (jsonData && dragOverStep !== null) {
+      try {
+        const data = JSON.parse(jsonData);
+        onAddChord(data.chordName, dragOverStep, data.octave);
+      } catch (error) {
+        console.error("Error handling drop with JSON data:", error);
+      }
     }
     setDragOverStep(null);
   };

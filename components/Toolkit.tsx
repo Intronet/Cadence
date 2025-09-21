@@ -43,32 +43,38 @@ const InversionControl: React.FC<{
   setInversionLevel: (level: number) => void;
   disabled: boolean;
 }> = ({ inversionLevel, setInversionLevel, disabled }) => {
-  const labels = ['3rd', '2nd', '1st', 'Root', '1st', '2nd', '3rd'];
-  const values = [-3, -2, -1, 0, 1, 2, 3];
+  const labels = ['1st', '2nd', '3rd', 'Root', '1st', '2nd', '3rd'];
+  const sliderValues = [-3, -2, -1, 0, 1, 2, 3];
 
-  // Map from internal logic value to the UI slider's linear value
-  const internalToUiMap: { [key: number]: number } = {
-    [-3]: -1, [-2]: -2, [-1]: -3,
-    [0]: 0,
-    [1]: 1, [2]: 2, [3]: 3
+  const sliderToInversionLevel: { [key: number]: number } = {
+    [-3]: -1, // 1st Low
+    [-2]: -2, // 2nd Low
+    [-1]: -3, // 3rd Low
+    [0]: 0,   // Root
+    [1]: 1,   // 1st High
+    [2]: 2,   // 2nd High
+    [3]: 3,   // 3rd High
   };
-  
-  // Map from UI slider's linear value to the internal logic value
-  const uiToInternalMap: { [key: number]: number } = {
-    [-3]: -1, [-2]: -2, [-1]: -3,
+
+  const inversionLevelToSlider: { [key: number]: number } = {
+    [-1]: -3,
+    [-2]: -2,
+    [-3]: -1,
     [0]: 0,
-    [1]: 1, [2]: 2, [3]: 3
+    [1]: 1,
+    [2]: 2,
+    [3]: 3,
   };
 
   const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const uiValue = parseInt(e.target.value, 10);
-    const internalValue = Object.keys(internalToUiMap).find(key => internalToUiMap[Number(key) as keyof typeof internalToUiMap] === uiValue);
-    if (internalValue) {
-      setInversionLevel(Number(internalValue));
+    const sliderValue = parseInt(e.target.value, 10);
+    const newInversionLevel = sliderToInversionLevel[sliderValue];
+    if (newInversionLevel !== undefined) {
+      setInversionLevel(newInversionLevel);
     }
   };
 
-  const currentUiValue = internalToUiMap[inversionLevel as keyof typeof internalToUiMap] ?? 0;
+  const currentSliderValue = inversionLevelToSlider[inversionLevel] ?? 0;
 
   return (
     <div className={`flex flex-col gap-1 transition-opacity duration-200 ${disabled ? 'opacity-50' : ''}`}>
@@ -76,9 +82,9 @@ const InversionControl: React.FC<{
       <div className="flex flex-col items-center bg-gray-800 border-2 border-gray-700 rounded-[4px] px-2 pt-1 justify-center h-[4rem]">
         <div className="flex justify-between w-full px-1 text-xs text-gray-400 font-semibold">
           {labels.map((label, index) => (
-            <div key={values[index]} className="flex flex-col items-center text-center w-10">
-              <span className={currentUiValue === values[index] ? 'text-indigo-300' : ''}>{label}</span>
-              {label !== 'Root' && <span className={`text-[10px] ${currentUiValue === values[index] ? 'text-indigo-300' : 'text-gray-500'}`}>{index < 3 ? 'Low' : 'High'}</span>}
+            <div key={sliderValues[index]} className="flex flex-col items-center text-center w-10">
+              <span className={currentSliderValue === sliderValues[index] ? 'text-indigo-300' : ''}>{label}</span>
+              {label !== 'Root' && <span className={`text-[10px] ${currentSliderValue === sliderValues[index] ? 'text-indigo-300' : 'text-gray-500'}`}>{index < 3 ? 'Low' : 'High'}</span>}
             </div>
           ))}
         </div>
@@ -88,7 +94,7 @@ const InversionControl: React.FC<{
             min="-3"
             max="3"
             step="1"
-            value={currentUiValue}
+            value={currentSliderValue}
             onChange={handleSliderChange}
             disabled={disabled}
             className="w-full h-2 bg-transparent appearance-none cursor-pointer range-slider-inversion z-10 absolute top-1/2 -translate-y-1/2"
@@ -231,15 +237,20 @@ export const Toolkit: React.FC<ToolkitProps> = ({
 
   const onPadDragStart = (e: React.DragEvent<HTMLButtonElement>, chordName: string) => {
     let finalChordName = chordName;
-    
-    // Apply manual inversion to the chord name if in manual mode
+    let finalOctave = octave;
+
     if (voicingMode === 'manual') {
       const actualInversion = Math.abs(inversionLevel);
       const isThirdInvPossible = hasSeventh(chordName);
-      // Cap inversion at 2 for triads, 3 for seventh+ chords.
       const cappedInversion = isThirdInvPossible ? actualInversion : Math.min(actualInversion, 2);
       finalChordName = updateChord(chordName, { inversion: cappedInversion });
+      finalOctave = octave + (inversionLevel < 0 ? -1 : 0);
     }
+
+    const dragData = {
+      chordName: finalChordName,
+      octave: finalOctave,
+    };
 
     const dragImage = e.currentTarget;
     const rect = dragImage.getBoundingClientRect();
@@ -256,7 +267,7 @@ export const Toolkit: React.FC<ToolkitProps> = ({
     document.body.appendChild(clone);
 
     e.dataTransfer.setDragImage(clone, offsetX, offsetY);
-    e.dataTransfer.setData("text/plain", finalChordName);
+    e.dataTransfer.setData("application/json", JSON.stringify(dragData));
     e.dataTransfer.effectAllowed = "copy";
     
     // Clean up clone after the drag frame is captured

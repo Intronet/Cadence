@@ -277,6 +277,9 @@ const App: React.FC = () => {
 
   const [masterVolume, setMasterVolume] = useState(0); // in dB
   const [isMuted, setIsMuted] = useState(false);
+  
+  const [humanizeTiming, setHumanizeTiming] = useState(0); // 0-1
+  const [humanizeDynamics, setHumanizeDynamics] = useState(0); // 0-1
 
   const {
     state: patterns,
@@ -696,13 +699,13 @@ const App: React.FC = () => {
     };
   }, [displayedChords, getNotesForVoicing, scrollToLowestNote]);
 
-  const addChordToSequencer = (chordName: string, start: number) => {
+  const addChordToSequencer = (chordName: string, start: number, octaveOverride?: number) => {
     const newChord: SequenceChord = { 
       id: generateId(), 
       chordName, 
       start, 
       duration: 4, 
-      octave: octave 
+      octave: octaveOverride !== undefined ? octaveOverride : octave
     };
     updatePattern(currentPatternId, { sequence: [...sequence, newChord] });
   };
@@ -862,7 +865,9 @@ const App: React.FC = () => {
                     const attackTime = time + i * singleNoteDuration;
                     
                     if (attackTime < time + event.duration) {
-                        sampler.triggerAttackRelease(note, singleNoteDuration * 0.95, attackTime);
+                        const timeJitter = (Math.random() - 0.5) * humanizeTiming * 0.02;
+                        const velocity = 0.8 + (Math.random() - 0.5) * humanizeDynamics * 0.4;
+                        sampler.triggerAttackRelease(note, singleNoteDuration * 0.95, attackTime + timeJitter, velocity);
                         Tone.Draw.schedule(() => {
                             setSequencerActiveNotes([note]);
                         }, attackTime);
@@ -877,8 +882,9 @@ const App: React.FC = () => {
                     const attackTime = time + (index * strumDelay);
                     if (attackTime < time + event.duration) {
                         const releaseDuration = event.duration - (index * strumDelay);
+                        const velocity = 0.8 + (Math.random() - 0.5) * humanizeDynamics * 0.4;
                         if (releaseDuration > 0) {
-                            sampler.triggerAttackRelease(note, releaseDuration, attackTime);
+                            sampler.triggerAttackRelease(note, releaseDuration, attackTime, velocity);
                         }
                         Tone.Draw.schedule(() => {
                             setSequencerActiveNotes(prev => [...prev, note]);
@@ -886,10 +892,17 @@ const App: React.FC = () => {
                     }
                 });
             } else { // Block chord
-                sampler.triggerAttackRelease(notes, event.duration, time);
-                Tone.Draw.schedule(() => {
-                    setSequencerActiveNotes(notes);
+                 Tone.Draw.schedule(() => {
+                    setSequencerActiveNotes([]);
                 }, time);
+                notes.forEach(note => {
+                    const timeOffset = (Math.random() - 0.5) * humanizeTiming * 0.05; // Max +/- 25ms
+                    const velocity = 0.8 + (Math.random() - 0.5) * humanizeDynamics * 0.4; // Range 0.6 to 1.0
+                    sampler.triggerAttackRelease(note, event.duration, time + timeOffset, velocity);
+                     Tone.Draw.schedule(() => {
+                        setSequencerActiveNotes(prev => [...prev, note]);
+                    }, time + timeOffset);
+                });
             }
             
             Tone.Draw.schedule(() => {
@@ -907,7 +920,7 @@ const App: React.FC = () => {
       chordPartRef.current?.dispose();
       chordPartRef.current = null;
     };
-  }, [humanizedSequence, scrollToLowestNote]);
+  }, [humanizedSequence, scrollToLowestNote, humanizeTiming, humanizeDynamics]);
   
   useEffect(() => {
     if (bassPartRef.current) {
@@ -924,7 +937,9 @@ const App: React.FC = () => {
       }));
   
       const part = new Tone.Part<{ time: number; duration: number; noteName: string; id: string }>((time, event) => {
-        bassSynth.triggerAttackRelease(event.noteName, event.duration, time);
+        const timeOffset = (Math.random() - 0.5) * humanizeTiming * 0.05;
+        const velocity = 0.9 + (Math.random() - 0.5) * humanizeDynamics * 0.2; // Bass has less dynamic range
+        bassSynth.triggerAttackRelease(event.noteName, event.duration, time + timeOffset, velocity);
         
         Tone.Draw.schedule(() => {
           setPlayingBassNoteId(event.id);
@@ -946,7 +961,7 @@ const App: React.FC = () => {
       bassPartRef.current?.dispose();
       bassPartRef.current = null;
     };
-  }, [bassSequence]);
+  }, [bassSequence, humanizeTiming, humanizeDynamics]);
   
 
   useEffect(() => {
@@ -1187,6 +1202,10 @@ const App: React.FC = () => {
           onMuteToggle={() => setIsMuted(v => !v)}
           isChordMachineOpen={isChordMachineOpen}
           onToggleChordMachine={toggleChordMachine}
+          humanizeTiming={humanizeTiming}
+          onHumanizeTimingChange={setHumanizeTiming}
+          humanizeDynamics={humanizeDynamics}
+          onHumanizeDynamicsChange={setHumanizeDynamics}
         />
         <Sequencer
           sequence={sequence}

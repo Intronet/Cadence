@@ -11,6 +11,7 @@ import { ToolboxIcon } from './icons/ToolboxIcon';
 import { PanicIcon } from './icons/PanicIcon';
 import { DrumIcon } from './icons/DrumIcon';
 import { DrumEditorIcon } from './icons/DrumEditorIcon';
+import { HumanizeControl } from './HumanizeControl';
 
 interface ArrangementViewProps {
   patterns: Pattern[];
@@ -48,6 +49,10 @@ interface ArrangementViewProps {
   onMuteToggle: () => void;
   isChordMachineOpen: boolean;
   onToggleChordMachine: () => void;
+  humanizeTiming: number;
+  onHumanizeTimingChange: (value: number) => void;
+  humanizeDynamics: number;
+  onHumanizeDynamicsChange: (value: number) => void;
 }
 
 const PlayIcon = (props: React.SVGProps<SVGSVGElement>) => (
@@ -132,7 +137,8 @@ export const ArrangementView: React.FC<ArrangementViewProps> = ({
   onUndo, onRedo, canUndo, canRedo,
   isPlaying, onPlayPause, onStop, onPanic, playheadPosition,
   masterVolume, onMasterVolumeChange, isMuted, onMuteToggle,
-  isChordMachineOpen, onToggleChordMachine
+  isChordMachineOpen, onToggleChordMachine,
+  humanizeTiming, onHumanizeTimingChange, humanizeDynamics, onHumanizeDynamicsChange
 }) => {
   const [draggedPatternId, setDraggedPatternId] = useState<string | null>(null);
 
@@ -289,6 +295,13 @@ export const ArrangementView: React.FC<ArrangementViewProps> = ({
         </div>
 
         <div className="flex-1 flex items-center justify-end gap-2">
+          <HumanizeControl
+            timing={humanizeTiming}
+            onTimingChange={onHumanizeTimingChange}
+            dynamics={humanizeDynamics}
+            onDynamicsChange={onHumanizeDynamicsChange}
+          />
+          <div className="h-6 w-px bg-gray-600 mx-1" />
           <button onClick={onToggleDrumsEnabled} className={`${isDrumsEnabled ? primaryButtonClasses : regularButtonClasses} h-10`} title="Toggle Drums"><DrumIcon className="w-5 h-5" /></button>
           <button onClick={onToggleDrumEditor} className={`${isDrumEditorOpen ? primaryButtonClasses : regularButtonClasses} h-10`} title="Toggle Drum Editor"><DrumEditorIcon className="w-5 h-5" /></button>
           <div className="h-6 w-px bg-gray-600 mx-1" />
