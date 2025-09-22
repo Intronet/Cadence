@@ -28,7 +28,7 @@ import {
   hasSeventh
 } from './index';
 // FIX: Aliased Pattern to AppPattern to avoid name collision with Tone.js's Pattern type.
-import { ROOT_NOTE_OPTIONS, SCALE_MODE_OPTIONS, ChordSet, SequenceChord, Pattern as AppPattern, DrumSound, DrumPatternPreset, SequenceBassNote, Articulation, ArpeggioRate, StrumDirection } from './types';
+import { ROOT_NOTE_OPTIONS, SCALE_MODE_OPTIONS, ChordSet, SequenceChord, Pattern as AppPattern, DrumSound, DrumPatternPreset, SequenceBassNote, Articulation, ArpeggioRate, StrumDirection, RhythmName } from './types';
 import { Piano, PianoHandle } from './components/Piano';
 import { HoverDisplay } from './components/HoverDisplay';
 import { Sequencer } from './components/Sequencer';
@@ -213,6 +213,15 @@ const KEY_LABELS = [
   'A', 'S', 'D', 'F',
   'Z', 'X', 'C', 'V',
 ];
+
+// --- Rhythm Patterns ---
+const RHYTHM_PATTERNS: Record<RhythmName, string[]> = {
+  'eighths': ['0:0:0', '0:2:0'], // Quarter note = 0:2:0 in 4/4
+  'push': ['0:0:0', '0:1:2', '0:2:0'], // On 1, 'and' of 2, on 3
+  'tresillo': ['0:0:0', '0:1:2', '0:3:0'], // Common variation: 1, and-of-2, 4
+  'charleston': ['0:0:0', '0:2:2'], // On 1, 'and' of 3
+};
+
 
 // --- Pattern Helpers ---
 const createExpandedDrumPattern = (
@@ -1085,6 +1094,22 @@ const App: React.FC = () => {
                         Tone.Draw.schedule(() => {
                             setSequencerActiveNotes(prev => [...prev, note]);
                         }, attackTime);
+                    }
+                });
+            } else if (event.chord.articulation?.type === 'rhythm') {
+                const { name, gate } = event.chord.articulation;
+                const patternTimings = RHYTHM_PATTERNS[name];
+                const intervalDuration = Tone.Time('8n').toSeconds(); // Base interval for rhythms
+
+                patternTimings.forEach(timing => {
+                    const attackTime = time + Tone.Time(timing).toSeconds();
+                    if (attackTime < time + event.duration) {
+                        const timeJitter = (Math.random() - 0.5) * humanizeTiming * 0.02;
+                        const velocity = 0.8 + (Math.random() - 0.5) * humanizeDynamics * 0.4;
+                        sampler.triggerAttackRelease(notes, intervalDuration * gate, attackTime + timeJitter, velocity);
+                        Tone.Draw.schedule(() => {
+                            setSequencerActiveNotes(notes);
+                        }, attackTime + timeJitter);
                     }
                 });
             } else { // Block chord

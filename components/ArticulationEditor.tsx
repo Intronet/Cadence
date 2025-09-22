@@ -80,7 +80,7 @@ export const ArticulationEditor: React.FC<ArticulationEditorProps> = ({ chord, a
     >
         <div className="flex justify-between items-center mb-3">
             <h4 className="text-md font-bold text-indigo-300">
-                {articulation.type === 'arpeggio' ? 'Arpeggio Editor' : 'Strum Editor'}
+                {articulation.type === 'arpeggio' ? 'Arpeggio Editor' : articulation.type === 'rhythm' ? 'Rhythm Editor' : 'Strum Editor'}
             </h4>
             <button onMouseDown={onClose} className="p-1 rounded-full hover:bg-gray-700"><XIcon className="w-4 h-4 text-gray-400"/></button>
         </div>
@@ -206,6 +206,28 @@ export const ArticulationEditor: React.FC<ArticulationEditorProps> = ({ chord, a
                         />
                          <span className="text-xs text-gray-500 w-10 text-center">Loose</span>
                     </div>
+                </div>
+            </div>
+        )}
+
+        {articulation.type === 'rhythm' && (
+            <div className="space-y-4">
+                <p className="text-sm text-center text-gray-400">Rhythm: <span className="font-semibold text-gray-300 capitalize">{articulation.name}</span></p>
+                <div>
+                    <div className="flex justify-between items-center mb-1">
+                        <label className="text-sm font-medium text-gray-400">Gate</label>
+                        <span className="text-sm font-mono text-indigo-300">{Math.round(articulation.gate * 100)}%</span>
+                    </div>
+                    <input
+                        type="range"
+                        min="10"
+                        max="100"
+                        step="5"
+                        value={articulation.gate * 100}
+                        onChange={(e) => handleUpdate({ gate: parseInt(e.target.value, 10) / 100 })}
+                        className="w-full h-2 bg-gray-600 rounded-[4px] appearance-none cursor-pointer range-slider"
+                        title="Note Length (Gate)"
+                    />
                 </div>
             </div>
         )}

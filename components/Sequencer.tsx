@@ -1,11 +1,12 @@
 import React, { useState, useRef, useCallback, MouseEvent, useEffect, useMemo } from 'react';
-import { SequenceChord, SequenceBassNote, Articulation, ArpeggioRate } from '../types';
+import { SequenceChord, SequenceBassNote, Articulation, ArpeggioRate, RhythmName } from '../types';
 import * as Tone from 'tone';
 import { SpeakerIcon } from './icons/SpeakerIcon';
 import { SpeakerOffIcon } from './icons/SpeakerOffIcon';
 import { ArpeggioIcon } from './icons/ArpeggioIcon';
 import { StrumIcon } from './icons/StrumIcon';
 import { ArticulationEditor } from './ArticulationEditor';
+import { RhythmIcon } from './icons/RhythmIcon';
 
 interface SequencerProps {
   sequence: SequenceChord[];
@@ -163,6 +164,7 @@ const ChordBlock: React.FC<ChordBlockProps> = ({
         >
           {chord.articulation?.type === 'arpeggio' && <ArpeggioIcon className="w-4 h-4 text-sky-200" />}
           {chord.articulation?.type === 'strum' && <StrumIcon className="w-4 h-4 text-sky-200" />}
+          {chord.articulation?.type === 'rhythm' && <RhythmIcon className="w-4 h-4 text-sky-200" />}
         </button>
       )}
       <span className="truncate px-2 pointer-events-none">{chord.chordName}</span>
@@ -205,6 +207,13 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, chord, onClose, onSetAr
     onClose();
   };
   
+  const RHYTHM_PRESETS: { name: string, value: RhythmName }[] = [
+      { name: "8th Pulse", value: 'eighths'},
+      { name: "Push", value: 'push'},
+      { name: "Tresillo", value: 'tresillo'},
+      { name: "Charleston", value: 'charleston'},
+  ];
+
   const MenuItem: React.FC<{ onMouseDown: () => void; children: React.ReactNode; isSelected?: boolean }> = ({ onMouseDown, children, isSelected }) => (
     <button onMouseDown={onMouseDown} className={`w-full text-left px-3 py-1.5 text-sm rounded-[4px] flex justify-between items-center ${isSelected ? 'font-bold text-white bg-indigo-600' : 'text-gray-200 hover:bg-gray-600'}`}>
         {children}
@@ -236,6 +245,15 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, chord, onClose, onSetAr
         </div>
 
         <MenuItem onMouseDown={() => handleSelect({ type: 'strum', direction: 'up', speed: 0.5 })} isSelected={chord.articulation?.type === 'strum'}>Strumming</MenuItem>
+
+        <div className="h-px bg-gray-700 my-1"/>
+        
+        <div className="px-3 pt-1.5 pb-1 text-sm text-gray-200">Rhythms</div>
+        {RHYTHM_PRESETS.map(preset => (
+            <MenuItem key={preset.value} onMouseDown={() => handleSelect({ type: 'rhythm', name: preset.value, gate: 0.9 })} isSelected={chord.articulation?.type === 'rhythm' && chord.articulation.name === preset.value}>
+                {preset.name}
+            </MenuItem>
+        ))}
 
         <div className="h-px bg-gray-700 my-1"/>
         <MenuItem onMouseDown={() => handleSelect(null)} isSelected={!chord.articulation}>None</MenuItem>
