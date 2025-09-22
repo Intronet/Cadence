@@ -205,8 +205,8 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, chord, onClose, onSetAr
     onClose();
   };
   
-  const MenuItem: React.FC<{ onClick: () => void; children: React.ReactNode; isSelected?: boolean }> = ({ onClick, children, isSelected }) => (
-    <button onClick={onClick} className={`w-full text-left px-3 py-1.5 text-sm rounded-[4px] flex justify-between items-center ${isSelected ? 'font-bold text-white bg-indigo-600' : 'text-gray-200 hover:bg-gray-600'}`}>
+  const MenuItem: React.FC<{ onMouseDown: () => void; children: React.ReactNode; isSelected?: boolean }> = ({ onMouseDown, children, isSelected }) => (
+    <button onMouseDown={onMouseDown} className={`w-full text-left px-3 py-1.5 text-sm rounded-[4px] flex justify-between items-center ${isSelected ? 'font-bold text-white bg-indigo-600' : 'text-gray-200 hover:bg-gray-600'}`}>
         {children}
         {isSelected && <span className="text-sky-300">✓</span>}
     </button>
@@ -222,7 +222,7 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, chord, onClose, onSetAr
             {(['8n', '16n', '32n'] as ArpeggioRate[]).map(rate => (
               <button
                 key={rate}
-                onClick={() => handleSelect({ type: 'arpeggio', rate, direction: 'up', gate: 0.95 })}
+                onMouseDown={() => handleSelect({ type: 'arpeggio', rate, direction: 'up', gate: 0.95, mode: 'note', strumSpeed: 0.5 })}
                 className={`px-2 py-0.5 rounded text-xs font-semibold ${
                   chord.articulation?.type === 'arpeggio' && chord.articulation.rate === rate
                     ? 'bg-indigo-600 text-white'
@@ -235,10 +235,10 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, chord, onClose, onSetAr
           </div>
         </div>
 
-        <MenuItem onClick={() => handleSelect({ type: 'strum' })} isSelected={chord.articulation?.type === 'strum'}>Strumming</MenuItem>
+        <MenuItem onMouseDown={() => handleSelect({ type: 'strum', direction: 'up', speed: 0.5 })} isSelected={chord.articulation?.type === 'strum'}>Strumming</MenuItem>
 
         <div className="h-px bg-gray-700 my-1"/>
-        <MenuItem onClick={() => handleSelect(null)} isSelected={!chord.articulation}>None</MenuItem>
+        <MenuItem onMouseDown={() => handleSelect(null)} isSelected={!chord.articulation}>None</MenuItem>
     </div>
   );
 };
@@ -256,7 +256,7 @@ export const Sequencer: React.FC<SequencerProps> = ({
   const ghostBlockRef1 = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(0);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; chord: SequenceChord } | null>(null);
-  const [editingArticulation, setEditingArticulation] = useState<{ chord: SequenceChord, anchorEl: HTMLElement } | null>(null);
+  const [editingArticulationId, setEditingArticulationId] = useState<{ chordId: string; anchorEl: HTMLElement } | null>(null);
   const [draggingState, setDraggingState] = useState<{
       id: string;
       start: number;
@@ -455,12 +455,12 @@ export const Sequencer: React.FC<SequencerProps> = ({
   const handleContextMenu = useCallback((e: React.MouseEvent, chord: SequenceChord) => {
     e.preventDefault();
     setContextMenu({ x: e.clientX, y: e.clientY, chord });
-    setEditingArticulation(null);
+    setEditingArticulationId(null);
   }, []);
   
   const handleIconClick = useCallback((e: React.MouseEvent, chord: SequenceChord) => {
       e.stopPropagation();
-      setEditingArticulation({ chord, anchorEl: e.currentTarget as HTMLElement });
+      setEditingArticulationId({ chordId: chord.id, anchorEl: e.currentTarget as HTMLElement });
       setContextMenu(null);
   }, []);
 
@@ -501,6 +501,11 @@ export const Sequencer: React.FC<SequencerProps> = ({
       ))}
     </div>
   );
+  
+  const chordForArticulationEditor = useMemo(() => {
+    if (!editingArticulationId) return null;
+    return sequence.find(c => c.id === editingArticulationId.chordId);
+  }, [editingArticulationId, sequence]);
 
   const renderSequencerLane = (laneIndex: 0 | 1) => {
     const barOffset = laneIndex * 4;
@@ -643,12 +648,12 @@ export const Sequencer: React.FC<SequencerProps> = ({
           onSetArticulation={handleSetArticulation}
         />
       )}
-      {editingArticulation && (
+      {editingArticulationId && chordForArticulationEditor && (
         <ArticulationEditor
-            anchorEl={editingArticulation.anchorEl}
-            chord={editingArticulation.chord}
-            onClose={() => setEditingArticulation(null)}
-            onUpdate={(articulation) => onUpdateChord(editingArticulation.chord.id, { articulation })}
+            anchorEl={editingArticulationId.anchorEl}
+            chord={chordForArticulationEditor}
+            onClose={() => setEditingArticulationId(null)}
+            onUpdate={(articulation) => onUpdateChord(editingArticulationId.chordId, { articulation })}
         />
       )}
     </div>

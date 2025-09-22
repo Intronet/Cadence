@@ -27,7 +27,8 @@ import {
   generateDiatonicChords,
   hasSeventh
 } from './index';
-import { ROOT_NOTE_OPTIONS, SCALE_MODE_OPTIONS, ChordSet, SequenceChord, Pattern, DrumSound, DrumPatternPreset, SequenceBassNote, Articulation, ArpeggioRate } from './types';
+// FIX: Aliased Pattern to AppPattern to avoid name collision with Tone.js's Pattern type.
+import { ROOT_NOTE_OPTIONS, SCALE_MODE_OPTIONS, ChordSet, SequenceChord, Pattern as AppPattern, DrumSound, DrumPatternPreset, SequenceBassNote, Articulation, ArpeggioRate, StrumDirection } from './types';
 import { Piano, PianoHandle } from './components/Piano';
 import { HoverDisplay } from './components/HoverDisplay';
 import { Sequencer } from './components/Sequencer';
@@ -68,7 +69,8 @@ const useHistory = <T,>(initialState: T) => {
 
   const redo = useCallback(() => {
     if (index < history.length - 1) {
-      setIndex(i => i - 1);
+      // FIX: Redo should increment the index, not decrement it.
+      setIndex(i => i + 1);
     }
   }, [index, history.length]);
 
@@ -236,7 +238,8 @@ const createNewPattern = (
   bars: 4 | 8,
   timeSignature: '4/4' | '3/4',
   initialDrumPatterns?: Record<DrumSound, boolean[]>
-): Pattern => ({
+// FIX: Using aliased AppPattern type.
+): AppPattern => ({
   id: generateId(),
   name,
   bars,
@@ -282,7 +285,8 @@ const App: React.FC = () => {
     redo,
     canUndo,
     canRedo
-  } = useHistory<Pattern[]>([createNewPattern('Pattern 1', 4, '4/4')]);
+    // FIX: Using aliased AppPattern type.
+  } = useHistory<AppPattern[]>([createNewPattern('Pattern 1', 4, '4/4')]);
   
   const [currentPatternId, setCurrentPatternId] = useState(patterns[0].id);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -294,8 +298,10 @@ const App: React.FC = () => {
   const [isSequencerClickMuted, setIsSequencerClickMuted] = useState(false);
   const [selectedChordIds, setSelectedChordIds] = useState<Set<string>>(new Set());
   const [clipboard, setClipboard] = useState<Array<Omit<SequenceChord, 'id'>>>([]);
-  const chordPartRef = useRef<Tone.Part | null>(null);
-  const bassPartRef = useRef<Tone.Part | null>(null);
+  // FIX: Added generic type argument to Tone.Part to match its usage.
+  const chordPartRef = useRef<Tone.Part<{ time: number; duration: number; chord: SequenceChord }> | null>(null);
+  // FIX: Added generic type argument to Tone.Part to match its usage.
+  const bassPartRef = useRef<Tone.Part<{ time: number; duration: number; noteName: string; id: string }> | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const prevSongRootRef = useRef<string>(songRootNote);
 
@@ -330,7 +336,8 @@ const App: React.FC = () => {
     }, 500); // This is the delay before the fade-out starts
   };
 
-  const updatePattern = useCallback((id: string, updates: Partial<Pattern>) => {
+  // FIX: Using aliased AppPattern type.
+  const updatePattern = useCallback((id: string, updates: Partial<AppPattern>) => {
     setPatterns(prev => prev.map(p => (p.id === id ? { ...p, ...updates } : p)));
   }, [setPatterns]);
 
@@ -412,13 +419,14 @@ const App: React.FC = () => {
   }, [isMuted]);
 
   const [isMetronomeOn, setIsMetronomeOn] = useState(false);
-  const metronomeRef = useRef<{ synth: Tone.Synth, loop: Tone.Loop | null } | null>(null);
+  // FIX: Added generic type argument to Tone.Pattern.
+  const metronomeRef = useRef<{ synth: Tone.Synth, pattern: Tone.Pattern<string> | null } | null>(null);
 
   const [editingChord, setEditingChord] = useState<SequenceChord | null>(null);
   const [activeEditorPreviewNotes, setActiveEditorPreviewNotes] = useState<string[]>([]);
 
   const [isDrumsEnabled, setIsDrumsEnabled] = useState(false);
-  const [isBasslineEnabled, setIsBasslineEnabled] = useState(true);
+  const [isBasslineEnabled, setIsBasslineEnabled] = useState(false);
   const [drumVol, setDrumVol] = useState(-6);
   const [activeDrumStep, setActiveDrumStep] = useState<number | null>(null);
   const [isDrumEditorOpen, setIsDrumEditorOpen] = useState(false);
@@ -461,41 +469,44 @@ const App: React.FC = () => {
 
 
   useEffect(() => {
+    // A slightly more "clicky" synth sound for the metronome
     const metronomeSynth = new Tone.Synth({
       oscillator: { type: 'sine' },
       envelope: { attack: 0.005, decay: 0.05, sustain: 0, release: 0.1 },
-      volume: -6,
+      volume: -10,
     }).toDestination();
-    metronomeRef.current = { synth: metronomeSynth, loop: null };
+    metronomeRef.current = { synth: metronomeSynth, pattern: null };
 
     return () => {
       metronomeRef.current?.synth.dispose();
-      metronomeRef.current?.loop?.dispose();
+      metronomeRef.current?.pattern?.dispose();
     };
   }, []);
 
   useEffect(() => {
     const currentMetronome = metronomeRef.current;
-    if (currentMetronome?.loop) {
-      currentMetronome.loop.dispose();
-      currentMetronome.loop = null;
+    if (currentMetronome?.pattern) {
+      currentMetronome.pattern.stop(0);
+      currentMetronome.pattern.dispose();
+      currentMetronome.pattern = null;
     }
 
     if (isMetronomeOn && currentMetronome) {
-      const loop = new Tone.Loop(time => {
-        if (!metronomeRef.current) return;
+      const beatsPerBar = timeSignatureValue;
+      // Use different notes for a "tick" (downbeat) and "tock" (upbeat) sound
+      const sequence = beatsPerBar === 4
+        ? ['G4', 'C4', 'C4', 'C4']
+        : ['G4', 'C4', 'C4'];
 
-        const ticks = Tone.Transport.getTicksAtTime(time);
-        const ppq = Tone.Transport.PPQ;
-        const beatsPerBar = timeSignatureValue;
+      // FIX: Added generic type argument to Tone.Pattern to resolve the type error.
+      const pattern = new Tone.Pattern<string>((time, note) => {
+        // The synth is triggered with the note from the sequence
+        metronomeRef.current?.synth.triggerAttackRelease(note, '32n', time);
+      }, sequence, "up");
 
-        if (ticks % (ppq * beatsPerBar) === 0) {
-          metronomeRef.current.synth.triggerAttackRelease('C5', '16n', time);
-        } else if (ticks % ppq === 0) {
-          metronomeRef.current.synth.triggerAttackRelease('C4', '16n', time);
-        }
-      }, '4n').start(0);
-      currentMetronome.loop = loop;
+      pattern.interval = '4n';
+      pattern.start(0); // Start at the beginning of the transport timeline
+      currentMetronome.pattern = pattern;
     }
   }, [isMetronomeOn, timeSignatureValue]);
 
@@ -962,53 +973,108 @@ const App: React.FC = () => {
             }, time);
 
             if (event.chord.articulation?.type === 'arpeggio') {
-                const rate = event.chord.articulation.rate;
-                const direction = event.chord.articulation.direction;
-                const gate = event.chord.articulation.gate;
+                const { rate, direction, gate, mode = 'note', strumSpeed = 0.5 } = event.chord.articulation;
                 const singleNoteDuration = Tone.Time(rate).toSeconds();
                 const noteCount = Math.floor(event.duration / singleNoteDuration);
 
-                let sequenceNotes: string[] = [];
-                switch (direction) {
-                    case 'down':
-                        sequenceNotes = [...notes].reverse();
-                        break;
-                    case 'upDown':
-                        sequenceNotes = [...notes, ...[...notes].reverse().slice(1, -1)];
-                        break;
-                    case 'random':
-                        // Generate the random sequence once for this chord event
-                        const randomNotes = [];
+                if (mode === 'strum') {
+                    const baseDelay = 0.01;
+                    const maxAdditionalDelay = 0.07;
+                    const strumDelay = baseDelay + strumSpeed * maxAdditionalDelay;
+            
+                    let directionSequence: StrumDirection[] = [];
+                    if (direction === 'upDown') {
                         for (let i = 0; i < noteCount; i++) {
-                            randomNotes.push(notes[Math.floor(Math.random() * notes.length)]);
+                            directionSequence.push(i % 2 === 0 ? 'up' : 'down');
                         }
-                        sequenceNotes = randomNotes;
-                        break;
-                    case 'up':
-                    default:
-                        sequenceNotes = notes;
-                        break;
-                }
-                
-                for (let i = 0; i < noteCount; i++) {
-                    const note = direction === 'random' ? sequenceNotes[i] : sequenceNotes[i % sequenceNotes.length];
-                    const attackTime = time + i * singleNoteDuration;
+                    } else if (direction === 'down') {
+                        directionSequence = Array(noteCount).fill('down');
+                    } else { // 'up' or 'random' are treated as 'up' for strumming direction
+                        directionSequence = Array(noteCount).fill('up');
+                    }
+            
+                    for (let i = 0; i < noteCount; i++) {
+                        const strumTime = time + i * singleNoteDuration;
+                        if (strumTime < time + event.duration) {
+                            const timeJitter = (Math.random() - 0.5) * humanizeTiming * 0.02;
+                            const currentStrumDirection = directionSequence[i];
+                            const notesForStrumming = currentStrumDirection === 'down' ? [...notes].reverse() : notes;
+                            
+                             Tone.Draw.schedule(() => {
+                                setSequencerActiveNotes([]);
+                            }, strumTime);
+            
+                            notesForStrumming.forEach((note, index) => {
+                                const attackTime = strumTime + (index * strumDelay) + timeJitter;
+                                if (attackTime < time + event.duration) {
+                                    const releaseDuration = (time + event.duration) - attackTime;
+                                    const velocity = 0.8 + (Math.random() - 0.5) * humanizeDynamics * 0.4;
+                                    if (releaseDuration > 0) {
+                                        sampler.triggerAttackRelease(note, releaseDuration, attackTime, velocity);
+                                    }
+                                    Tone.Draw.schedule(() => {
+                                        setSequencerActiveNotes(prev => [...prev, note]);
+                                    }, attackTime);
+                                }
+                            });
+                        }
+                    }
+                } else { // 'note' and 'chord' modes
+                    let sequenceNotes: string[] = [];
+                    switch (direction) {
+                        case 'down':
+                            sequenceNotes = [...notes].reverse();
+                            break;
+                        case 'upDown':
+                            sequenceNotes = [...notes, ...[...notes].reverse().slice(1, -1)];
+                            break;
+                        case 'random':
+                            const randomNotes = [];
+                            for (let i = 0; i < noteCount; i++) {
+                                randomNotes.push(notes[Math.floor(Math.random() * notes.length)]);
+                            }
+                            sequenceNotes = randomNotes;
+                            break;
+                        case 'up':
+                        default:
+                            sequenceNotes = notes;
+                            break;
+                    }
                     
-                    if (attackTime < time + event.duration) {
-                        const timeJitter = (Math.random() - 0.5) * humanizeTiming * 0.02;
-                        const velocity = 0.8 + (Math.random() - 0.5) * humanizeDynamics * 0.4;
-                        sampler.triggerAttackRelease(note, singleNoteDuration * gate, attackTime + timeJitter, velocity);
-                        Tone.Draw.schedule(() => {
-                            setSequencerActiveNotes([note]);
-                        }, attackTime);
+                    for (let i = 0; i < noteCount; i++) {
+                        const attackTime = time + i * singleNoteDuration;
+                        
+                        if (attackTime < time + event.duration) {
+                            const timeJitter = (Math.random() - 0.5) * humanizeTiming * 0.02;
+                            const velocity = 0.8 + (Math.random() - 0.5) * humanizeDynamics * 0.4;
+                            
+                            if (mode === 'chord') {
+                                sampler.triggerAttackRelease(notes, singleNoteDuration * gate, attackTime + timeJitter, velocity);
+                                Tone.Draw.schedule(() => {
+                                    setSequencerActiveNotes(notes);
+                                }, attackTime);
+                            } else { // 'note' mode
+                                const note = direction === 'random' ? sequenceNotes[i] : sequenceNotes[i % sequenceNotes.length];
+                                sampler.triggerAttackRelease(note, singleNoteDuration * gate, attackTime + timeJitter, velocity);
+                                Tone.Draw.schedule(() => {
+                                    setSequencerActiveNotes([note]);
+                                }, attackTime);
+                            }
+                        }
                     }
                 }
             } else if (event.chord.articulation?.type === 'strum') {
-                const strumDelay = 0.04;
+                const { direction = 'up', speed = 0.5 } = event.chord.articulation;
+                const baseDelay = 0.01; 
+                const maxAdditionalDelay = 0.07;
+                const strumDelay = baseDelay + speed * maxAdditionalDelay;
+
+                const notesForStrumming = direction === 'down' ? [...notes].reverse() : notes;
+
                  Tone.Draw.schedule(() => {
                     setSequencerActiveNotes([]);
                 }, time);
-                notes.forEach((note, index) => {
+                notesForStrumming.forEach((note, index) => {
                     const attackTime = time + (index * strumDelay);
                     if (attackTime < time + event.duration) {
                         const releaseDuration = event.duration - (index * strumDelay);

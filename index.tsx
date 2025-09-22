@@ -294,9 +294,9 @@ export const drumPlayers = new Tone.Players({
     kick: 'https://tonejs.github.io/audio/drum-samples/acoustic-kit/kick.mp3',
     snare: 'https://tonejs.github.io/audio/drum-samples/acoustic-kit/snare.mp3',
     hat: 'https://tonejs.github.io/audio/drum-samples/acoustic-kit/hihat.mp3',
-    rim: '/samples/rim.wav',
-    clap: '/samples/clap.wav',
-    timbale: '/samples/timbale.wav',
+    rim: '/samples/percussion/rim.wav',
+    clap: '/samples/percussion/clap.wav',
+    timbale: '/samples/percussion/timbale.wav',
   },
 }).connect(drumVolume);
 
