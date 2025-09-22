@@ -283,7 +283,7 @@ export const bassSampler = new Tone.Sampler({
         'G4': 'G4.mp3'
   },
   release: 0.2,
-  baseUrl: "/samples/bass/"
+  baseUrl: "https://nbrosowsky.github.io/tonejs-instruments/samples//bass-electric/"
 }).toDestination();
 
 
