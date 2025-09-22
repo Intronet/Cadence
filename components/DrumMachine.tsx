@@ -14,10 +14,11 @@ interface DrumEditorProps {
   onClose: () => void;
   presets: DrumPatternPreset[];
   onApplyPreset: (pattern: Record<DrumSound, boolean[]>) => void;
-  // FIX: Added height, setHeight, and setIsResizing props to support resizable panel functionality.
   height: number;
   setHeight: (height: number) => void;
   setIsResizing: (isResizing: boolean) => void;
+  isDrumsEnabled: boolean;
+  onToggleDrumsEnabled: () => void;
 }
 
 const soundLabels: Record<DrumSound, string> = {
@@ -43,6 +44,8 @@ export const DrumEditor: React.FC<DrumEditorProps> = ({
   height,
   setHeight,
   setIsResizing,
+  isDrumsEnabled,
+  onToggleDrumsEnabled,
 }) => {
   const stepButtonBase = "w-full h-full rounded-[4px] transition-colors duration-100 border";
 
@@ -98,8 +101,23 @@ export const DrumEditor: React.FC<DrumEditorProps> = ({
         title="Drag to resize"
       />
       <div className="flex justify-between items-center mb-2 flex-shrink-0">
-        <h3 className="text-xl font-bold text-indigo-300">Drum Editor</h3>
+        <h3 className="text-xl font-bold text-indigo-300">Drum Engine</h3>
         <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <label htmlFor="drum-enabled-toggle" className="font-semibold text-gray-200">Enabled</label>
+            <button
+              id="drum-enabled-toggle"
+              onClick={onToggleDrumsEnabled}
+              className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 focus:ring-offset-gray-800 ${
+                isDrumsEnabled ? 'bg-indigo-600' : 'bg-gray-600'
+              }`}
+            >
+              <span className={`inline-block w-4 h-4 transform bg-white rounded-full transition-transform ${
+                  isDrumsEnabled ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
           <select
             onChange={handlePresetChange}
             defaultValue=""

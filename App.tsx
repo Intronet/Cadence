@@ -39,6 +39,7 @@ import { PRESET_DRUM_PATTERNS, DRUM_SOUNDS, EMPTY_DRUM_PATTERNS } from './compon
 import { ArrangementView } from './components/PatternControls';
 import { ConfirmationDialog } from './components/ConfirmationDialog';
 import { Toolkit } from './components/Toolkit';
+import { BassMachine } from './components/BassMachine';
 
 
 // --- History Hook ---
@@ -70,7 +71,7 @@ const useHistory = <T,>(initialState: T) => {
   const redo = useCallback(() => {
     if (index < history.length - 1) {
       // FIX: Redo should increment the index, not decrement it.
-      setIndex(i => i + 1);
+      setIndex(i => i - 1);
     }
   }, [index, history.length]);
 
@@ -258,6 +259,7 @@ const createNewPattern = (
   drumPattern: initialDrumPatterns ?? createExpandedDrumPattern(EMPTY_DRUM_PATTERNS[timeSignature], bars, timeSignature),
 });
 
+type OpenPanel = 'chord' | 'drum' | 'bass' | null;
 
 const App: React.FC = () => {
   const [isLoaderVisible, setIsLoaderVisible] = useState(true);
@@ -438,19 +440,151 @@ const App: React.FC = () => {
   const [isBasslineEnabled, setIsBasslineEnabled] = useState(false);
   const [drumVol, setDrumVol] = useState(-6);
   const [activeDrumStep, setActiveDrumStep] = useState<number | null>(null);
-  const [isDrumEditorOpen, setIsDrumEditorOpen] = useState(false);
-  const [isDrumEditorClosing, setIsDrumEditorClosing] = useState(false);
   const drumSequenceRef = useRef<Tone.Sequence<number> | null>(null);
   const drumPattern = useMemo(() => currentPattern?.drumPattern, [currentPattern]);
   
-  const [isChordMachineOpen, setIsChordMachineOpen] = useState(true);
-  const [isChordMachineClosing, setIsChordMachineClosing] = useState(false);
+  const [openPanel, setOpenPanel] = useState<OpenPanel>('chord');
+  const [closingPanel, setClosingPanel] = useState<OpenPanel>(null);
+
   const [chordMachineHeight, setChordMachineHeight] = useState(290);
   const [isResizingChordMachine, setIsResizingChordMachine] = useState(false);
   const [drumEditorHeight, setDrumEditorHeight] = useState(290);
   const [isResizingDrums, setIsResizingDrums] = useState(false);
+  const [bassMachineHeight, setBassMachineHeight] = useState(290);
+  const [isResizingBassMachine, setIsResizingBassMachine] = useState(false);
 
   const [timeSignatureChangeRequest, setTimeSignatureChangeRequest] = useState<{ patternId: string, newTimeSignature: '4/4' | '3/4' } | null>(null);
+
+  // Bass Effects State
+  const bassEffectsRef = useRef<any>(null);
+  const [isBassDistortionOn, setIsBassDistortionOn] = useState(false);
+  const [bassDistortionAmount, setBassDistortionAmount] = useState(0.4); // 0-1
+  const [isBassFilterOn, setIsBassFilterOn] = useState(false);
+  const [bassFilterFreq, setBassFilterFreq] = useState(2); // 0.1 - 10 Hz
+  const [bassFilterDepth, setBassFilterDepth] = useState(0.7); // 0-1
+  const [bassVolume, setBassVolume] = useState(-6); // dB
+  const [bassOctaveOffset, setBassOctaveOffset] = useState(0); // -2 to 2
+  const [isBassPhaserOn, setIsBassPhaserOn] = useState(false);
+  const [bassPhaserFreq, setBassPhaserFreq] = useState(1); // 0.1 - 10 Hz
+  const [bassPhaserQ, setBassPhaserQ] = useState(5); // 0 - 20
+  const [isBassChorusOn, setIsBassChorusOn] = useState(false);
+  const [bassChorusFreq, setBassChorusFreq] = useState(1.5); // 0.1 - 10 Hz
+  const [bassChorusDepth, setBassChorusDepth] = useState(0.5); // 0 - 1
+  const [isBassBitCrusherOn, setIsBassBitCrusherOn] = useState(false);
+  const [bassBitCrusherBits, setBassBitCrusherBits] = useState(8); // 1 - 8
+
+  useEffect(() => {
+    // This effect runs once to set up the bass audio chain
+    const compressor = new Tone.Compressor(-12, 3);
+    const distortion = new Tone.Distortion(0);
+    const autoFilter = new Tone.AutoFilter("4n").stop();
+    const phaser = new Tone.Phaser({ frequency: 1, octaves: 3, baseFrequency: 350 });
+    const chorus = new Tone.Chorus(1.5, 2.5, 0.5);
+    const bitCrusher = new Tone.BitCrusher(8);
+    const volume = new Tone.Volume(-6);
+    
+    bassEffectsRef.current = { compressor, distortion, autoFilter, phaser, chorus, bitCrusher, volume };
+    
+    bassSampler.chain(
+        distortion, autoFilter, phaser, chorus, bitCrusher, 
+        volume, compressor, Tone.Destination
+    );
+    
+    return () => {
+        bassSampler.disconnect();
+        compressor.dispose();
+        distortion.dispose();
+        autoFilter.dispose();
+        phaser.dispose();
+        chorus.dispose();
+        bitCrusher.dispose();
+        volume.dispose();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (bassEffectsRef.current?.distortion) {
+      bassEffectsRef.current.distortion.distortion = isBassDistortionOn ? bassDistortionAmount : 0;
+      bassEffectsRef.current.distortion.wet.value = isBassDistortionOn ? 1 : 0;
+    }
+  }, [isBassDistortionOn, bassDistortionAmount]);
+
+  useEffect(() => {
+    if (bassEffectsRef.current?.autoFilter) {
+      const filter = bassEffectsRef.current.autoFilter;
+      if (isBassFilterOn) {
+        filter.frequency.value = bassFilterFreq;
+        filter.depth.value = bassFilterDepth;
+        if (filter.state === 'stopped') {
+          filter.start();
+        }
+      } else {
+        if (filter.state === 'started') {
+          filter.stop();
+        }
+      }
+    }
+  }, [isBassFilterOn, bassFilterFreq, bassFilterDepth]);
+
+  useEffect(() => {
+    if (bassEffectsRef.current?.volume) {
+      bassEffectsRef.current.volume.volume.value = bassVolume;
+    }
+  }, [bassVolume]);
+
+  useEffect(() => {
+    if (bassEffectsRef.current?.phaser) {
+      const phaser = bassEffectsRef.current.phaser;
+      phaser.wet.value = isBassPhaserOn ? 1 : 0;
+      if (isBassPhaserOn) {
+        phaser.frequency.value = bassPhaserFreq;
+        phaser.Q.value = bassPhaserQ;
+      }
+    }
+  }, [isBassPhaserOn, bassPhaserFreq, bassPhaserQ]);
+
+  useEffect(() => {
+    if (bassEffectsRef.current?.chorus) {
+      const chorus = bassEffectsRef.current.chorus;
+      chorus.wet.value = isBassChorusOn ? 1 : 0;
+      if (isBassChorusOn) {
+        chorus.frequency.value = bassChorusFreq;
+        chorus.depth = bassChorusDepth;
+        if (chorus.state === 'stopped') chorus.start();
+      } else {
+         if (chorus.state === 'started') chorus.stop();
+      }
+    }
+  }, [isBassChorusOn, bassChorusFreq, bassChorusDepth]);
+
+  useEffect(() => {
+    if (bassEffectsRef.current?.bitCrusher) {
+      const crusher = bassEffectsRef.current.bitCrusher;
+      crusher.wet.value = isBassBitCrusherOn ? 1 : 0;
+      if (isBassBitCrusherOn) {
+        crusher.bits.value = bassBitCrusherBits;
+      }
+    }
+  }, [isBassBitCrusherOn, bassBitCrusherBits]);
+
+  const handleTogglePanel = (panel: NonNullable<OpenPanel>) => {
+    if (openPanel === panel) { // If clicking the currently open panel, close it.
+        setClosingPanel(panel);
+        setTimeout(() => {
+            setOpenPanel(null);
+            setClosingPanel(null);
+        }, 300);
+    } else if (openPanel) { // If another panel is open, close it first, then open the new one.
+        setClosingPanel(openPanel);
+        setTimeout(() => {
+            setOpenPanel(panel);
+            setClosingPanel(null);
+        }, 300);
+    } else { // If no panel is open, just open the new one.
+        setOpenPanel(panel);
+    }
+  };
+
 
   useEffect(() => {
     const handleContextMenu = (e: MouseEvent) => {
@@ -607,7 +741,7 @@ const App: React.FC = () => {
         const rootNote = parsed ? (parsed.bass || parsed.root) : null;
         if (!rootNote) return null;
 
-        const bassOctave = 2; // Keep it simple
+        const bassOctave = 2 + bassOctaveOffset; // Apply octave offset
         const bassNoteName = `${rootNote}${bassOctave}`;
 
         return {
@@ -617,7 +751,7 @@ const App: React.FC = () => {
             duration: chord.duration,
         };
     }).filter((n): n is SequenceBassNote => n !== null);
-  }, [sequence, isBasslineEnabled]);
+  }, [sequence, isBasslineEnabled, bassOctaveOffset]);
 
   useEffect(() => {
       const hasChanged = 
@@ -1308,30 +1442,6 @@ const App: React.FC = () => {
     setTimeSignatureChangeRequest(null);
   };
   
-  const toggleDrumEditor = () => {
-    if (isDrumEditorOpen) {
-      setIsDrumEditorClosing(true);
-      setTimeout(() => {
-        setIsDrumEditorOpen(false);
-        setIsDrumEditorClosing(false);
-      }, 300);
-    } else {
-      setIsDrumEditorOpen(true);
-    }
-  };
-  
-  const toggleChordMachine = () => {
-    if (isChordMachineOpen) {
-      setIsChordMachineClosing(true);
-      setTimeout(() => {
-        setIsChordMachineOpen(false);
-        setIsChordMachineClosing(false);
-      }, 300);
-    } else {
-      setIsChordMachineOpen(true);
-    }
-  };
-
   const updateDrumPattern = (sound: DrumSound, step: number, value: boolean) => {
     const newDrumPattern = { ...drumPattern };
     const newTrack = [...(newDrumPattern[sound] || [])];
@@ -1400,12 +1510,12 @@ const App: React.FC = () => {
           onBpmChange={setBpm}
           onToggleBarMode={() => updatePattern(currentPatternId, { bars: bars === 4 ? 8 : 4 })}
           onTimeSignatureChange={onTimeSignatureChange}
-          isDrumsEnabled={isDrumsEnabled}
-          onToggleDrumsEnabled={() => setIsDrumsEnabled(v => !v)}
           isBasslineEnabled={isBasslineEnabled}
-          onToggleBasslineEnabled={() => setIsBasslineEnabled(v => !v)}
-          onToggleDrumEditor={toggleDrumEditor}
-          isDrumEditorOpen={isDrumEditorOpen}
+          isDrumsEnabled={isDrumsEnabled}
+          onToggleDrumEditor={() => handleTogglePanel('drum')}
+          isDrumEditorOpen={openPanel === 'drum'}
+          onToggleBassMachine={() => handleTogglePanel('bass')}
+          isBassMachineOpen={openPanel === 'bass'}
           isMetronomeOn={isMetronomeOn}
           onMetronomeToggle={handleMetronomeToggle}
           isPianoVisible={isPianoVisible}
@@ -1423,8 +1533,8 @@ const App: React.FC = () => {
           onMasterVolumeChange={setMasterVolume}
           isMuted={isMuted}
           onMuteToggle={() => setIsMuted(v => !v)}
-          isChordMachineOpen={isChordMachineOpen}
-          onToggleChordMachine={toggleChordMachine}
+          isChordMachineOpen={openPanel === 'chord'}
+          onToggleChordMachine={() => handleTogglePanel('chord')}
           humanizeTiming={humanizeTiming}
           onHumanizeTimingChange={setHumanizeTiming}
           humanizeDynamics={humanizeDynamics}
@@ -1494,11 +1604,11 @@ const App: React.FC = () => {
         
         <div 
           className={`transition-height duration-300 ease-in-out overflow-hidden ${isResizingChordMachine ? '!duration-0' : ''}`}
-          style={{ height: isChordMachineOpen && !isChordMachineClosing ? `${chordMachineHeight}px` : '0px' }}
+          style={{ height: openPanel === 'chord' && closingPanel !== 'chord' ? `${chordMachineHeight}px` : '0px' }}
         >
-            {isChordMachineOpen && (
+            {openPanel === 'chord' && (
               <Toolkit 
-                onClose={toggleChordMachine}
+                onClose={() => handleTogglePanel('chord')}
                 keyLabels={KEY_LABELS}
                 isPianoLoaded={isPianoLoaded}
                 height={chordMachineHeight}
@@ -1536,9 +1646,9 @@ const App: React.FC = () => {
         
         <div 
           className={`transition-height duration-300 ease-in-out overflow-hidden ${isResizingDrums ? '!duration-0' : ''}`}
-          style={{ height: isDrumEditorOpen && !isDrumEditorClosing ? `${drumEditorHeight}px` : '0px' }}
+          style={{ height: openPanel === 'drum' && closingPanel !== 'drum' ? `${drumEditorHeight}px` : '0px' }}
         >
-            {isDrumEditorOpen && drumPattern && (
+            {openPanel === 'drum' && drumPattern && (
               <DrumEditor 
                 pattern={drumPattern}
                 onPatternChange={updateDrumPattern}
@@ -1547,20 +1657,70 @@ const App: React.FC = () => {
                 activeStep={activeDrumStep}
                 bars={bars}
                 timeSignature={timeSignature}
-                onClose={toggleDrumEditor}
+                onClose={() => handleTogglePanel('drum')}
                 presets={PRESET_DRUM_PATTERNS}
                 onApplyPreset={handleApplyDrumPreset}
                 height={drumEditorHeight}
                 setHeight={setDrumEditorHeight}
                 setIsResizing={setIsResizingDrums}
+                isDrumsEnabled={isDrumsEnabled}
+                onToggleDrumsEnabled={() => setIsDrumsEnabled(v => !v)}
+              />
+            )}
+        </div>
+
+        <div 
+          className={`transition-height duration-300 ease-in-out overflow-hidden ${isResizingBassMachine ? '!duration-0' : ''}`}
+          style={{ height: openPanel === 'bass' && closingPanel !== 'bass' ? `${bassMachineHeight}px` : '0px' }}
+        >
+            {openPanel === 'bass' && (
+              <BassMachine
+                onClose={() => handleTogglePanel('bass')}
+                height={bassMachineHeight}
+                setHeight={setBassMachineHeight}
+                setIsResizing={setIsResizingBassMachine}
+                isBasslineEnabled={isBasslineEnabled}
+                onToggleBasslineEnabled={() => setIsBasslineEnabled(v => !v)}
+                volume={bassVolume}
+                onVolumeChange={setBassVolume}
+                octaveOffset={bassOctaveOffset}
+                onOctaveOffsetChange={setBassOctaveOffset}
+                isDistortionOn={isBassDistortionOn}
+                onToggleDistortion={setIsBassDistortionOn}
+                distortionAmount={bassDistortionAmount}
+                onDistortionAmountChange={setBassDistortionAmount}
+                isFilterOn={isBassFilterOn}
+                onToggleFilter={setIsBassFilterOn}
+                filterFreq={bassFilterFreq}
+                onFilterFreqChange={setBassFilterFreq}
+                filterDepth={bassFilterDepth}
+                onFilterDepthChange={setBassFilterDepth}
+                isPhaserOn={isBassPhaserOn}
+                onTogglePhaser={setIsBassPhaserOn}
+                phaserFreq={bassPhaserFreq}
+                onPhaserFreqChange={setBassPhaserFreq}
+                phaserQ={bassPhaserQ}
+                onPhaserQChange={setBassPhaserQ}
+                isChorusOn={isBassChorusOn}
+                onToggleChorus={setIsBassChorusOn}
+                chorusFreq={bassChorusFreq}
+                onChorusFreqChange={setBassChorusFreq}
+                chorusDepth={bassChorusDepth}
+                onChorusDepthChange={setBassChorusDepth}
+                isBitCrusherOn={isBassBitCrusherOn}
+                onToggleBitCrusher={setIsBassBitCrusherOn}
+                bitCrusherBits={bassBitCrusherBits}
+                onBitCrusherBitsChange={setBassBitCrusherBits}
               />
             )}
         </div>
 
         <div className="h-[30px] bg-gray-800 flex-shrink-0 border-t border-gray-700 flex items-center justify-center text-sm text-gray-400">
-          {(isResizingChordMachine || isResizingDrums) && 
+          {(isResizingChordMachine || isResizingDrums || isResizingBassMachine) && 
             <span>
-              {isResizingChordMachine ? `Chord Machine Height: ${Math.round(chordMachineHeight)}px` : `Drum Editor Height: ${Math.round(drumEditorHeight)}px`}
+              {isResizingChordMachine && `Chord Engine Height: ${Math.round(chordMachineHeight)}px`}
+              {isResizingDrums && `Drum Engine Height: ${Math.round(drumEditorHeight)}px`}
+              {isResizingBassMachine && `Bass Engine Height: ${Math.round(bassMachineHeight)}px`}
             </span>
           }
         </div>

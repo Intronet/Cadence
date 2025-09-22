@@ -259,10 +259,6 @@ export const sampler = new Tone.Sampler({
   baseUrl: "https://tonejs.github.io/audio/salamander/"
 }).toDestination();
 
-    /*****************************************************************************************************************************************************
-    'E1': 'E1.mp3', 'F1': 'F1.mp3', 'F#1': 'Fs1.mp3', 'G1': 'G1.mp3', 'G#1': 'Gs1.mp3', 'A1': 'A1.mp3', 'A#1': 'As1.mp3', 'B1': 'B1.mp3',
-    'C2': 'C2.mp3', 'C#2': 'Cs2.mp3', 'D2': 'D2.mp3', 'D#2': 'Ds2.mp3', 'E2': 'E2.mp3', 'F2': 'F2.mp3', 'F#2': 'Fs2.mp3', 'G2': 'G2.mp3', 'G#2': 'Gs2.mp3'
-    ******************************************************************************************************************************************************/
 export const bassSampler = new Tone.Sampler({
   urls: {
         'A#1': 'As1.mp3',
@@ -284,7 +280,7 @@ export const bassSampler = new Tone.Sampler({
   },
   release: 0.2,
   baseUrl: "https://nbrosowsky.github.io/tonejs-instruments/samples//bass-electric/"
-}).toDestination();
+});
 
 
 // --- Drum Machine Engine ---

@@ -387,7 +387,7 @@ export const Toolkit: React.FC<ToolkitProps> = ({
       />
       <div className="flex flex-col h-full">
         <div className="flex justify-between items-center mb-2 flex-shrink-0">
-          <h3 className="text-xl font-bold text-indigo-300">Chord Machine</h3>
+          <h3 className="text-xl font-bold text-indigo-300">Chord Engine</h3>
           <button onClick={onClose} className="p-1 rounded-full hover:bg-gray-700 transition-colors" aria-label="Close toolkit">
             <XIcon className="w-5 h-5 text-gray-400" />
           </button>
