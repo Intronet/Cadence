@@ -5,6 +5,7 @@ import { SpeakerIcon } from './icons/SpeakerIcon';
 import { SpeakerOffIcon } from './icons/SpeakerOffIcon';
 import { ArpeggioIcon } from './icons/ArpeggioIcon';
 import { StrumIcon } from './icons/StrumIcon';
+import { ArticulationEditor } from './ArticulationEditor';
 
 interface SequencerProps {
   sequence: SequenceChord[];
@@ -101,17 +102,24 @@ interface ChordBlockProps {
   isClickMuted: boolean;
   onDragStart: (chord: SequenceChord, isResizing: boolean, e: React.MouseEvent<HTMLDivElement>) => void;
   onContextMenu: (e: React.MouseEvent, chord: SequenceChord) => void;
+  onIconClick: (e: React.MouseEvent, chord: SequenceChord) => void;
 }
 
 const ChordBlock: React.FC<ChordBlockProps> = ({ 
   chord, stepWidth, stepsPerLane, onRemove, onDoubleClick, onPlayChord, onChordSelect, onChordMouseUp, 
-  playingChordId, isSelected, isClickMuted, onDragStart, onContextMenu
+  playingChordId, isSelected, isClickMuted, onDragStart, onContextMenu, onIconClick
 }) => {
   const isCurrentlyPlaying = chord.id === playingChordId;
+  const hasArticulation = !!chord.articulation;
 
   const handleMouseDown = useCallback((e: MouseEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
     
+    // Prevent starting a drag when clicking the icon
+    if ((e.target as HTMLElement).closest('.articulation-icon-btn')) {
+        return;
+    }
+
     onChordSelect(chord.id, e);
     if (!isClickMuted) {
       onPlayChord(chord);
@@ -145,12 +153,18 @@ const ChordBlock: React.FC<ChordBlockProps> = ({
       onMouseUp={onChordMouseUp} // Stop sound on simple click-release
       onDoubleClick={() => onDoubleClick(chord)}
       onContextMenu={(e) => onContextMenu(e, chord)}
-      title={`${chord.chordName}\nDrag to move.\nDrag edge to resize.\nHold {Ctrl} for precision.\nDouble-click to edit.\nSelect and press Delete or Backspace to remove.`}
+      title={`${chord.chordName}\nDrag to move.\nDrag edge to resize.\nHold {Ctrl} for precision.\nDouble-click to edit.\nRight-click for articulations.\nClick icon to edit articulation.`}
     >
-      <div className="absolute top-1 left-1 pointer-events-none">
-        {chord.articulation?.type === 'arpeggio' && <ArpeggioIcon className="w-3.5 h-3.5 text-sky-200"><title>Arpeggio</title></ArpeggioIcon>}
-        {chord.articulation?.type === 'strum' && <StrumIcon className="w-3.5 h-3.5 text-sky-200"><title>Strum</title></StrumIcon>}
-      </div>
+      {hasArticulation && (
+        <button 
+          className="articulation-icon-btn absolute top-1 left-1 p-0.5 rounded-full hover:bg-black/30"
+          onClick={(e) => onIconClick(e, chord)}
+          title="Edit Articulation"
+        >
+          {chord.articulation?.type === 'arpeggio' && <ArpeggioIcon className="w-4 h-4 text-sky-200" />}
+          {chord.articulation?.type === 'strum' && <StrumIcon className="w-4 h-4 text-sky-200" />}
+        </button>
+      )}
       <span className="truncate px-2 pointer-events-none">{chord.chordName}</span>
       <div className={`resize-handle absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize`} />
     </div>
@@ -208,7 +222,7 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, chord, onClose, onSetAr
             {(['8n', '16n', '32n'] as ArpeggioRate[]).map(rate => (
               <button
                 key={rate}
-                onClick={() => handleSelect({ type: 'arpeggio', rate })}
+                onClick={() => handleSelect({ type: 'arpeggio', rate, direction: 'up', gate: 0.95 })}
                 className={`px-2 py-0.5 rounded text-xs font-semibold ${
                   chord.articulation?.type === 'arpeggio' && chord.articulation.rate === rate
                     ? 'bg-indigo-600 text-white'
@@ -242,6 +256,7 @@ export const Sequencer: React.FC<SequencerProps> = ({
   const ghostBlockRef1 = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(0);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; chord: SequenceChord } | null>(null);
+  const [editingArticulation, setEditingArticulation] = useState<{ chord: SequenceChord, anchorEl: HTMLElement } | null>(null);
   const [draggingState, setDraggingState] = useState<{
       id: string;
       start: number;
@@ -439,10 +454,16 @@ export const Sequencer: React.FC<SequencerProps> = ({
 
   const handleContextMenu = useCallback((e: React.MouseEvent, chord: SequenceChord) => {
     e.preventDefault();
-    onInteraction();
     setContextMenu({ x: e.clientX, y: e.clientY, chord });
-  }, [onInteraction]);
+    setEditingArticulation(null);
+  }, []);
   
+  const handleIconClick = useCallback((e: React.MouseEvent, chord: SequenceChord) => {
+      e.stopPropagation();
+      setEditingArticulation({ chord, anchorEl: e.currentTarget as HTMLElement });
+      setContextMenu(null);
+  }, []);
+
   const handleSetArticulation = (id: string, articulation: Articulation | null) => {
     onUpdateChord(id, { articulation });
   };
@@ -532,6 +553,7 @@ export const Sequencer: React.FC<SequencerProps> = ({
                   isClickMuted={isClickMuted}
                   onDragStart={handleDragStart}
                   onContextMenu={handleContextMenu}
+                  onIconClick={handleIconClick}
                 />
               );
             })}
@@ -619,6 +641,14 @@ export const Sequencer: React.FC<SequencerProps> = ({
           chord={contextMenu.chord}
           onClose={() => setContextMenu(null)}
           onSetArticulation={handleSetArticulation}
+        />
+      )}
+      {editingArticulation && (
+        <ArticulationEditor
+            anchorEl={editingArticulation.anchorEl}
+            chord={editingArticulation.chord}
+            onClose={() => setEditingArticulation(null)}
+            onUpdate={(articulation) => onUpdateChord(editingArticulation.chord.id, { articulation })}
         />
       )}
     </div>

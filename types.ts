@@ -61,9 +61,10 @@ export type ChordData = {
 };
 
 export type ArpeggioRate = '8n' | '16n' | '32n';
+export type ArpeggioDirection = 'up' | 'down' | 'upDown' | 'random';
 
 export type Articulation =
-  | { type: 'arpeggio'; rate: ArpeggioRate }
+  | { type: 'arpeggio'; rate: ArpeggioRate; direction: ArpeggioDirection; gate: number }
   | { type: 'strum' };
 
 export interface SequenceChord {

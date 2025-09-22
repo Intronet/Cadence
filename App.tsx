@@ -962,18 +962,42 @@ const App: React.FC = () => {
             }, time);
 
             if (event.chord.articulation?.type === 'arpeggio') {
-                const rate = event.chord.articulation.rate || '16n';
+                const rate = event.chord.articulation.rate;
+                const direction = event.chord.articulation.direction;
+                const gate = event.chord.articulation.gate;
                 const singleNoteDuration = Tone.Time(rate).toSeconds();
                 const noteCount = Math.floor(event.duration / singleNoteDuration);
 
+                let sequenceNotes: string[] = [];
+                switch (direction) {
+                    case 'down':
+                        sequenceNotes = [...notes].reverse();
+                        break;
+                    case 'upDown':
+                        sequenceNotes = [...notes, ...[...notes].reverse().slice(1, -1)];
+                        break;
+                    case 'random':
+                        // Generate the random sequence once for this chord event
+                        const randomNotes = [];
+                        for (let i = 0; i < noteCount; i++) {
+                            randomNotes.push(notes[Math.floor(Math.random() * notes.length)]);
+                        }
+                        sequenceNotes = randomNotes;
+                        break;
+                    case 'up':
+                    default:
+                        sequenceNotes = notes;
+                        break;
+                }
+                
                 for (let i = 0; i < noteCount; i++) {
-                    const note = notes[i % notes.length];
+                    const note = direction === 'random' ? sequenceNotes[i] : sequenceNotes[i % sequenceNotes.length];
                     const attackTime = time + i * singleNoteDuration;
                     
                     if (attackTime < time + event.duration) {
                         const timeJitter = (Math.random() - 0.5) * humanizeTiming * 0.02;
                         const velocity = 0.8 + (Math.random() - 0.5) * humanizeDynamics * 0.4;
-                        sampler.triggerAttackRelease(note, singleNoteDuration * 0.95, attackTime + timeJitter, velocity);
+                        sampler.triggerAttackRelease(note, singleNoteDuration * gate, attackTime + timeJitter, velocity);
                         Tone.Draw.schedule(() => {
                             setSequencerActiveNotes([note]);
                         }, attackTime);
