@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { GoogleGenAI, Type } from '@google/genai';
 import { Header } from './components/Header';
 import { chordData as staticChordData } from './services/geminiService';
 import { 
@@ -14,7 +15,7 @@ import {
   updateChord,
   playChordOnce,
   sampler,
-  bassSynth,
+  bassSampler,
   drumPlayers,
   drumVolume,
   humanizeProgression,
@@ -67,7 +68,7 @@ const useHistory = <T,>(initialState: T) => {
 
   const redo = useCallback(() => {
     if (index < history.length - 1) {
-      setIndex(i => i + 1);
+      setIndex(i => i - 1);
     }
   }, [index, history.length]);
 
@@ -246,13 +247,6 @@ const createNewPattern = (
 });
 
 
-const requestFullScreen = () => {
-    const element = document.documentElement;
-    if (element.requestFullscreen) {
-        element.requestFullscreen();
-    }
-};
-
 const App: React.FC = () => {
   const [isLoaderVisible, setIsLoaderVisible] = useState(true);
   const [isLoaderFadingOut, setIsLoaderFadingOut] = useState(false);
@@ -305,6 +299,10 @@ const App: React.FC = () => {
   const animationFrameRef = useRef<number | null>(null);
   const prevSongRootRef = useRef<string>(songRootNote);
 
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generationError, setGenerationError] = useState<string | null>(null);
+  const [aiGeneratedChordSets, setAiGeneratedChordSets] = useState<ChordSet[]>([]);
+
   const currentPattern = useMemo(() => patterns.find(p => p.id === currentPatternId) ?? patterns[0], [patterns, currentPatternId]);
   const sequence = useMemo(() => currentPattern?.sequence || [], [currentPattern]);
   const bassSequence = useMemo(() => currentPattern?.bassSequence || [], [currentPattern]);
@@ -322,7 +320,6 @@ const App: React.FC = () => {
   const pressedKeysRef = useRef<Set<string>>(new Set());
 
   const handleStart = () => {
-    requestFullScreen();
     // Delay the start of the fade-out by 0.5 seconds
     setTimeout(() => {
       setIsLoaderFadingOut(true);
@@ -421,6 +418,7 @@ const App: React.FC = () => {
   const [activeEditorPreviewNotes, setActiveEditorPreviewNotes] = useState<string[]>([]);
 
   const [isDrumsEnabled, setIsDrumsEnabled] = useState(false);
+  const [isBasslineEnabled, setIsBasslineEnabled] = useState(true);
   const [drumVol, setDrumVol] = useState(-6);
   const [activeDrumStep, setActiveDrumStep] = useState<number | null>(null);
   const [isDrumEditorOpen, setIsDrumEditorOpen] = useState(false);
@@ -506,14 +504,23 @@ const App: React.FC = () => {
   }, [drumVol]);
 
 
-  const categories = useMemo(() => ['Diatonic Chords', ...Object.keys(staticChordData)], []);
+  const categories = useMemo(() => {
+    const baseCategories = ['Diatonic Chords', ...Object.keys(staticChordData)];
+    if (aiGeneratedChordSets.length > 0) {
+      return ['AI Generated', ...baseCategories];
+    }
+    return baseCategories;
+  }, [aiGeneratedChordSets]);
 
   const chordSets = useMemo(() => {
     if (category === 'Diatonic Chords') {
       return [{ name: `${songRootNote} ${songMode}`, chords: [] }];
     }
+    if (category === 'AI Generated') {
+      return aiGeneratedChordSets;
+    }
     return staticChordData[category] || [];
-  }, [category, songRootNote, songMode]);
+  }, [category, songRootNote, songMode, aiGeneratedChordSets]);
   
   const displayedChords = useMemo(() => {
     if (category === 'Diatonic Chords') {
@@ -521,7 +528,12 @@ const App: React.FC = () => {
     }
     const originalChords = (chordSets[chordSetIndex]?.chords || []).slice(0, 16);
 
-    if (songRootNote === 'C') {
+    if (songRootNote === 'C' && category !== 'AI Generated') {
+        return originalChords;
+    }
+
+    // AI progressions are generated for the current key, so no transposition needed
+    if (category === 'AI Generated') {
         return originalChords;
     }
 
@@ -567,6 +579,40 @@ const App: React.FC = () => {
     return sequence;
   }, [sequence]);
   
+  const generatedBassline = useMemo(() => {
+    if (!isBasslineEnabled) return [];
+
+    return sequence.map(chord => {
+        const parsed = parseChord(chord.chordName);
+        const rootNote = parsed ? (parsed.bass || parsed.root) : null;
+        if (!rootNote) return null;
+
+        const bassOctave = 2; // Keep it simple
+        const bassNoteName = `${rootNote}${bassOctave}`;
+
+        return {
+            id: generateId(),
+            noteName: bassNoteName,
+            start: chord.start,
+            duration: chord.duration,
+        };
+    }).filter((n): n is SequenceBassNote => n !== null);
+  }, [sequence, isBasslineEnabled]);
+
+  useEffect(() => {
+      const hasChanged = 
+          bassSequence.length !== generatedBassline.length || 
+          bassSequence.some((note, i) => 
+              note.noteName !== generatedBassline[i].noteName ||
+              note.start !== generatedBassline[i].start ||
+              note.duration !== generatedBassline[i].duration
+          );
+
+      if (hasChanged) {
+          updatePattern(currentPatternId, { bassSequence: generatedBassline });
+      }
+  }, [generatedBassline, bassSequence, currentPatternId, updatePattern]);
+
 
   const stopActivePadNotes = useCallback(() => {
     if (activePadChordNotes.length > 0) {
@@ -772,7 +818,7 @@ const App: React.FC = () => {
     handleStop();
     Tone.Transport.cancel();
     sampler.releaseAll();
-    bassSynth.triggerRelease();
+    bassSampler.releaseAll();
     DRUM_SOUNDS.forEach(sound => drumPlayers.player(sound).stop());
     setActivePadChordNotes([]);
     setActivePianoNote(null);
@@ -807,6 +853,66 @@ const App: React.FC = () => {
       togglePlay();
     }
   }, [isPlaying, togglePlay]);
+
+  const handleGenerate = async (prompt: string) => {
+    setIsGenerating(true);
+    setGenerationError(null);
+    try {
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
+        const systemInstruction = `You are a music theory expert. Your task is to generate one or more chord progressions based on the user's prompt. The user is currently working in the key of ${songRootNote} ${songMode}. Consider this context when generating progressions. Return the response as a JSON array of objects. Each object should represent a chord progression and have a 'name' (string) and a 'chords' (array of 8 to 16 strings). The chord names must be parsable by a music notation library (e.g., "Cmaj7", "G7", "Amin", "F#min7(b5)"). Be creative and generate musically interesting and coherent progressions. The name should be descriptive of the progression. Generate between 1 and 3 progressions.`;
+
+        const schema = {
+            type: Type.ARRAY,
+            items: {
+                type: Type.OBJECT,
+                properties: {
+                    name: {
+                        type: Type.STRING,
+                        description: "A descriptive name for the chord progression.",
+                    },
+                    chords: {
+                        type: Type.ARRAY,
+                        items: {
+                            type: Type.STRING,
+                            description: "A chord in the progression, e.g., 'Cmaj7' or 'G7/B'."
+                        },
+                        description: "An array of 8 to 16 chord names.",
+                    },
+                },
+                required: ["name", "chords"],
+            }
+        };
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: `Generate a chord progression based on this prompt: "${prompt}"`,
+            config: {
+                systemInstruction,
+                responseMimeType: "application/json",
+                responseSchema: schema,
+            },
+        });
+
+        const jsonStr = response.text.trim();
+        const generatedProgressions = JSON.parse(jsonStr);
+        
+        if (Array.isArray(generatedProgressions) && generatedProgressions.length > 0) {
+            setAiGeneratedChordSets(generatedProgressions);
+            setCategory('AI Generated');
+            setChordSetIndex(0);
+        } else {
+            console.error('Invalid format from AI:', generatedProgressions);
+            setGenerationError('Received an invalid format from the AI.');
+        }
+
+    } catch (error) {
+        console.error("Error generating chords:", error);
+        setGenerationError('Failed to generate chords. Please try again.');
+    } finally {
+        setIsGenerating(false);
+    }
+  };
 
   useEffect(() => {
     const animate = () => {
@@ -939,7 +1045,7 @@ const App: React.FC = () => {
       const part = new Tone.Part<{ time: number; duration: number; noteName: string; id: string }>((time, event) => {
         const timeOffset = (Math.random() - 0.5) * humanizeTiming * 0.05;
         const velocity = 0.9 + (Math.random() - 0.5) * humanizeDynamics * 0.2; // Bass has less dynamic range
-        bassSynth.triggerAttackRelease(event.noteName, event.duration, time + timeOffset, velocity);
+        bassSampler.triggerAttackRelease(event.noteName, event.duration, time + timeOffset, velocity);
         
         Tone.Draw.schedule(() => {
           setPlayingBassNoteId(event.id);
@@ -1181,6 +1287,8 @@ const App: React.FC = () => {
           onTimeSignatureChange={onTimeSignatureChange}
           isDrumsEnabled={isDrumsEnabled}
           onToggleDrumsEnabled={() => setIsDrumsEnabled(v => !v)}
+          isBasslineEnabled={isBasslineEnabled}
+          onToggleBasslineEnabled={() => setIsBasslineEnabled(v => !v)}
           onToggleDrumEditor={toggleDrumEditor}
           isDrumEditorOpen={isDrumEditorOpen}
           isMetronomeOn={isMetronomeOn}
@@ -1304,6 +1412,9 @@ const App: React.FC = () => {
                 voicingMode={voicingMode}
                 setVoicingMode={setVoicingMode}
                 activeKeyboardPadIndices={activeKeyboardPadIndices}
+                onGenerate={handleGenerate}
+                isGenerating={isGenerating}
+                generationError={generationError}
               />
             )}
         </div>

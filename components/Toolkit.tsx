@@ -5,6 +5,7 @@ import { XIcon } from './icons/XIcon';
 import { ChordSet, ROOT_NOTE_OPTIONS, SCALE_MODE_OPTIONS } from '../types';
 import { OctaveSlider } from './OctaveSlider';
 import { updateChord, hasSeventh } from '../index';
+import { Generator } from './Generator';
 
 interface ToolkitProps {
   onClose: () => void;
@@ -36,6 +37,9 @@ interface ToolkitProps {
   voicingMode: 'off' | 'manual' | 'auto';
   setVoicingMode: (mode: 'off' | 'manual' | 'auto') => void;
   activeKeyboardPadIndices: Set<number>;
+  onGenerate: (prompt: string) => void;
+  isGenerating: boolean;
+  generationError: string | null;
 }
 
 const InversionControl: React.FC<{
@@ -192,7 +196,8 @@ export const Toolkit: React.FC<ToolkitProps> = ({
   chords, songRootNote, setSongRootNote, songMode, setSongMode, category, setCategory,
   chordSetIndex, setChordSetIndex, categories, chordSets, onPadMouseDown, onPadMouseUp,
   onPadMouseEnter, onPadMouseLeave, octave, setOctave, inversionLevel, setInversionLevel,
-  voicingMode, setVoicingMode, activeKeyboardPadIndices
+  voicingMode, setVoicingMode, activeKeyboardPadIndices,
+  onGenerate, isGenerating, generationError
 }) => {
   const [pianosWidth, setPianosWidth] = useState(250);
   const [controlsWidth, setControlsWidth] = useState(250);
@@ -441,6 +446,13 @@ export const Toolkit: React.FC<ToolkitProps> = ({
                     rootNoteOptions={ROOT_NOTE_OPTIONS}
                     scaleModeOptions={SCALE_MODE_OPTIONS}
                  />
+                 <div className="border-t border-gray-700/50 pt-4 mt-4">
+                    <Generator
+                        onGenerate={onGenerate}
+                        isGenerating={isGenerating}
+                        error={generationError}
+                    />
+                 </div>
               </div>
           </div>
           

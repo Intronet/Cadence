@@ -12,6 +12,7 @@ import { PanicIcon } from './icons/PanicIcon';
 import { DrumIcon } from './icons/DrumIcon';
 import { DrumEditorIcon } from './icons/DrumEditorIcon';
 import { HumanizeControl } from './HumanizeControl';
+import { BassIcon } from './icons/BassIcon';
 
 interface ArrangementViewProps {
   patterns: Pattern[];
@@ -28,6 +29,8 @@ interface ArrangementViewProps {
   onTimeSignatureChange: (patternId: string, ts: '4/4' | '3/4') => void;
   isDrumsEnabled: boolean;
   onToggleDrumsEnabled: () => void;
+  isBasslineEnabled: boolean;
+  onToggleBasslineEnabled: () => void;
   onToggleDrumEditor: () => void;
   isDrumEditorOpen: boolean;
   isMetronomeOn: boolean;
@@ -132,7 +135,7 @@ const EditablePatternName: React.FC<{
 
 export const ArrangementView: React.FC<ArrangementViewProps> = ({
   patterns, currentPattern, onSelectPattern, onAddPattern, onDeletePattern, onRenamePattern, onCopyPattern, onReorderPatterns,
-  bpm, onBpmChange, onToggleBarMode, onTimeSignatureChange, isDrumsEnabled, onToggleDrumsEnabled, onToggleDrumEditor, isDrumEditorOpen,
+  bpm, onBpmChange, onToggleBarMode, onTimeSignatureChange, isDrumsEnabled, onToggleDrumsEnabled, isBasslineEnabled, onToggleBasslineEnabled, onToggleDrumEditor, isDrumEditorOpen,
   isMetronomeOn, onMetronomeToggle, isPianoVisible, onTogglePiano,
   onUndo, onRedo, canUndo, canRedo,
   isPlaying, onPlayPause, onStop, onPanic, playheadPosition,
@@ -302,6 +305,7 @@ export const ArrangementView: React.FC<ArrangementViewProps> = ({
             onDynamicsChange={onHumanizeDynamicsChange}
           />
           <div className="h-6 w-px bg-gray-600 mx-1" />
+          <button onClick={onToggleBasslineEnabled} className={`${isBasslineEnabled ? primaryButtonClasses : regularButtonClasses} h-10`} title="Toggle Auto-Bassline"><BassIcon className="w-5 h-5" /></button>
           <button onClick={onToggleDrumsEnabled} className={`${isDrumsEnabled ? primaryButtonClasses : regularButtonClasses} h-10`} title="Toggle Drums"><DrumIcon className="w-5 h-5" /></button>
           <button onClick={onToggleDrumEditor} className={`${isDrumEditorOpen ? primaryButtonClasses : regularButtonClasses} h-10`} title="Toggle Drum Editor"><DrumEditorIcon className="w-5 h-5" /></button>
           <div className="h-6 w-px bg-gray-600 mx-1" />

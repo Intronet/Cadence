@@ -4,9 +4,10 @@ import { SparklesIcon } from './icons/SparklesIcon';
 interface GeneratorProps {
   onGenerate: (prompt: string) => void;
   isGenerating: boolean;
+  error: string | null;
 }
 
-export const Generator: React.FC<GeneratorProps> = ({ onGenerate, isGenerating }) => {
+export const Generator: React.FC<GeneratorProps> = ({ onGenerate, isGenerating, error }) => {
   const [prompt, setPrompt] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -44,6 +45,7 @@ export const Generator: React.FC<GeneratorProps> = ({ onGenerate, isGenerating }
         aria-label="Chord progression description"
         disabled={isGenerating}
       />
+      {error && <p className="text-sm text-red-400 mt-2">{error}</p>}
     </form>
   );
 };

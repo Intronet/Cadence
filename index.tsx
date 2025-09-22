@@ -259,10 +259,31 @@ export const sampler = new Tone.Sampler({
   baseUrl: "https://tonejs.github.io/audio/salamander/"
 }).toDestination();
 
-export const bassSynth = new Tone.MonoSynth({
-    oscillator: { type: 'sine' },
-    envelope: { attack: 0.01, decay: 0.2, sustain: 0.3, release: 0.5 },
-    filterEnvelope: { attack: 0.01, decay: 0.1, sustain: 0.1, release: 0.5, baseFrequency: 200, octaves: 2.6 }
+    /*****************************************************************************************************************************************************
+    'E1': 'E1.mp3', 'F1': 'F1.mp3', 'F#1': 'Fs1.mp3', 'G1': 'G1.mp3', 'G#1': 'Gs1.mp3', 'A1': 'A1.mp3', 'A#1': 'As1.mp3', 'B1': 'B1.mp3',
+    'C2': 'C2.mp3', 'C#2': 'Cs2.mp3', 'D2': 'D2.mp3', 'D#2': 'Ds2.mp3', 'E2': 'E2.mp3', 'F2': 'F2.mp3', 'F#2': 'Fs2.mp3', 'G2': 'G2.mp3', 'G#2': 'Gs2.mp3'
+    ******************************************************************************************************************************************************/
+export const bassSampler = new Tone.Sampler({
+  urls: {
+        'A#1': 'As1.mp3',
+        'A#2': 'As2.mp3',
+        'A#3': 'As3.mp3',
+        'A#4': 'As4.mp3',
+        'C#1': 'Cs1.mp3',
+        'C#2': 'Cs2.mp3',
+        'C#3': 'Cs3.mp3',
+        'C#4': 'Cs4.mp3',
+        'E1': 'E1.mp3',
+        'E2': 'E2.mp3',
+        'E3': 'E3.mp3',
+        'E4': 'E4.mp3',
+        'G1': 'G1.mp3',
+        'G2': 'G2.mp3',
+        'G3': 'G3.mp3',
+        'G4': 'G4.mp3'
+  },
+  release: 0.2,
+  baseUrl: "/samples/bass/"
 }).toDestination();
 
 

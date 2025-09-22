@@ -202,9 +202,9 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, chord, onClose, onSetAr
     <div ref={menuRef} style={menuStyle} className="fixed bg-gray-800 border border-gray-600 rounded-[4px] shadow-lg p-1 w-48 z-30 animate-fade-in-fast">
         <div className="text-xs text-gray-400 px-3 py-1 border-b border-gray-700 mb-1 truncate">{chord.chordName}</div>
         
-        <div className="px-3 py-1.5 text-sm text-gray-200 flex justify-between items-center">
+        <div className="px-3 py-1.5 text-sm text-gray-200">
           <span>Arpeggio</span>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center justify-end gap-1 mt-1">
             {(['8n', '16n', '32n'] as ArpeggioRate[]).map(rate => (
               <button
                 key={rate}
