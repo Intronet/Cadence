@@ -40,6 +40,8 @@ interface ToolkitProps {
   onGenerate: (prompt: string) => void;
   isGenerating: boolean;
   generationError: string | null;
+  chordVolume: number;
+  onChordVolumeChange: (volume: number) => void;
 }
 
 const InversionControl: React.FC<{
@@ -197,7 +199,8 @@ export const Toolkit: React.FC<ToolkitProps> = ({
   chordSetIndex, setChordSetIndex, categories, chordSets, onPadMouseDown, onPadMouseUp,
   onPadMouseEnter, onPadMouseLeave, octave, setOctave, inversionLevel, setInversionLevel,
   voicingMode, setVoicingMode, activeKeyboardPadIndices,
-  onGenerate, isGenerating, generationError
+  onGenerate, isGenerating, generationError,
+  chordVolume, onChordVolumeChange
 }) => {
   const [pianosWidth, setPianosWidth] = useState(250);
   const [controlsWidth, setControlsWidth] = useState(250);
@@ -388,9 +391,30 @@ export const Toolkit: React.FC<ToolkitProps> = ({
       <div className="flex flex-col h-full">
         <div className="flex justify-between items-center mb-2 flex-shrink-0">
           <h3 className="text-xl font-bold text-indigo-300">Chord Engine</h3>
-          <button onClick={onClose} className="p-1 rounded-full hover:bg-gray-700 transition-colors" aria-label="Close toolkit">
-            <XIcon className="w-5 h-5 text-gray-400" />
-          </button>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <label htmlFor="chord-volume" className="text-sm font-medium text-gray-400">Vol</label>
+              <input
+                type="range"
+                id="chord-volume"
+                min={-40}
+                max={6}
+                step={1}
+                value={chordVolume}
+                onChange={(e) => onChordVolumeChange(parseFloat(e.target.value))}
+                onWheel={(e) => {
+                  e.preventDefault();
+                  const change = e.deltaY < 0 ? 1 : -1;
+                  onChordVolumeChange(Math.max(-40, Math.min(6, chordVolume + change)));
+                }}
+                className="w-24 h-2 bg-gray-600 rounded-[4px] appearance-none cursor-pointer range-slider"
+                aria-label="Chord engine volume"
+              />
+            </div>
+            <button onClick={onClose} className="p-1 rounded-full hover:bg-gray-700 transition-colors" aria-label="Close toolkit">
+              <XIcon className="w-5 h-5 text-gray-400" />
+            </button>
+          </div>
         </div>
         
         <div className="flex pt-2 mt-2 border-t border-gray-700 flex-1 min-h-0">
@@ -514,33 +538,31 @@ export const Toolkit: React.FC<ToolkitProps> = ({
       </div>
        <style>{`
         .range-slider::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 28px;
-            height: 18px;
-            border-radius: 10px;
-            background: #818cf8; /* indigo-400 */
-            cursor: pointer;
-            transition: background .2s;
-            margin-top: -3px; /* vertically center oval on track */
-            border: 2px solid #1f2937;
+          -webkit-appearance: none;
+          appearance: none;
+          width: 16px;
+          height: 16px;
+          border-radius: 50%;
+          background: #818cf8; /* indigo-400 */
+          cursor: pointer;
+          transition: background .2s;
         }
         
         .range-slider::-moz-range-thumb {
-            width: 28px;
-            height: 18px;
-            border-radius: 10px;
-            background: #818cf8;
-            cursor: pointer;
-            border: 2px solid #1f2937;
-            transition: background .2s;
+          width: 16px;
+          height: 16px;
+          border-radius: 50%;
+          background: #818cf8;
+          cursor: pointer;
+          border: none;
+          transition: background .2s;
         }
 
-        .range-slider:hover:not(:disabled)::-webkit-slider-thumb {
+        .range-slider:hover::-webkit-slider-thumb {
             background: #a78bfa; /* purple-400 */
         }
 
-        .range-slider:hover:not(:disabled)::-moz-range-thumb {
+        .range-slider:hover::-moz-range-thumb {
             background: #a78bfa;
         }
 

@@ -437,7 +437,7 @@ const App: React.FC = () => {
   const [activeEditorPreviewNotes, setActiveEditorPreviewNotes] = useState<string[]>([]);
 
   const [isDrumsEnabled, setIsDrumsEnabled] = useState(false);
-  const [isBasslineEnabled, setIsBasslineEnabled] = useState(false);
+  const [isBasslineEnabled, setIsBasslineEnabled] = useState(true);
   const [drumVol, setDrumVol] = useState(-6);
   const [activeDrumStep, setActiveDrumStep] = useState<number | null>(null);
   const drumSequenceRef = useRef<Tone.Sequence<number> | null>(null);
@@ -452,6 +452,7 @@ const App: React.FC = () => {
   const [isResizingDrums, setIsResizingDrums] = useState(false);
   const [bassMachineHeight, setBassMachineHeight] = useState(290);
   const [isResizingBassMachine, setIsResizingBassMachine] = useState(false);
+  const [chordVolume, setChordVolume] = useState(0);
 
   const [timeSignatureChangeRequest, setTimeSignatureChangeRequest] = useState<{ patternId: string, newTimeSignature: '4/4' | '3/4' } | null>(null);
 
@@ -531,6 +532,10 @@ const App: React.FC = () => {
       bassEffectsRef.current.volume.volume.value = bassVolume;
     }
   }, [bassVolume]);
+  
+  useEffect(() => {
+    sampler.volume.value = chordVolume;
+  }, [chordVolume]);
 
   useEffect(() => {
     if (bassEffectsRef.current?.phaser) {
@@ -1640,6 +1645,8 @@ const App: React.FC = () => {
                 onGenerate={handleGenerate}
                 isGenerating={isGenerating}
                 generationError={generationError}
+                chordVolume={chordVolume}
+                onChordVolumeChange={setChordVolume}
               />
             )}
         </div>
