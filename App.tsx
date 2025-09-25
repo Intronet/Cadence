@@ -1,3 +1,11 @@
+
+
+
+
+
+
+
+
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { GoogleGenAI, Type } from '@google/genai';
 import { Header } from './components/Header';
@@ -71,7 +79,7 @@ const useHistory = <T,>(initialState: T) => {
   const redo = useCallback(() => {
     if (index < history.length - 1) {
       // FIX: Redo should increment the index, not decrement it.
-      setIndex(i => i - 1);
+      setIndex(i => i + 1);
     }
   }, [index, history.length]);
 
@@ -183,7 +191,6 @@ const normalizeNoteForPiano = (note: string): string => {
   const rest = match[2];
   return (FLAT_TO_SHARP[pitch] || pitch) + rest;
 };
-const normalizeNotesForPiano = (notes: string[]): string[] => notes.map(normalizeNoteForPiano);
 
 const CODE_TO_PAD_INDEX: { [code: string]: number } = {
   'Digit1': 0, 'Digit2': 1, 'Digit3': 2, 'Digit4': 3,
@@ -319,6 +326,9 @@ const App: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [aiGeneratedChordSets, setAiGeneratedChordSets] = useState<ChordSet[]>([]);
+  
+  const [isClearConfirmationVisible, setIsClearConfirmationVisible] = useState(false);
+
 
   const currentPattern = useMemo(() => patterns.find(p => p.id === currentPatternId) ?? patterns[0], [patterns, currentPatternId]);
   const sequence = useMemo(() => currentPattern?.sequence || [], [currentPattern]);
@@ -336,7 +346,8 @@ const App: React.FC = () => {
   const [activeKeyboardPadIndices, setActiveKeyboardPadIndices] = useState<Set<number>>(new Set());
   const pressedKeysRef = useRef<Set<string>>(new Set());
 
-  const handleStart = () => {
+  const handleStart = async () => {
+    await Tone.start();
     // Delay the start of the fade-out by 0.5 seconds
     setTimeout(() => {
       setIsLoaderFadingOut(true);
@@ -840,16 +851,34 @@ const App: React.FC = () => {
   }, [stopActivePadNotes, stopActivePianoNote]);
 
 
-  const activePianoNotes = useMemo(() => normalizeNotesForPiano([
-    ...hoveredNotes,
-    ...activePadChordNotes,
-    ...(activePianoNote ? [activePianoNote] : []),
-    ...sequencerActiveNotes,
-    ...sequencerActiveBassNotes,
-    ...activeSequencerManualNotes,
-    ...activeEditorPreviewNotes,
-    ...Array.from(activeKeyboardNotes.values()).flat()
-  ]), [hoveredNotes, activePadChordNotes, activePianoNote, sequencerActiveNotes, sequencerActiveBassNotes, activeSequencerManualNotes, activeEditorPreviewNotes, activeKeyboardNotes]);
+  const coloredPianoNotes = useMemo(() => {
+    const CHORD_COLOR_CLASS = 'bg-indigo-300';
+    const BASS_COLOR_CLASS = 'bg-[#a5d1fe]';
+
+    const notesMap = new Map<string, string>();
+    const normalizeAndAdd = (notes: string[], color: string) => {
+      notes.forEach(note => {
+        const normalized = normalizeNoteForPiano(note);
+        if (normalized) {
+          notesMap.set(normalized, color);
+        }
+      });
+    };
+    
+    // Chord notes
+    normalizeAndAdd(hoveredNotes, CHORD_COLOR_CLASS);
+    normalizeAndAdd(activePadChordNotes, CHORD_COLOR_CLASS);
+    if (activePianoNote) normalizeAndAdd([activePianoNote], CHORD_COLOR_CLASS);
+    normalizeAndAdd(sequencerActiveNotes, CHORD_COLOR_CLASS);
+    normalizeAndAdd(activeSequencerManualNotes, CHORD_COLOR_CLASS);
+    normalizeAndAdd(activeEditorPreviewNotes, CHORD_COLOR_CLASS);
+    normalizeAndAdd(Array.from(activeKeyboardNotes.values()).flat(), CHORD_COLOR_CLASS);
+    
+    // Bass notes (added last to take priority)
+    normalizeAndAdd(sequencerActiveBassNotes, BASS_COLOR_CLASS);
+
+    return notesMap;
+  }, [hoveredNotes, activePadChordNotes, activePianoNote, sequencerActiveNotes, sequencerActiveBassNotes, activeSequencerManualNotes, activeEditorPreviewNotes, activeKeyboardNotes]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -987,6 +1016,23 @@ const App: React.FC = () => {
     setActiveEditorPreviewNotes([]);
     setActiveKeyboardNotes(new Map());
   };
+  
+  const handleClearProject = () => {
+    // Stop any playback
+    handleStop();
+
+    // Create a fresh pattern
+    const freshPattern = createNewPattern('Pattern 1', 4, '4/4');
+    
+    // Reset state
+    setPatterns([freshPattern]);
+    setCurrentPatternId(freshPattern.id);
+    setSelectedChordIds(new Set());
+    setClipboard([]);
+    
+    // Close dialog
+    setIsClearConfirmationVisible(false);
+  };
 
   const handleSeek = (beats: number) => {
     Tone.Transport.ticks = beats * Tone.Transport.PPQ;
@@ -1054,7 +1100,8 @@ const App: React.FC = () => {
         });
 
         const jsonStr = response.text.trim();
-        const generatedProgressions = JSON.parse(jsonStr);
+        // FIX: Add type assertion to the parsed JSON to resolve TypeScript error about 'unknown' type.
+        const generatedProgressions = JSON.parse(jsonStr) as ChordSet[];
         
         if (Array.isArray(generatedProgressions) && generatedProgressions.length > 0) {
             setAiGeneratedChordSets(generatedProgressions);
@@ -1533,6 +1580,7 @@ const App: React.FC = () => {
           onPlayPause={togglePlay}
           onStop={handleStop}
           onPanic={handlePanic}
+          onClearProject={() => setIsClearConfirmationVisible(true)}
           playheadPosition={playheadPosition}
           masterVolume={masterVolume}
           onMasterVolumeChange={setMasterVolume}
@@ -1574,20 +1622,19 @@ const App: React.FC = () => {
         >
           <div 
             className="flex flex-col h-full"
-            onClick={(e) => {
-              if (e.target === e.currentTarget) {
-                setSelectedChordIds(new Set());
-              }
-            }}
+            onClick={() => setSelectedChordIds(new Set())}
           >
-              <div className={`relative transition-all duration-300 ease-in-out ${isPianoVisible ? 'h-52 mt-0' : 'h-12 mt-[10px]'}`}>
+              <div 
+                className={`relative transition-all duration-300 ease-in-out ${isPianoVisible ? 'h-52 mt-0' : 'h-12 mt-[10px]'}`}
+                onClick={(e) => e.stopPropagation()}
+              >
                   {/* Piano container, always h-40 */}
                   <div className="absolute top-0 left-0 right-0 h-40 overflow-hidden">
                       <div className={`absolute inset-0 transition-transform duration-300 ease-in-out ${isPianoVisible ? 'translate-y-0' : '-translate-y-full'}`}>
                           <Piano 
                             ref={pianoRef}
-                            highlightedNotes={activePianoNotes}
-                            pressedNotes={activePianoNotes}
+                            highlightedNotes={coloredPianoNotes}
+                            pressedNotes={coloredPianoNotes}
                             onKeyMouseDown={handlePianoMouseDown}
                             onKeyMouseEnter={handlePianoMouseEnter}
                             onKeyMouseLeave={stopActivePianoNote}
@@ -1698,18 +1745,23 @@ const App: React.FC = () => {
                 onDistortionAmountChange={setBassDistortionAmount}
                 isFilterOn={isBassFilterOn}
                 onToggleFilter={setIsBassFilterOn}
+                // FIX: Pass the correct state variable `bassFilterFreq` to the `filterFreq` prop.
                 filterFreq={bassFilterFreq}
                 onFilterFreqChange={setBassFilterFreq}
+                // FIX: Pass the correct state variable `bassFilterDepth` to the `filterDepth` prop.
                 filterDepth={bassFilterDepth}
                 onFilterDepthChange={setBassFilterDepth}
                 isPhaserOn={isBassPhaserOn}
                 onTogglePhaser={setIsBassPhaserOn}
+                // FIX: Pass the correct state variable `bassPhaserFreq` to the `phaserFreq` prop.
                 phaserFreq={bassPhaserFreq}
                 onPhaserFreqChange={setBassPhaserFreq}
+                // FIX: Pass the correct state variable `bassPhaserQ` to the `phaserQ` prop.
                 phaserQ={bassPhaserQ}
                 onPhaserQChange={setBassPhaserQ}
                 isChorusOn={isBassChorusOn}
                 onToggleChorus={setIsBassChorusOn}
+                // FIX: Pass the correct state variable `bassChorusFreq` to the `chorusFreq` prop.
                 chorusFreq={bassChorusFreq}
                 onChorusFreqChange={setBassChorusFreq}
                 chorusDepth={bassChorusDepth}
@@ -1757,6 +1809,16 @@ const App: React.FC = () => {
           onConfirm={handleConfirmTimeSignatureChange}
           onCancel={() => setTimeSignatureChangeRequest(null)}
           confirmText="Change"
+        />
+      )}
+      
+      {isClearConfirmationVisible && (
+        <ConfirmationDialog
+          title="Clear Project"
+          message="Are you sure you want to clear the entire project? This will remove all patterns and sequences. This action cannot be undone."
+          onConfirm={handleClearProject}
+          onCancel={() => setIsClearConfirmationVisible(false)}
+          confirmText="Clear Project"
         />
       )}
     </div>

@@ -47,8 +47,8 @@ const generatePianoKeys = () => {
 const PIANO_KEYS = generatePianoKeys();
 
 interface PianoProps {
-  highlightedNotes: string[];
-  pressedNotes: string[];
+  highlightedNotes: Map<string, string>;
+  pressedNotes: Map<string, string>;
   onKeyMouseDown: (note: string) => void;
   onKeyMouseEnter: (note: string) => void;
   onKeyMouseLeave: () => void;
@@ -85,6 +85,19 @@ export const Piano = forwardRef<PianoHandle, PianoProps>(({ highlightedNotes, pr
     e.currentTarget.scrollLeft += e.deltaY;
   };
   
+  const getHighlightClasses = (colorClass: string | undefined, type: 'white' | 'black') => {
+      if (!colorClass) {
+          return type === 'white' ? 'bg-gray-100 border-gray-800' : 'bg-gray-800 border-gray-900';
+      }
+      if (colorClass === 'bg-indigo-300') {
+          return 'bg-indigo-300 border-indigo-500';
+      }
+      if (colorClass === 'bg-[#a5d1fe]') {
+          return 'bg-[#a5d1fe] border-[#60a5fa]';
+      }
+      return type === 'white' ? 'bg-gray-100 border-gray-800' : 'bg-gray-800 border-gray-900';
+  }
+
   return (
     <div className="w-full">
        <div 
@@ -100,8 +113,9 @@ export const Piano = forwardRef<PianoHandle, PianoProps>(({ highlightedNotes, pr
         >
           {whiteKeys.map((key) => {
             const noteName = `${key.note}${key.octave}`;
-            const isHighlighted = highlightedNotes.includes(noteName);
-            const isPressed = pressedNotes.includes(noteName);
+            const isHighlighted = highlightedNotes.has(noteName);
+            const isPressed = pressedNotes.has(noteName);
+            const colorClass = highlightedNotes.get(noteName);
             
             return (
               <button
@@ -110,8 +124,8 @@ export const Piano = forwardRef<PianoHandle, PianoProps>(({ highlightedNotes, pr
                 onMouseDown={(e) => { if (e.button === 0) onKeyMouseDown(noteName); }}
                 onMouseEnter={() => onKeyMouseEnter(noteName)}
                 onMouseLeave={onKeyMouseLeave}
-                className={`relative flex-1 border-r border-gray-800 rounded-b-[4px] text-gray-800 flex items-end justify-center pb-2 font-semibold select-none transition-all duration-75
-                  ${isHighlighted ? 'bg-sky-400 border-sky-600' : 'bg-gray-100'}
+                className={`relative flex-1 border-r rounded-b-[4px] text-gray-800 flex items-end justify-center pb-2 font-semibold select-none transition-all duration-75
+                  ${isHighlighted ? getHighlightClasses(colorClass, 'white') : 'bg-gray-100 border-gray-800'}
                   ${isPressed ? 'transform translate-y-px shadow-inner-strong' : 'shadow-md'}
                 `}
                 aria-label={`Play note ${noteName}`}
@@ -124,8 +138,9 @@ export const Piano = forwardRef<PianoHandle, PianoProps>(({ highlightedNotes, pr
           })}
           {blackKeys.map((key) => {
             const noteName = `${key.note}${key.octave}`;
-            const isHighlighted = highlightedNotes.includes(noteName);
-            const isPressed = pressedNotes.includes(noteName);
+            const isHighlighted = highlightedNotes.has(noteName);
+            const isPressed = pressedNotes.has(noteName);
+            const colorClass = highlightedNotes.get(noteName);
 
             const precedingWhiteNote = SHARP_NOTES[(NOTE_TO_INDEX[key.note] + 11) % 12];
             const whiteKeyIndex = whiteKeys.findIndex(wk => wk.note === precedingWhiteNote && wk.octave === key.octave);
@@ -147,8 +162,8 @@ export const Piano = forwardRef<PianoHandle, PianoProps>(({ highlightedNotes, pr
                 onMouseEnter={() => onKeyMouseEnter(noteName)}
                 onMouseLeave={onKeyMouseLeave}
                 style={{ left: `${left}%`, width: `${blackKeyWidth}%` }}
-                className={`absolute top-0 h-20 rounded-b-[4px] border-2 border-gray-900 z-10 select-none transition-all duration-75
-                  ${isHighlighted ? 'bg-sky-400 border-sky-600' : 'bg-gray-800'}
+                className={`absolute top-0 h-20 rounded-b-[4px] border-2 z-10 select-none transition-all duration-75
+                  ${isHighlighted ? getHighlightClasses(colorClass, 'black') : 'bg-gray-800 border-gray-900'}
                   ${isPressed ? 'h-[4.9rem] bg-gray-900' : ''}
                 `}
                 aria-label={`Play note ${noteName}`}

@@ -70,7 +70,7 @@ const BassBlock: React.FC<BassBlockProps> = ({ note, stepWidth, stepsPerLane, is
   return (
     <div
       className={`absolute rounded-[4px] flex items-center justify-center text-white text-xs font-medium select-none shadow-md transition-colors duration-150 z-10 border
-        ${isPlaying ? 'bg-green-500 border-green-300' : 'bg-green-700 border-green-500'}
+        ${isPlaying ? 'bg-[#a5d1fe] border-blue-200' : 'bg-blue-400 border-[#a5d1fe]'}
         cursor-default
       `}
       style={{
@@ -139,8 +139,8 @@ const ChordBlock: React.FC<ChordBlockProps> = ({
     <div
       data-has-context-menu="true"
       className={`absolute rounded-[4px] flex items-center justify-center text-white text-xs font-medium select-none shadow-lg transition-colors duration-150 z-10 chord-block border
-        ${isSelected ? 'bg-indigo-500 border-yellow-400' : 'bg-indigo-600 border-indigo-400'}
-        ${isCurrentlyPlaying ? 'ring-2 ring-sky-400' : ''}
+        ${isSelected ? 'bg-indigo-400 border-yellow-400' : 'bg-indigo-300 border-indigo-500'}
+        ${isCurrentlyPlaying ? 'ring-2 ring-yellow-300' : ''}
         cursor-grab active:cursor-grabbing
       `}
       style={{
@@ -154,7 +154,7 @@ const ChordBlock: React.FC<ChordBlockProps> = ({
       onMouseUp={onChordMouseUp} // Stop sound on simple click-release
       onDoubleClick={() => onDoubleClick(chord)}
       onContextMenu={(e) => onContextMenu(e, chord)}
-      title={`${chord.chordName}\nDrag to move.\nDrag edge to resize.\nHold {Ctrl} for precision.\nDouble-click to edit.\nRight-click for articulations.\nClick icon to edit articulation.`}
+      title={`${chord.chordName}\nDrag to move.\nDrag edge to resize.\nHold {Ctrl} for precision.\nRight-click for articulations.\nClick icon to edit articulation.`}
     >
       {hasArticulation && (
         <button 
@@ -296,7 +296,6 @@ export const Sequencer: React.FC<SequencerProps> = ({
   const BEAT_COUNT = BAR_COUNT * BEATS_PER_BAR;
   
   const hasBass = bassSequence.length > 0;
-  const playheadHeight = hasBass ? CHORD_TRACK_HEIGHT + BASS_TRACK_HEIGHT : CHORD_TRACK_HEIGHT;
 
   useEffect(() => {
     const calculateWidth = (entries: ResizeObserverEntry[]) => {
@@ -528,9 +527,11 @@ export const Sequencer: React.FC<SequencerProps> = ({
   const renderSequencerLane = (laneIndex: 0 | 1) => {
     const barOffset = laneIndex * 4;
     const ghostBlockRef = laneIndex === 0 ? ghostBlockRef0 : ghostBlockRef1;
+
     return (
       <div className='relative bg-gray-800'>
         <div className="relative flex items-center">
+            {renderGrid(RULER_HEIGHT)}
             {renderRuler(barOffset)}
             {laneIndex === 0 && (
                 <button
@@ -590,8 +591,8 @@ export const Sequencer: React.FC<SequencerProps> = ({
                 }}
             />
         </div>
-         {/* Bass Track or Spacer */}
-         {hasBass ? (
+         {/* Bass Track */}
+         {hasBass && (
             <div
                 data-lane={laneIndex}
                 className="relative w-full bg-gray-900/50"
@@ -609,12 +610,12 @@ export const Sequencer: React.FC<SequencerProps> = ({
                     />
                 ))}
             </div>
-         ) : (
-            <div className="h-[24px] bg-gray-800" />
          )}
+         {/* Bottom Spacer */}
+         <div className="h-[24px] bg-gray-800" />
 
          {playheadLane === laneIndex && stepWidth > 0 && playheadLeftInLane <= gridWidth && (
-              <Playhead position={playheadLeftInLane} trackPadding={TRACK_PADDING} height={playheadHeight} top={RULER_HEIGHT} />
+              <Playhead position={playheadLeftInLane} trackPadding={TRACK_PADDING} height={RULER_HEIGHT + 5} top={0} />
         )}
       </div>
     );

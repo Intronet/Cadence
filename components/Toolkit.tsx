@@ -211,6 +211,7 @@ export const Toolkit: React.FC<ToolkitProps> = ({
 
   const progressionSelectorRef = useRef<HTMLDivElement>(null);
   const pianoListContainerRef = useRef<HTMLDivElement>(null);
+  const controlsContentRef = useRef<HTMLDivElement>(null);
   const [pianoListHeight, setPianoListHeight] = useState<number | string>('auto');
 
   useLayoutEffect(() => {
@@ -220,27 +221,25 @@ export const Toolkit: React.FC<ToolkitProps> = ({
         const pianoListRect = pianoListContainerRef.current.getBoundingClientRect();
         
         const availableHeight = progressionRect.bottom - pianoListRect.top;
-        const newHeight = availableHeight;
         
-        if (newHeight > 20) { // Basic sanity check
-          setPianoListHeight(newHeight);
+        if (availableHeight > 20) { // Basic sanity check
+          setPianoListHeight(availableHeight);
         }
       }
     };
 
     calculateHeight();
 
-    const containerElement = progressionSelectorRef.current?.closest('.pt-2');
     const resizeObserver = new ResizeObserver(calculateHeight);
     
-    if (containerElement) {
-        resizeObserver.observe(containerElement);
+    if (controlsContentRef.current) {
+        resizeObserver.observe(controlsContentRef.current);
     }
     
     return () => {
       resizeObserver.disconnect();
     };
-  }, [pianosWidth, controlsWidth, voicingWidth, height]);
+  }, []);
 
 
   const onPadDragStart = (e: React.DragEvent<HTMLDivElement>, chordName: string) => {
@@ -451,7 +450,7 @@ export const Toolkit: React.FC<ToolkitProps> = ({
           
            {/* Column: Controls */}
           <div className="flex-shrink-0 overflow-y-auto custom-scrollbar px-4" style={{ width: `${controlsWidth}px` }}>
-              <div className="space-y-4">
+              <div ref={controlsContentRef} className="space-y-4">
                  <Controls
                     progressionRef={progressionSelectorRef}
                     songRootNote={songRootNote}
@@ -515,7 +514,7 @@ export const Toolkit: React.FC<ToolkitProps> = ({
                  <div className="flex flex-wrap gap-2">
                     {chords.map((chord, index) => (
                         <div key={`${chord}-${index}`} 
-                             className="bg-indigo-500/80 rounded-[4px] p-[2px] shadow-lg"
+                             className="bg-indigo-500 rounded-md p-[2px] shadow-lg"
                              style={{ width: quarterNoteWidth > 0 ? `${quarterNoteWidth}px` : '5rem' }}
                         >
                             <Pad

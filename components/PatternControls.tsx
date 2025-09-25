@@ -45,6 +45,7 @@ interface ArrangementViewProps {
   onPlayPause: () => void;
   onStop: () => void;
   onPanic: () => void;
+  onClearProject: () => void;
   playheadPosition: number;
   masterVolume: number;
   onMasterVolumeChange: (volume: number) => void;
@@ -139,7 +140,7 @@ export const ArrangementView: React.FC<ArrangementViewProps> = ({
   onToggleBassMachine, isBassMachineOpen,
   isMetronomeOn, onMetronomeToggle, isPianoVisible, onTogglePiano,
   onUndo, onRedo, canUndo, canRedo,
-  isPlaying, onPlayPause, onStop, onPanic, playheadPosition,
+  isPlaying, onPlayPause, onStop, onPanic, onClearProject, playheadPosition,
   masterVolume, onMasterVolumeChange, isMuted, onMuteToggle,
   isChordMachineOpen, onToggleChordMachine,
   humanizeTiming, onHumanizeTimingChange, humanizeDynamics, onHumanizeDynamicsChange
@@ -233,6 +234,10 @@ export const ArrangementView: React.FC<ArrangementViewProps> = ({
 
         <div className="flex-shrink-0 flex items-center gap-4">
             <div className="flex items-center gap-2">
+              <button onClick={onClearProject} className={`${dangerButtonClasses} h-10 px-4 text-sm font-semibold`} title="Clear Project">
+                Clear
+              </button>
+              <div className="h-6 w-px bg-gray-600 mx-1" />
               <button onClick={onUndo} disabled={!canUndo} className={`${regularButtonClasses} disabled:opacity-50 disabled:cursor-not-allowed h-10`} title="Undo (Ctrl+Z)"><UndoIcon className="w-5 h-5" /></button>
               <button onClick={onRedo} disabled={!canRedo} className={`${regularButtonClasses} disabled:opacity-50 disabled:cursor-not-allowed h-10`} title="Redo (Ctrl+Y)"><RedoIcon className="w-5 h-5" /></button>
             </div>

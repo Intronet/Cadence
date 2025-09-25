@@ -1,6 +1,6 @@
 import { ChordData } from '../types';
 
-export const chordData: ChordData = {
+export const OldData: ChordData = {
     "70's Funk & Soul": [
         { name: "C♯min7, G♯min7, F♯min7, F♯min7, G♯min7, C♯min7, G♯min7, F♯min7, G♯min7", chords: ["C♯min7", "G♯min7", "F♯min7", "F♯min7", "G♯min7", "C♯min7", "G♯min7", "F♯min7", "G♯min7"] },
         { name: "Amaj / D♭, Amaj, Fmaj(♭5)♯9, Fdim / G♯, D♭maj, G♭maj / D♭, G♭maj, D♭maj", chords: ["Amaj / D♭", "Amaj", "Fmaj(♭5)♯9", "Fdim / G♯", "D♭maj", "G♭maj / D♭", "G♭maj", "D♭maj"] },
@@ -29,7 +29,6 @@ export const chordData: ChordData = {
         { name: "Fmaj7, Emin7, Emin / G, Fmaj / A, Gmaj / B, Amin(no5), Dmin7, Cmaj(no5), Gmaj", chords: ["Fmaj7", "Emin7", "Emin / G", "Fmaj / A", "Gmaj / B", "Amin(no5)", "Dmin7", "Cmaj(no5)", "Gmaj"] }
     ],
     "Blues": [
-// FIX: Corrected a malformed `chords` array that was causing a syntax error.
         { name: "C9, Edim♯5, F9, D7, C7, G9, F9, Cmaj", chords: ["C9", "Edim♯5", "F9", "D7", "C7", "G9", "F9", "Cmaj"] },
         { name: "B♭sus2(♭5) / C, F7, Fmin7(♭5), Gmin7, E7, A7, Fmaj add13 / A, G7, Csus4", chords: ["B♭sus2(♭5) / C", "F7", "Fmin7(♭5)", "Gmin7", "E7", "A7", "Fmaj add13 / A", "G7", "Csus4"] },
         { name: "Bmaj7, A♯min7(♭5), D♯7, G♯min7, C♯7, F♯7, B7, E7, A7, D♯min7, G♯7, Dmin7, G7, C♯min7, Bmaj", chords: ["Bmaj7", "A♯min7(♭5)", "D♯7", "G♯min7", "C♯7", "F♯7", "B7", "E7", "A7", "D♯min7", "G♯7", "Dmin7", "G7", "C♯min7", "Bmaj"] },
@@ -304,5 +303,260 @@ export const chordData: ChordData = {
         { name: "A♭maj(no5), Gmin(no5), Fmin, E♭maj, D♭maj7(no3), C7(no3), A♭maj(no5) 9 / B♭, E♭7", chords: ["A♭maj(no5)", "Gmin(no5)", "Fmin", "E♭maj", "D♭maj7(no3)", "C7(no3)", "A♭maj(no5) 9 / B♭", "E♭7"] },
         { name: "Dmin, Cmaj, Bmin7(♭5), Emaj, Dmin, Cmaj add13, Bdim♯5, A♯maj add13, Amin", chords: ["Dmin", "Cmaj", "Bmin7(♭5)", "Emaj", "Dmin", "Cmaj add13", "Bdim♯5", "A♯maj add13", "Amin"] },
         { name: "Amin, Emaj, Gmaj, Dmaj, Fmaj, Cmaj, Dmin, Emaj, Amin, Emaj, Gmaj, Dmaj, Fmaj, Cmaj, Dmin, Cmaj, Bdim, Eaug", chords: ["Amin", "Emaj", "Gmaj", "Dmaj", "Fmaj", "Cmaj", "Dmin", "Emaj", "Amin", "Emaj", "Gmaj", "Dmaj", "Fmaj", "Cmaj", "Dmin", "Cmaj", "Bdim", "Eaug"] }
+    ]
+};
+
+export const chordData: ChordData = {
+    "70's Funk & Soul": [
+        { name: "Slinky C Minor Groove", chords: ["Cmin7", "Fmin7", "Bb7", "Ebmaj7", "Abmaj7", "Dmin7b5", "G7alt", "Cmin9", "Cmin7", "Fmin7", "Bb7", "Ebmaj7", "Dbmaj7", "G7sus4", "Cmin7", "G7#9"] },
+        { name: "Uptown E Major Strut", chords: ["Emaj9", "A13", "Dmaj9", "G13", "Cmaj9", "F13", "B7#9", "Emaj9", "F#min7", "B7sus4", "Emaj7", "A13", "G#min7", "C#7#9", "F#min7", "B7"] },
+        { name: "Cool Breeze in A Minor", chords: ["Amin9", "Dmin9", "G13", "Cmaj7", "Fmaj7", "Bmin7b5", "E7#9", "Amin9", "Dmin7", "G7", "Cmaj7", "Fmaj7", "Bmin7b5", "E7alt", "Amin7", "E7#9"] },
+        { name: "Philly Soul Story", chords: ["Cmaj7", "Fmaj7", "Dmin7", "G7", "Emin7", "Amin7", "Dmin7", "G7", "Cmaj7", "C7", "Fmaj7", "Fmin7", "C/G", "A7", "Dmin7", "G7"] },
+        { name: "Swinging F Minor Funk", chords: ["Fmin7", "Bb7", "Ebmaj7", "Abmaj7", "Dbmaj7", "Gmin7b5", "C7b9", "Fmin7", "Bbm7", "Eb7", "Abmaj7", "Dbmaj7", "Gbmaj7", "C7#9", "Fmin9", "C7alt"] },
+        { name: "Laid Back D Dorian", chords: ["Dmin7", "G7", "Dmin7", "G7", "Cmaj7", "Fmaj7", "Amin7", "D7", "Gmin7", "C7", "Fmaj7", "Bbmaj7", "Emin7b5", "A7alt", "Dmin7", "A7#9"] },
+        { name: "Tower of Power Horns", chords: ["Emin7", "A7", "Dmaj7", "Gmaj7", "C#min7b5", "F#7b9", "Bmin7", "E7", "Amin7", "D7", "Gmaj7", "Cmaj7", "F#min7b5", "B7alt", "Emin7", "B7#9"] },
+        { name: "Electric Rhodes Jam", chords: ["C#min9", "F#13", "Bmaj9", "Emaj9", "A#min7b5", "D#7#9", "G#min9", "C#9", "F#min9", "B13", "Emaj9", "Amaj9", "D#min7b5", "G#7alt", "C#min9", "G#7b9"] },
+        { name: "Studio A Groove", chords: ["Gmin11", "C13", "Fmaj9", "Bbmaj9", "Emin7b5", "A7alt", "Dmin9", "G9", "Cmin11", "F13", "Bbmaj9", "Ebmaj9", "Amin7b5", "D7alt", "Gmin9", "D7#9"] },
+        { name: "Sunset Strip Soul", chords: ["Bmin7", "E9", "Amaj7", "Dmaj7", "G#min7b5", "C#7b9", "F#min7", "B7", "Emin7", "A9", "Dmaj7", "Gmaj7", "C#min7b5", "F#7#9", "Bmin7", "F#7alt"] }
+    ],
+    "80's": [
+        { name: "Neon Sunset Drive", chords: ["Cmaj7", "G/B", "Amin7", "Fmaj7", "C/E", "Dmin7", "Gsus4", "G", "Cmaj7", "G/B", "Amin7", "Fmaj7", "C", "F", "C", "G"] },
+        { name: "Power Ballad Anthem", chords: ["Fmaj", "C/E", "Dmin7", "C", "Bbmaj", "F/A", "Gmin7", "Csus4", "Fmaj", "C/E", "Dmin7", "Bbmaj7", "F/A", "Gmin7", "Bb/C", "F"] },
+        { name: "Synth Pop Dreams", chords: ["Amin", "Fmaj", "Cmaj", "Gmaj", "Amin", "Fmaj", "Cmaj", "Emin", "Amin", "G/B", "Cmaj", "Fmaj", "Dmin", "Emin", "Fmaj", "Gmaj"] },
+        { name: "Gated Reverb Jam", chords: ["Gsus2", "D/F#", "Emin7", "Cadd9", "Gsus2", "D/F#", "Emin7", "Dsus4", "Cadd9", "G/B", "Amin7", "D", "G", "C", "G", "D"] },
+        { name: "Movie Montage", chords: ["Ebmaj", "Bb/D", "Cmin", "Abmaj", "Ebmaj", "Bb/D", "Gmin", "Abmaj", "Bb", "Cmin", "Abmaj", "Eb/G", "Fmin7", "Bb", "Eb", "Bb/D"] },
+        { name: "Arena Rocker", chords: ["Dmaj", "A/C#", "Bmin", "Gmaj", "Dmaj", "A/C#", "Bmin", "Asus4", "Gmaj", "D/F#", "Emin", "A", "D", "G", "D", "A"] },
+        { name: "Smooth FM Classic", chords: ["Amaj7", "Dmaj7", "Amaj7", "Dmaj7", "C#min7", "F#min7", "Bmin7", "E7sus4", "Amaj9", "Dmaj9", "C#min7", "F#min7", "Gmaj7", "E7sus4", "Amaj7", "E7"] },
+        { name: "Upbeat Pop Hit", chords: ["Bmaj", "F#/A#", "G#min", "Emaj", "Bmaj", "F#/A#", "G#min", "F#sus4", "Emaj", "B/D#", "C#min", "F#", "B", "E", "B", "F#"] },
+        { name: "New Wave Progression", chords: ["Dmin7", "Gmaj", "Cmaj7", "Fmaj7", "Dmin7", "Gmaj", "Cmaj7", "A7", "Bbmaj7", "C", "Fmaj7", "A7/C#", "Dmin7", "G", "C", "G"] },
+        { name: "Heartfelt Ending Credits", chords: ["Cadd9", "G/B", "F/A", "C/G", "Fmaj", "C/E", "Dmin7", "Gsus4", "Cadd9", "G/B", "Amin7", "G", "F", "Emin7", "Dmin7", "C"] }
+    ],
+    "Alternative": [
+        { name: "Indie Rock Heartache", chords: ["Amin", "Amin/G", "Fmaj7", "C", "G", "Emin", "Fmaj7", "C", "Amin", "G", "Fmaj7", "Emin", "Dmin", "C", "G", "Amin"] },
+        { name: "Grunge Power", chords: ["Emin", "Gmaj", "Cmaj", "Amaj", "Emin", "Gmaj", "Cmaj", "Dmaj", "Emin", "Cmaj", "Gmaj", "Dmaj", "Amin", "Cmaj", "Gmaj", "D/F#"] },
+        { name: "Dream Pop Wash", chords: ["Cmaj7", "Amin7", "Fmaj7", "Gmaj7", "Cmaj7", "Amin7", "Fmaj7", "Gmaj7", "Emin7", "Amin7", "Fmaj7", "G", "Cmaj7", "Emin7", "Fmaj7", "G"] },
+        { name: "Post-Punk Mood", chords: ["Dmin", "Bbmaj", "Fmaj", "Cmaj", "Dmin", "Bbmaj", "A7", "Dmin", "Gmin", "Cmaj", "Fmaj", "Bbmaj", "Gmin", "A7", "Dmin", "A7"] },
+        { name: "90s College Radio", chords: ["Gmaj", "Cadd9", "Emin7", "D", "Gmaj", "Cadd9", "Emin7", "D", "Amin7", "C", "G", "D", "Amin7", "C", "G", "D/F#"] },
+        { name: "Shoegaze Swirl", chords: ["Amaj7", "F#min7", "Dmaj7", "Emaj", "Amaj7", "F#min7", "Dmaj7", "Emaj", "C#min7", "Dmaj7", "Amaj", "Emaj", "Bmin7", "E", "Amaj", "E"] },
+        { name: "Britpop Strummer", chords: ["Cmaj", "Emin", "Amin", "Fmaj", "Cmaj", "G/B", "Amin", "G", "F", "G", "C", "G/B", "Amin", "G", "F", "G"] },
+        { name: "Dark and Brooding", chords: ["Bmin", "Gmaj", "Dmaj", "Amaj", "Bmin", "Gmaj", "F#min", "Bmin", "Emin", "Bmin", "Gmaj", "F#7", "Bmin", "Emin", "Gmaj", "F#7"] },
+        { name: "Math Rock Oddity", chords: ["Fmaj7#11", "G6", "Amin9", "Cmaj7", "Fmaj7#11", "G6", "Emin7", "Amin7", "Dmin9", "G13", "Cmaj9", "A7#5", "Dmin9", "G7", "Cmaj7", "C7"] },
+        { name: "Lo-Fi Bedroom Pop", chords: ["C", "Cmaj7", "Fmaj", "Fmin", "C", "Amin", "Dmin", "G7", "C", "E7", "F", "Fmin", "C/G", "G7", "F", "C"] }
+    ],
+    "Blues": [
+        { name: "Classic 16-Bar Blues", chords: ["C7", "C7", "C7", "C7", "F7", "F7", "C7", "C7", "G7", "G7", "C7", "C7", "G7", "F7", "C7", "G7"] },
+        { name: "Minor Blues in A", chords: ["Amin7", "Amin7", "Dmin7", "Amin7", "Dmin7", "Dmin7", "Amin7", "Amin7", "E7#9", "Dmin7", "Amin7", "E7#9", "Amin7", "Dmin7", "Amin7", "E7#9"] },
+        { name: "Jazzy Blues Changes", chords: ["C7", "F7", "C7", "Gmin7 C7", "F7", "F#dim7", "C7/G", "A7", "Dmin7", "G7", "C7 A7", "Dmin7 G7", "C7", "F7", "C7", "G7"] },
+        { name: "Slow Grind in G", chords: ["G7", "G7", "G7", "G7", "C9", "C9", "G7", "G7", "D9", "C9", "G7", "D7", "G7", "C7", "G7", "D7"] },
+        { name: "Shuffle in E", chords: ["E7", "A7", "E7", "E7", "A7", "A7", "E7", "E7", "B7", "A7", "E7", "B7", "E7", "E7", "E7", "B7"] },
+        { name: "Funky Blues in Bb", chords: ["Bb7", "Bb7", "Bb7", "Bb7", "Eb9", "Eb9", "Bb7", "Bb7", "F9", "Eb9", "Bb7", "F9", "Bb7", "Gmin7", "Cmin7", "F7"] },
+        { name: "Quick Change Blues", chords: ["C7", "F7", "C7", "C7", "F7", "F7", "C7", "C7", "G7", "F7", "C7", "C7", "G7", "F7", "C7", "G7"] },
+        { name: "Stormy Monday Blues", chords: ["G7", "C9", "G7", "G7", "C9", "C9", "G7", "Amin7 Bmin7", "Bmin7b5", "E7b9", "Amin7", "D7#9", "G7", "C9", "G7", "D7#9"] },
+        { name: "Chicago Stomp", chords: ["A7", "A7", "A7", "A7", "D7", "D7", "A7", "A7", "E7", "D7", "A7", "A7", "E7", "D7", "A7", "E7"] },
+        { name: "Blues Ballad Turnaround", chords: ["Cmaj7", "A7", "Dmin7", "G7", "Cmaj7", "A7", "Dmin7", "G7", "Emin7", "A7", "Dmin7", "G7", "C", "E7/B", "Amin7", "G7"] }
+    ],
+    "Bossa Nova": [
+        { name: "Ipanema Breeze", chords: ["Cmaj9", "Fmaj9", "Cmaj9", "Fmaj9", "Dmin9", "G13", "Cmaj9", "G7b9", "Cmaj9", "Fmaj9", "Cmaj9", "Fmaj9", "Dmin9", "G13", "Cmaj9", "Cmaj9"] },
+        { name: "Corcovado Night", chords: ["Amin7", "D7", "Gmaj7", "Cmaj7", "F#min7b5", "B7b9", "Emin7", "A7", "Dmin7", "G7", "Cmaj7", "Fmaj7", "F#min7b5", "B7b9", "Emin7", "A7#5"] },
+        { name: "Samba de Verão", chords: ["Cmaj7", "F7", "Cmaj7", "F7", "Dmin7", "G7", "Cmaj7", "Amin7", "Dmin7", "G7", "Emin7", "A7", "Dmin7", "G7", "Cmaj7", "G7"] },
+        { name: "Gentle Rain", chords: ["Amin9", "D13", "Gmaj9", "Gmaj9", "C#min7b5", "F#7b9", "Bmin7", "E7b9", "Amin9", "D13", "Gmaj9", "Cmaj9", "F#min7b5", "B7b9", "Emin9", "A13"] },
+        { name: "Água de Beber", chords: ["Amin7", "D7", "Gmin7", "C7", "Fmaj7", "E7#9", "Amin7", "E7#9", "Amin7", "D7", "Gmin7", "C7", "Fmaj7", "Bb9", "Amin7", "E7b9"] },
+        { name: "Lush Harmony", chords: ["Dbmaj9", "Gbmaj9", "Dbmaj9", "Gbmaj9", "Emin7", "A13", "Dmaj9", "G13", "Cmin7", "F13", "Bbmaj9", "Ebmaj9", "Abmaj9", "Dbmaj9", "G13", "Cmaj9"] },
+        { name: "Meditação", chords: ["Cmaj7", "Cmin7", "Dmin7", "Dmin7/C", "Bmin7b5", "E7b9", "Amin7", "Ab7", "Dmin7", "G7", "Cmaj7", "G7#5", "Cmaj7", "F#min7b5", "Fmin6", "C/G"] },
+        { name: "Rio Sunset", chords: ["Dmaj9", "G13", "Dmaj9", "G13", "Gmin7", "C9", "F#min7", "B7b9", "Emin7", "A13", "Dmaj9", "A7#5", "Dmaj9", "G13", "Emin7", "A7"] },
+        { name: "Wave Inspired", chords: ["Dmaj9", "Bb7#11", "Amin7", "D7b9", "Gmaj7", "Gm6", "F#min7", "B7b9", "Emin9", "A13", "Dmaj9", "A7#5", "Dmaj9", "Bb7#11", "Amin7", "D7#9"] },
+        { name: "Insensatez", chords: ["Cmin7", "F7", "Bbmaj7", "Ebmaj7", "Amin7b5", "D7b9", "Gmin7", "C7b9", "Fmin7", "Bb7", "Ebmaj7", "Abmaj7", "Dmin7b5", "G7b9", "Cmin7", "G7#5"] }
+    ],
+    "Chill": [
+        { name: "Lofi Rain", chords: ["Cmaj7", "Fmaj7", "Dmin7", "G7", "Cmaj7", "Amin7", "Dmin7", "G7", "Cmaj7", "Fmaj7", "Emin7", "A7", "Dmin7", "G7", "Cmaj7", "Cmaj7"] },
+        { name: "Sunset Drive", chords: ["Amin9", "Dmin9", "G13", "Cmaj9", "Amin9", "Dmin9", "G13", "Cmaj9", "Fmaj9", "Bb13", "Ebmaj9", "Abmaj9", "Dbmaj9", "G13", "Cmaj9", "Cmaj9"] },
+        { name: "Cozy Bedroom", chords: ["Fmaj7", "Cmaj7", "Gmin7", "C7", "Fmaj7", "Amin7", "Dmin7", "G7", "Bbmaj7", "Fmaj7", "Emin7b5", "A7", "Dmin7", "G7", "Cmaj7", "Fmaj7"] },
+        { name: "Jazzy Haze", chords: ["Emin9", "A13", "Dmaj9", "Gmaj9", "Emin9", "A13", "Dmaj9", "Gmaj9", "C#min7b5", "F#7b9", "Bmin9", "E9", "Amin9", "D13", "Gmaj9", "Gmaj9"] },
+        { name: "Downtempo Thoughts", chords: ["Cmin7", "Bbmaj7", "Abmaj7", "G7sus4", "Cmin7", "Ebmaj7", "Fmin7", "G7", "Abmaj7", "Ebmaj7", "Dbmaj7", "Cmin7", "Fmin7", "G7", "Cmin7", "G7"] },
+        { name: "Stargazing", chords: ["Gmaj7", "Cmaj7", "Amin7", "D7", "Gmaj7", "Bmin7", "Emin7", "A7", "Dmaj7", "Gmaj7", "C#min7b5", "F#7", "Bmin7", "E7", "Amin7", "D7"] },
+        { name: "Floating", chords: ["Dbmaj9", "Gbmaj9", "Bmaj9", "Emaj9", "Amaj9", "Dmaj9", "Gmaj9", "Cmaj9", "Fmaj9", "Bbmaj9", "Ebmaj9", "Abmaj9", "Dbmaj9", "Gbmaj9", "Bmaj9", "Emaj9"] },
+        { name: "Urban Evening", chords: ["Bmin7", "Emin7", "A7", "Dmaj7", "Gmaj7", "C#min7b5", "F#7", "Bmin7", "Emin7", "A7", "Dmaj7", "F#7", "Bmin7", "Gmaj7", "Emin7", "F#7sus4"] },
+        { name: "Mellow Rhodes", chords: ["Amaj7", "G#min7", "F#min7", "B13", "Emaj9", "Amaj7", "D#min7b5", "G#7", "C#min9", "F#13", "Bmaj9", "B7", "Emaj9", "Amaj7", "F#min7", "B7"] },
+        { name: "Vinyl Crackle", chords: ["C#min7", "F#min7", "B7", "Emaj7", "Amaj7", "D#min7b5", "G#7", "C#min7", "F#min7", "B7", "Emaj7", "G#7", "C#min7", "Amaj7", "B7", "Emaj7"] }
+    ],
+    "Cinematic": [
+        { name: "Epic Adventure", chords: ["Cmin", "Gmin", "Abmaj", "Ebmaj", "Bbmaj", "Fmin", "Cmin", "G7", "Cmin", "Fmin", "Bbmaj", "Ebmaj", "Abmaj", "G7", "Cmin", "Cmin"] },
+        { name: "Tense Suspense", chords: ["Amin", "Amin/G", "Amin/F#", "Amin/F", "Emin", "Emin/D#", "Emin/D", "Emin/C#", "Cmaj7", "Fmaj7", "Bdim", "E7", "Amin", "G", "F", "E"] },
+        { name: "Hopeful Sunrise", chords: ["Cmaj", "G/B", "Amin", "Fmaj", "C/E", "Dmin", "Gsus4", "G", "Cmaj", "Emin", "Fmaj", "C/G", "Amin", "G", "Fmaj", "C"] },
+        { name: "Dark Fantasy", chords: ["Dmin", "Bbmaj", "Gmin", "A7", "Dmin", "C/D", "G/D", "Dmin", "Ebmaj", "Fmaj", "Gmin", "A7", "Bbmaj", "C", "A7/C#", "Dmin"] },
+        { name: "Soaring Strings", chords: ["Gmaj", "D/F#", "Emin", "Cmaj", "G/B", "Amin", "D7", "Gmaj", "Cmaj", "G/B", "Amin", "D", "Emin", "C", "G", "D"] },
+        { name: "Action Sequence", chords: ["Amin", "Gmaj", "Fmaj", "Emaj", "Amin", "Gmaj", "Fmaj", "Emaj", "Dmin", "Cmaj", "Bbmaj", "A7", "Dmin", "G", "C", "E7"] },
+        { name: "Lonely Piano", chords: ["Amin7", "Fmaj7", "Cmaj7", "Gmaj7", "Emin7", "Fmaj7", "Cmaj7", "Gmaj7", "Dmin7", "G7", "Cmaj7", "Fmaj7", "Bmin7b5", "E7", "Amin7", "Amin7"] },
+        { name: "Mysterious Journey", chords: ["Emin", "Cmaj7", "Gmaj", "Dmaj", "Amin", "Emin", "B7", "Emin", "Cmaj7", "D/F#", "G", "B7/D#", "Emin", "Amin", "B7", "Emin"] },
+        { name: "Royal Fanfare", chords: ["Bbmaj", "F/A", "Gmin", "Ebmaj", "Bb/D", "Cmin", "F7", "Bbmaj", "Ebmaj", "Bb/D", "Cmin", "F", "Gmin", "Eb", "Bb", "F"] },
+        { name: "Sci-Fi Atmosphere", chords: ["Cmaj7#11", "Dbmaj7", "Ebmaj7", "Emin7b5", "Fmaj7", "Gbmaj7#11", "Gmin7", "Abmaj7", "Amaj7", "Bbmaj7", "Bmaj7", "Cmin7", "Dbmaj9", "Ebmaj9", "Fmin9", "G7sus4"] }
+    ],
+    "Classical": [
+        { name: "Pachelbel's Canon", chords: ["C", "G/B", "Amin", "C/G", "F", "C/E", "F", "G", "C", "G/B", "Amin", "C/G", "F", "C/E", "Dmin", "G"] },
+        { name: "Moonlight Sonata", chords: ["C#min", "G#7/B#", "C#min", "F#min", "C#min/G#", "G#7", "C#min", "G#7", "Amaj", "E/G#", "F#min", "C#min/E", "D#dim", "G#7", "C#min", "C#min"] },
+        { name: "Four Seasons (Spring)", chords: ["Emaj", "B7", "Emaj", "Amaj", "Emaj", "B7", "Emaj", "B7", "C#min", "G#min", "Amaj", "Emaj", "F#min", "B7", "Emaj", "Emaj"] },
+        { name: "Baroque Progression", chords: ["Amin", "E7/G#", "Amin/G", "D/F#", "Fmaj", "Amin/E", "Dmin", "E7", "Amin", "G", "C", "F", "Bdim", "E7", "Amin", "E7"] },
+        { name: "Romantic Era Mood", chords: ["Gmin", "D7/F#", "Gmin", "Ebmaj", "Bbmaj", "F", "Gmin", "D7", "Cmin", "Gmin", "Abmaj", "Ebmaj", "D7", "Gmin", "D7", "Gmin"] },
+        { name: "Simple Minuet", chords: ["Gmaj", "D7", "Gmaj", "Cmaj", "Gmaj", "D7", "Gmaj", "D7", "Emin", "Bmin", "Cmaj", "Gmaj", "Amin7", "D7", "Gmaj", "Gmaj"] },
+        { name: "Sad Prelude", chords: ["Emin", "B7/D#", "Emin", "Amin", "Emin/G", "F#dim", "Emin", "B7", "Cmaj", "Gmaj", "Amin", "B7", "Emin", "Amin", "B7", "Emin"] },
+        { name: "Pastoral Symphony", chords: ["Fmaj", "C7", "Fmaj", "Bbmaj", "Fmaj/A", "Gmin", "C7", "Fmaj", "Dmin", "Gmin", "C7", "Fmaj", "Bbmaj", "F/C", "C7", "F"] },
+        { name: "Chopin-esque", chords: ["Fmin", "C7", "Fmin", "Bbm", "Fmin/Ab", "Eb7", "Abmaj", "C7", "Dbmaj", "Abmaj", "Bbm", "Fmin", "Gdim", "C7", "Fmin", "Fmin"] },
+        { name: "Ave Maria", chords: ["C", "C/E", "F", "C/G", "G7", "C", "F", "C", "G", "G/B", "C", "F", "G", "G7", "C", "C"] }
+    ],
+    "Common Progressions": [
+        { name: "Pop Punk (I-V-vi-IV)", chords: ["C", "G", "Amin", "F", "C", "G", "Amin", "F", "C", "G", "Amin", "F", "C", "G", "Amin", "F"] },
+        { name: "50s Progression (I-vi-IV-V)", chords: ["C", "Amin", "F", "G", "C", "Amin", "F", "G", "C", "Amin", "F", "G", "C", "Amin", "F", "G"] },
+        { name: "Standard (ii-V-I)", chords: ["Dmin7", "G7", "Cmaj7", "Cmaj7", "Dmin7", "G7", "Cmaj7", "Cmaj7", "Dmin7", "G7", "Cmaj7", "Cmaj7", "Dmin7", "G7", "Cmaj7", "Cmaj7"] },
+        { name: "Pachelbel (I-V-vi-iii-IV-I-IV-V)", chords: ["C", "G", "Amin", "Emin", "F", "C", "F", "G", "C", "G", "Amin", "Emin", "F", "C", "Dmin", "G"] },
+        { name: "Minor Key (i-VI-III-VII)", chords: ["Amin", "F", "C", "G", "Amin", "F", "C", "G", "Amin", "F", "C", "G", "Amin", "F", "C", "G"] },
+        { name: "Andalusian Cadence (i-VII-VI-V)", chords: ["Amin", "G", "F", "E", "Amin", "G", "F", "E", "Amin", "G", "F", "E", "Amin", "G", "F", "E"] },
+        { name: "Jazzy (I-vi-ii-V)", chords: ["Cmaj7", "Amin7", "Dmin7", "G7", "Cmaj7", "Amin7", "Dmin7", "G7", "Cmaj7", "Amin7", "Dmin7", "G7", "Cmaj7", "Amin7", "Dmin7", "G7"] },
+        { name: "The Sensitive Female (vi-IV-I-V)", chords: ["Amin", "F", "C", "G", "Amin", "F", "C", "G", "Amin", "F", "C", "G", "Amin", "F", "C", "G"] },
+        { name: "Royal Road (IV-V-iii-vi)", chords: ["Fmaj7", "G7", "Emin7", "Amin7", "Fmaj7", "G7", "Emin7", "Amin7", "Fmaj7", "G7", "Emin7", "Amin7", "Fmaj7", "G7", "Cmaj7", "Cmaj7"] },
+        { name: "Lennon (I-Imaj7-I7-IV)", chords: ["C", "Cmaj7", "C7", "F", "Fmin", "C", "D7", "G7", "C", "Cmaj7", "C7", "F", "Ab", "G", "C", "C"] }
+    ],
+    "Contemporary R&B": [
+        { name: "Neo-Soul Groove", chords: ["Cmaj9", "Fmaj9", "Cmaj9", "Fmaj9", "Emin9", "A13", "Dmin9", "G13", "Cmaj9", "Fmaj9", "Emin9", "A13", "Dmin9", "G13", "Cmaj9", "G7#5"] },
+        { name: "Smooth Evening", chords: ["Amin11", "Dmin11", "Gmin11", "Cmin11", "Fmaj7#11", "Bbmaj7#11", "Ebmaj7#11", "Abmaj7#11", "Dbmaj9", "Gbmaj9", "Bmaj9", "Emaj9", "Amaj9", "Dmaj9", "Gmaj9", "Cmaj9"] },
+        { name: "After Hours", chords: ["F#min7", "B7", "Emaj9", "Amaj9", "F#min7", "B7", "Emaj9", "Amaj9", "D#min7b5", "G#7alt", "C#min9", "F#9", "Bmaj9", "Emaj9", "Amaj9", "Amaj9"] },
+        { name: "Velvet Rope", chords: ["C#min9", "G#min9", "Amaj9", "Emaj9", "C#min9", "G#min9", "Amaj9", "Emaj9", "F#min9", "B13", "Emaj9", "A#min7b5", "D#7alt", "G#min9", "C#min9", "C#min9"] },
+        { name: "Slow Jam", chords: ["Gmaj7", "A/G", "F#min7", "B7sus4", "Emin9", "A13", "Dmaj9", "Dmaj9", "Gmaj7", "A/G", "F#min7", "B7#9", "Emin9", "A13", "Dmaj9", "Gmaj7"] },
+        { name: "Modern R&B Ballad", chords: ["Abmaj7", "Eb/G", "Fmin7", "Dbmaj7", "Abmaj7", "Eb/G", "Fmin7", "Dbmaj7", "Cmin7", "Dbmaj7", "Eb7sus4", "Abmaj7", "Fmin7", "Eb", "Dbmaj7", "Ab"] },
+        { name: "Uptown Vibe", chords: ["Dmin9", "G9", "Cmaj9", "Fmaj9", "Bmin7b5", "E7alt", "Amin9", "A7#5", "Dmin9", "G9", "Cmaj9", "Fmaj9", "Bbmaj9", "E7alt", "Amin9", "D9"] },
+        { name: "Quiet Storm", chords: ["Bmin11", "E13", "Amaj9", "F#min9", "Bmin11", "E13", "Amaj9", "Dmaj9", "Gmaj9", "C#7#9", "F#min9", "B9", "Emin9", "A13", "Dmaj9", "Dmaj9"] },
+        { name: "Silky Sheets", chords: ["Bbmaj9", "Amin7", "Gmin7", "C13", "Fmaj9", "Fmaj9", "Emin7b5", "A7b9", "Dmin9", "Gmin9", "C13", "Fmaj9", "Bbmaj9", "A7#5", "Dmin9", "G9"] },
+        { name: "The Vibe is Right", chords: ["Ebmaj9", "Abmaj9", "Dbmaj9", "Gbmaj9", "Cmin9", "Fmin9", "Bbmin9", "Eb9", "Abmaj9", "Dbmaj9", "Gbmaj9", "Bmaj9", "Emaj9", "Amaj9", "Dmaj9", "Gmaj9"] }
+    ],
+    "Deep House": [
+        { name: "Midnight Drive", chords: ["Cmin9", "Gmin9", "Cmin9", "Gmin9", "Abmaj9", "Ebmaj9", "Abmaj9", "Ebmaj9", "Fmin9", "Bb9", "Ebmaj9", "Abmaj9", "Dmin7b5", "G7alt", "Cmin9", "Cmin9"] },
+        { name: "Sunrise Session", chords: ["Amin7", "Dmin7", "Gmaj7", "Cmaj7", "Amin7", "Dmin7", "Gmaj7", "Cmaj7", "Fmaj7", "Emin7", "Dmin7", "G7", "Cmaj7", "Fmaj7", "Bmin7b5", "E7"] },
+        { name: "Afterparty Groove", chords: ["F#min9", "Emaj9", "Dmaj9", "C#min9", "F#min9", "Emaj9", "Dmaj9", "C#min9", "Bmin9", "E9", "Amaj9", "Dmaj9", "G#min7b5", "C#7b9", "F#min9", "F#min9"] },
+        { name: "Warehouse Mood", chords: ["Gmin7", "Bbmaj7", "Ebmaj7", "Fmaj7", "Gmin7", "Bbmaj7", "Ebmaj7", "Fmaj7", "Cmin7", "F7", "Bbmaj7", "Ebmaj7", "Amin7b5", "D7", "Gmin7", "D7"] },
+        { name: "Floating Keys", chords: ["Dmaj7", "Gmaj7", "Cmaj7", "Fmaj7", "Bmin7", "Emin7", "Amin7", "D7", "Gmaj7", "Cmaj7", "F#min7b5", "B7", "Emin7", "A7", "Dmaj7", "Dmaj7"] },
+        { name: "Dubby Chords", chords: ["Emin9", "Dmaj9", "Cmaj9", "Bmin9", "Emin9", "Dmaj9", "Cmaj9", "Bmin9", "Amin9", "Gmaj9", "F#min7b5", "B7alt", "Emin9", "A7sus4", "Dmaj9", "B7#9"] },
+        { name: "Classic House Piano", chords: ["Cmin7", "Bbadd9", "Abmaj7", "G7sus4", "Cmin7", "Bbadd9", "Abmaj7", "G7sus4", "Fmin7", "Gmin7", "Abmaj7", "Bb7", "Cmin7", "Eb/G", "Abmaj7", "G7"] },
+        { name: "Progressive Journey", chords: ["Amin9", "Gmaj9", "Fmaj9", "Emin9", "Dmin9", "Cmaj9", "G/B", "Amin7", "Fmaj7", "G", "Emin7", "Amin7", "Dmin7", "G7sus4", "Cmaj7", "Cmaj7"] },
+        { name: "Late Night Organ", chords: ["Bbmin7", "Abmaj7", "Gbmaj7", "Fmin7", "Ebmin7", "Dbmaj7", "Cbmaj7", "F7sus4", "Bbmin7", "Gbmaj7", "Ebmin7", "F7", "Bbmin7", "Db/F", "Gbmaj7", "F7"] },
+        { name: "Soulful Deepness", chords: ["C#min9", "Bmaj9", "Amaj9", "G#min9", "F#min9", "Emaj9", "B/D#", "C#min7", "Amaj9", "B7sus4", "Emaj9", "G#7alt", "C#min9", "F#min9", "B9", "Emaj9"] }
+    ],
+    "Disco": [
+        { name: "Disco Fever", chords: ["Cmin7", "Fmin7", "Bb7", "Ebmaj7", "Abmaj7", "G7sus4", "G7", "Cmin7", "Fmin7", "Bb7", "Ebmaj7", "G7#5", "Cmin7", "Abmaj7", "Gmin7", "Cmin7"] },
+        { name: "Le Freak", chords: ["Amin7", "Dmin7", "Gmin7", "C7", "Fmaj7", "Bbmaj7", "Emin7b5", "A7", "Dmin7", "Gmin7", "C7", "Fmaj7", "Bbmaj7", "E7", "Amin7", "A7"] },
+        { name: "Stayin' Alive", chords: ["Emin7", "Amin7", "Dmaj7", "Gmaj7", "Cmaj7", "F#min7b5", "B7", "Emin7", "Amin7", "D7", "Gmaj7", "Cmaj7", "F#min7b5", "B7", "Emin7", "B7"] },
+        { name: "Night Fever", chords: ["Dmin7", "G7", "Cmaj7", "Fmaj7", "Bmin7b5", "E7", "Amin7", "A7", "Dmin7", "G7", "Cmaj7", "Fmaj7", "Bbmaj7", "E7", "Amin7", "Dmin7"] },
+        { name: "Studio 54", chords: ["Gmin7", "C7", "Fmaj7", "Bbmaj7", "Amin7", "D7", "Gmin7", "C7", "Fmaj7", "A7", "Dmin7", "G7", "Cmaj7", "Fmaj7", "Gmin7", "C7"] },
+        { name: "Funky Town", chords: ["Cmin", "Fmin", "Gmin", "Abmaj", "Bbmaj", "Cmin", "Fmin", "Gmin", "Abmaj", "Bbmaj", "Cmin", "G7", "Cmin", "Fmin", "Gmin", "Cmin"] },
+        { name: "I Will Survive", chords: ["Amin", "Dmin", "Gmaj", "Cmaj", "Fmaj", "Bmin7b5", "E7sus4", "E7", "Amin", "Dmin", "Gmaj", "Cmaj", "Fmaj", "Bmin7b5", "E7sus4", "E7"] },
+        { name: "Get Down Tonight", chords: ["Fmin7", "Bb7sus4", "Fmin7", "Bb7sus4", "Ebmaj7", "Dbmaj7", "Cmin7", "Fmin7", "Bb7sus4", "Ebmaj7", "Abmaj7", "Dbmaj7", "Gmin7b5", "C7b9", "Fmin7", "Fmin7"] },
+        { name: "Philly Groove", chords: ["Cmaj7", "Fmaj7", "Dmin7", "G7sus4", "Cmaj7", "Amin7", "Dmin7", "G7", "Emin7", "Amin7", "Dmin7", "G7", "Cmaj7", "Fmaj7", "Emin7", "A7"] },
+        { name: "Boogie Wonderland", chords: ["Emin9", "A13", "Dmaj9", "Gmaj9", "Cmaj9", "F#7#9", "Bmin7", "Bb13", "Emin9", "A13", "Dmaj9", "Gmaj9", "C#min7b5", "F#7b9", "Bmin7", "E9"] }
+    ],
+    "Divisi 4 Part": [
+        { name: "Choral Warmup", chords: ["C", "G", "Amin", "F", "C", "F", "C", "G", "C", "G", "Amin", "F", "C", "G", "F", "C"] },
+        { name: "Hymn for Four Voices", chords: ["G", "D", "Emin", "C", "G", "Amin", "D", "G", "C", "G", "D", "G", "C", "G", "D", "G"] },
+        { name: "Sacred Space", chords: ["D", "A", "Bmin", "F#min", "G", "D", "G", "A", "D", "A", "Bmin", "F#min", "G", "A", "G", "D"] },
+        { name: "Barbershop Tag", chords: ["C", "A7", "D7", "G7", "C", "E7", "A7", "A7", "D7", "G7", "C", "F", "F#dim", "C/G", "G7", "C"] },
+        { name: "Gentle Anthem", chords: ["F", "C", "Dmin", "Bb", "F", "C", "Dmin", "C", "Bb", "F", "C", "F", "Bb", "F", "C", "F"] },
+        { name: "Madrigal Moment", chords: ["Amin", "E", "Amin", "G", "C", "G", "C", "E", "Amin", "G", "C", "F", "Dmin", "E", "Amin", "A"] },
+        { name: "Counterpoint Exercise", chords: ["C", "F", "G", "C", "Amin", "Dmin", "G", "C", "F", "C", "G", "C", "Dmin", "G", "C", "F"] },
+        { name: "Solemn Procession", chords: ["Dmin", "Gmin", "A7", "Dmin", "Bb", "F", "C", "A7", "Dmin", "Gmin", "C", "F", "Bb", "A7", "Gmin", "Dmin"] },
+        { name: "Joyful Alleluia", chords: ["Eb", "Bb", "Cmin", "Ab", "Eb", "Bb", "Fmin", "Bb", "Eb", "Gmin", "Ab", "Eb", "Fmin", "Bb", "Ab", "Eb"] },
+        { name: "Renaissance Dance", chords: ["G", "C", "G", "D", "G", "C", "G", "D", "Emin", "D", "C", "G", "Amin", "D", "C", "G"] }
+    ],
+    "Drum & Bass": [
+        { name: "Liquid Sunlight", chords: ["Cmaj9", "Amin9", "Fmaj9", "G13", "Cmaj9", "Amin9", "Fmaj9", "G13", "Dmin9", "G13", "Cmaj9", "A7#5", "Dmin9", "G13", "Cmaj9", "Cmaj9"] },
+        { name: "Neurofunk Tension", chords: ["Fmin7", "Gbmaj7", "Dbmaj7", "Abmaj7", "Fmin7", "Gbmaj7", "Dbmaj7", "Abmaj7", "Bmin7", "Cmin7", "Dbmaj7", "Eb7", "Abmaj7", "G7alt", "Cmin7", "F7"] },
+        { name: "Atmospheric Break", chords: ["Amin11", "Gmaj9", "Cmaj9", "Fmaj9", "Amin11", "Gmaj9", "Cmaj9", "Fmaj9", "Dmin11", "Emin11", "Fmaj9", "Gadd11", "Amin11", "G6/9", "Fmaj9", "Fmaj9"] },
+        { name: "Jump Up Energy", chords: ["Cmin", "Ebmaj", "Bbmaj", "Fmaj", "Cmin", "Ebmaj", "Bbmaj", "Gmin", "Abmaj", "Ebmaj", "Bbmaj", "Fmaj", "Gmin", "Abmaj", "Bbmaj", "Cmin"] },
+        { name: "Jazzy Roller", chords: ["Dmin9", "G13", "Cmaj9", "A7#5", "Dmin9", "G13", "Cmaj9", "A7#5", "Fmaj9", "Bb13", "Ebmaj9", "Abmaj9", "Dmin9", "G13", "Cmaj9", "Cmaj9"] },
+        { name: "Techstep Menace", chords: ["Emin", "Cmaj7", "Amin7", "B7", "Emin", "Cmaj7", "Gmaj", "D/F#", "Fmaj7", "B7", "Emin", "Amin7", "D7sus4", "Gmaj", "Cmaj7", "B7"] },
+        { name: "Half-Time Flow", chords: ["Dbmaj7", "Abmaj7", "Fmin7", "Ebmaj", "Dbmaj7", "Abmaj7", "Fmin7", "Ebmaj", "Bbm7", "Eb7", "Abmaj7", "Dbmaj7", "Gbmaj7", "Db/F", "Eb7sus4", "Ab"] },
+        { name: "Intelligent DnB", chords: ["Amaj9", "Dmaj9", "G#min7b5", "C#7#9", "F#min9", "B9sus4", "Emaj9", "Amaj9", "Dmaj9", "Gmaj9", "C#min7", "F#7", "Bmin9", "E13", "Amaj9", "Amaj9"] },
+        { name: "Dancefloor Smasher", chords: ["Gmin", "F", "Eb", "Bb", "Gmin", "F", "Eb", "Dmin", "Cmin", "Gmin", "F", "Eb", "Dmin", "Cmin", "Gmin", "D7"] },
+        { name: "Lush Liquid Funk", chords: ["F#min11", "B13", "Emaj9", "Amaj9", "C#min11", "F#13", "Bmaj9", "Emaj9", "Amaj9", "Dmaj9", "G#min7", "C#7", "F#min7", "B7", "Emaj9", "Emaj9"] }
+    ],
+    "EDM": [
+        { name: "Mainstage Anthem", chords: ["Cmin", "Abmaj", "Ebmaj", "Bbmaj", "Cmin", "Abmaj", "Ebmaj", "Bbmaj", "Fmin", "Cmin", "Gmin", "Abmaj", "Fmin", "Cmin", "Bbmaj", "Ebmaj"] },
+        { name: "Progressive House Journey", chords: ["Amin", "Fmaj", "Cmaj", "Gmaj", "Amin", "Fmaj", "Cmaj", "Gmaj", "Emin", "Fmaj", "Cmaj", "Gmaj", "Dmin", "Emin", "Fmaj", "Gmaj"] },
+        { name: "Trance Euphoria", chords: ["Gmin", "Ebmaj", "Bbmaj", "Fmaj", "Gmin", "Ebmaj", "Bbmaj", "Fmaj", "Cmin", "Gmin", "Dmin", "Ebmaj", "Cmin", "Gmin", "Fmaj", "Bbmaj"] },
+        { name: "Tropical House Bliss", chords: ["Cmaj7", "Gmaj", "Amin7", "Fmaj7", "Cmaj7", "Gmaj", "Amin7", "Fmaj7", "Cmaj7", "Gmaj", "Emin7", "Fmaj7", "Cmaj7", "Gmaj", "Amin7", "Fmaj7"] },
+        { name: "Future Bass Drop", chords: ["Fmaj", "Cmaj", "Gmaj", "Amin", "Fmaj", "Cmaj", "Gmaj", "Amin", "Fmaj", "Cmaj", "Dm", "G", "Fmaj", "Cmaj", "Gmaj", "Amin"] },
+        { name: "Big Room Banger", chords: ["D#min", "Bmaj", "F#maj", "C#maj", "D#min", "Bmaj", "F#maj", "C#maj", "G#min", "D#min", "A#min", "Bmaj", "G#min", "D#min", "C#maj", "F#maj"] },
+        { name: "Deep House Groove", chords: ["Amin7", "Dmin7", "Gmaj7", "Cmaj7", "Amin7", "Dmin7", "Gmaj7", "Cmaj7", "Fmaj7", "Bmin7b5", "E7", "Amin7", "Dmin7", "G7", "Cmaj7", "E7"] },
+        { name: "Hardstyle Power", chords: ["Bmin", "Gmaj", "Dmaj", "Amaj", "Bmin", "Gmaj", "Dmaj", "Amaj", "Emin", "Bmin", "F#min", "Gmaj", "Emin", "Bmin", "Amaj", "Dmaj"] },
+        { name: "Melodic Dubstep", chords: ["C#min", "Amaj", "Emaj", "Bmaj", "C#min", "Amaj", "Emaj", "Bmaj", "F#min", "C#min", "G#min", "Amaj", "F#min", "C#min", "Bmaj", "Emaj"] },
+        { name: "Festival Favorite", chords: ["Fmaj", "Gmaj", "Amin", "Cmaj", "Fmaj", "Gmaj", "Amin", "Cmaj", "Fmaj", "Gmaj", "Emin", "Amin", "Fmaj", "Gmaj", "Cmaj", "Cmaj"] }
+    ],
+    "Fixed Bass": [
+        { name: "C Pedal Point", chords: ["Cmaj", "F/C", "G/C", "F/C", "Cmaj", "Amin/C", "Dmin/C", "G/C", "Cmaj", "Bb/C", "F/C", "G/C", "Cmaj7", "Dmin7/C", "G7sus4/C", "Cmaj"] },
+        { name: "A Minor Drone", chords: ["Amin", "G/A", "F/A", "G/A", "Amin", "C/A", "Dmin/A", "E/A", "Amin", "F/A", "G/A", "E7/A", "Amin", "Dmin/A", "G/A", "Amin"] },
+        { name: "G Bass Groove", chords: ["Gmaj", "C/G", "D/G", "C/G", "Gmaj", "Amin7/G", "Cmaj7/G", "D7sus4/G", "Gmaj", "F/G", "C/G", "D/G", "Gmaj", "Emin7/G", "Cmaj7/G", "Gmaj"] },
+        { name: "E Minor Ostinato", chords: ["Emin", "C/E", "G/E", "D/E", "Emin", "Amin/E", "C/E", "B7/E", "Emin", "G/E", "D/E", "C/E", "Emin", "Amin/E", "D/E", "Emin"] },
+        { name: "D Major Pedal", chords: ["Dmaj", "G/D", "A/D", "G/D", "Dmaj", "Bmin/D", "Emin/D", "A/D", "Dmaj", "C/D", "G/D", "A/D", "Dmaj7", "Emin7/D", "A7sus4/D", "Dmaj"] },
+        { name: "F Lydian Drone", chords: ["Fmaj7", "G/F", "Amin/F", "G/F", "Fmaj7", "C/F", "G/F", "Amin/F", "Fmaj7", "Bb/F", "C/F", "G/F", "Fmaj7#11", "G/F", "Cmaj7/F", "Fmaj7"] },
+        { name: "Bb Bass Foundation", chords: ["Bbmaj", "Eb/Bb", "F/Bb", "Eb/Bb", "Bbmaj", "Gmin/Bb", "Cmin/Bb", "F/Bb", "Bbmaj", "Ab/Bb", "Eb/Bb", "F/Bb", "Bbmaj7", "Cmin7/Bb", "F7sus4/Bb", "Bbmaj"] },
+        { name: "C# Minor Mood", chords: ["C#min", "A/C#", "E/C#", "B/C#", "C#min", "F#min/C#", "A/C#", "G#7/C#", "C#min", "E/C#", "B/C#", "A/C#", "C#min", "F#min/C#", "B/C#", "C#min"] },
+        { name: "Eb Mixolydian Jam", chords: ["Eb", "Ab/Eb", "Bb/Eb", "Ab/Eb", "Eb", "Fmin/Eb", "Gmin/Eb", "Ab/Eb", "Eb", "Db/Eb", "Ab/Eb", "Bb/Eb", "Eb7", "Fmin7/Eb", "Bb7sus4/Eb", "Eb"] },
+        { name: "B Bass Exploration", chords: ["Bmaj", "E/B", "F#/B", "E/B", "Bmaj", "G#min/B", "C#min/B", "F#/B", "Bmaj", "A/B", "E/B", "F#/B", "Bmaj7", "C#min7/B", "F#7sus4/B", "Bmaj"] }
+    ],
+    "Future Bass": [
+        { name: "Glittering Arps", chords: ["Cmaj7", "Gmaj", "Amin7", "Fmaj7", "Cmaj7", "Gmaj", "Amin7", "Fmaj7", "Dmin7", "G", "Emin7", "Amin7", "Fmaj", "C/G", "Gsus4", "G"] },
+        { name: "Sawtooth Dreams", chords: ["Fmaj7", "Cmaj7", "Gmaj", "Amin7", "Fmaj7", "Cmaj7", "Gmaj", "Emin7", "Fmaj7", "Emin7", "Dmin7", "G7", "Cmaj7", "Amin7", "Dmin7", "G7"] },
+        { name: "Vocal Chop Bed", chords: ["Abmaj7", "Ebmaj7", "Bbmaj", "Fmin7", "Abmaj7", "Ebmaj7", "Bbmaj", "Cmin7", "Dbmaj7", "Ab/C", "Bbmin7", "Eb7sus4", "Ab", "Cmin", "Db", "Eb"] },
+        { name: "Emotional Build", chords: ["Dmaj7", "Amaj7", "Bmin7", "Gmaj7", "Dmaj7", "Amaj7", "Bmin7", "Gmaj7", "Emin7", "A", "F#min7", "Bmin7", "Gmaj7", "D/F#", "A7sus4", "A7"] },
+        { name: "8-bit Love Song", chords: ["C", "E7", "Amin", "F", "C", "G/B", "Amin", "G", "F", "G", "E7/G#", "Amin", "Dmin", "G", "F", "C"] },
+        { name: "Lush Detuned Pads", chords: ["Bmin9", "Gmaj9", "Dmaj9", "Amaj9", "Bmin9", "Gmaj9", "Dmaj9", "Amaj9", "Emin9", "A13", "Dmaj9", "F#min9", "Gmaj9", "A13sus4", "Dmaj9", "Dmaj9"] },
+        { name: "Sidechain City", chords: ["C#min7", "Emaj7", "Bmaj7", "Amaj7", "C#min7", "Emaj7", "Bmaj7", "Amaj7", "F#min7", "B", "G#min7", "C#min7", "Amaj7", "E/G#", "B7sus4", "B7"] },
+        { name: "Kawaii Bass", chords: ["Gmaj7", "Dmaj7", "Amin7", "D7", "Gmaj7", "Bmin7", "Cmaj7", "G/B", "Amin7", "D7", "Gmaj", "B7/D#", "Emin7", "A7", "D7", "G"] },
+        { name: "Future Pop", chords: ["Dbmaj7", "Abmaj7", "Ebmin7", "Bbmin7", "Dbmaj7", "Abmaj7", "Ebmin7", "Bbmin7", "Gbmaj7", "Db/F", "Ebmin7", "Ab7sus4", "Db", "Fmin", "Gb", "Ab"] },
+        { name: "Sparkle Motion", chords: ["Emaj9", "Bmaj9/D#", "C#min9", "Amaj9", "Emaj9", "Bmaj9/D#", "C#min9", "Amaj9", "F#min9", "B13", "G#min9", "C#13", "Amaj9", "B13sus4", "Emaj9", "Emaj9"] }
+    ],
+    "Gospel": [
+        { name: "Sunday Morning Service", chords: ["C", "F/C", "C", "G/C", "C", "F/C", "C", "G7", "Amin7", "G/B", "C", "F", "C/G", "G7", "F/A", "C/G"] },
+        { name: "Praise Break", chords: ["Ebmaj", "Fmin7", "Gmin7", "Abmaj7", "Bb7sus4", "Bb7", "Ebmaj", "Ab/Eb", "Dbmaj7", "Cmin7", "Bbmin7", "Abmaj7", "Gmin7", "Fmin7", "Bb7", "Ebmaj"] },
+        { name: "The Offering", chords: ["Fmaj7", "G/F", "Emin7", "A7", "Dmin7", "G7", "Cmaj7", "C7", "Fmaj7", "F#dim7", "C/G", "A7", "Dmin7", "G7", "C", "G7"] },
+        { name: "Joyful Noise", chords: ["Dbmaj", "Ab/C", "Bbmin7", "Gbmaj7", "Db/F", "Ebmin7", "Ab7sus4", "Ab7", "Dbmaj", "Fmin7", "Gbmaj7", "Db/F", "Ebmin7", "Ab7", "Db", "Db"] },
+        { name: "Choir Progression", chords: ["C/E", "Fmaj", "G7", "Cmaj", "C/E", "Fmaj", "D/F#", "G7sus4", "A7", "Dmin7", "G7", "Cmaj7", "Fmaj", "C/G", "G7", "C"] },
+        { name: "Testimony Service", chords: ["Amaj", "B/A", "G#min7", "C#7", "F#min7", "B7", "Emaj7", "E7", "Amaj7", "A#dim7", "E/B", "C#7", "F#min7", "B7", "E", "B7"] },
+        { name: "Alter Call", chords: ["G", "C/G", "G", "D/G", "G", "C/G", "D7/F#", "G", "Amin7", "D7", "G", "C", "G/D", "D7", "C/E", "G/D"] },
+        { name: "Shouting Time", chords: ["Gbmaj", "Abmin7", "Bbmin7", "Bmaj7", "Cbmaj7", "Db7sus4", "Gbmaj", "F7#5", "Bbmin7", "Eb7", "Abmin7", "Db7", "Gbmaj", "Cbmaj", "Db7", "Gb"] },
+        { name: "Contemporary Worship", chords: ["D", "A/C#", "Bmin7", "Gmaj", "D/F#", "G", "Asus4", "A", "G", "A", "D", "F#min7", "G", "A", "Bmin7", "G"] },
+        { name: "Holy Ghost Vamp", chords: ["Amin7", "D7", "Gmaj7", "Cmaj7", "F#min7b5", "B7alt", "Emin7", "A7", "Amin7", "D7", "Gmaj7", "Cmaj7", "F#min7b5", "B7alt", "Emin7", "E7#9"] }
+    ],
+    "Hip-Hop": [
+        { name: "Lo-Fi Study Beats", chords: ["Cmaj7", "Fmaj7", "Cmaj7", "Fmaj7", "Dmin7", "G7", "Emin7", "Amin7", "Cmaj7", "Fmaj7", "Dmin7", "G7", "Cmaj7", "Amin7", "Fmaj7", "G7"] },
+        { name: "90s Boom Bap", chords: ["Amin7", "Dmin7", "G7", "Cmaj7", "Amin7", "Dmin7", "E7", "Amin7", "Fmaj7", "Gmaj", "Emin7", "Amin7", "Dmin7", "E7", "Amin7", "E7"] },
+        { name: "Trap Soul", chords: ["C#min7", "Amaj7", "Emaj7", "Bmaj7", "C#min7", "Amaj7", "Emaj7", "Bmaj7", "G#min7", "Amaj7", "Emaj7", "Bmaj7", "F#min7", "G#min7", "Amaj7", "B7"] },
+        { name: "Jazz Hop", chords: ["Emin9", "A13", "Dmaj9", "Gmaj9", "Emin9", "A13", "Dmaj9", "Gmaj9", "C#min7b5", "F#7b9", "Bmin9", "E9", "Amin9", "D13", "Gmaj9", "Cmaj9"] },
+        { name: "Drill Melody", chords: ["G#min", "Emaj", "Bmaj", "F#maj", "G#min", "Emaj", "Bmaj", "F#maj", "C#min", "Emaj", "Bmaj", "F#maj", "D#min", "Emaj", "Bmaj", "F#maj"] },
+        { name: "West Coast G-Funk", chords: ["Gmin7", "C7", "Gmin7", "C7", "Gmin7", "C7", "Gmin7", "C7", "Fmaj7", "Ebmaj7", "Dmin7", "G7alt", "Cmin7", "F7", "Bbmaj7", "G7#9"] },
+        { name: "Cloud Rap", chords: ["Fmaj7", "Cmaj7", "Gmaj", "Amin", "Fmaj7", "Cmaj7", "Gmaj", "Emin", "Fmaj7", "Cmaj7", "Gmaj", "Amin", "Fmaj7", "Cmaj7", "Gmaj", "E7"] },
+        { name: "Sampled Soul", chords: ["Dbmaj7", "Cmin7", "Fmin7", "Bbmin7", "Eb7sus4", "Abmaj7", "Dbmaj7", "C7alt", "Fmin7", "Bbmin7", "Eb7", "Abmaj7", "Dbmaj7", "C7", "Fmin7", "Bb7"] },
+        { name: "Dark Trap", chords: ["Cmin", "Abmaj", "Gmin", "Cmin", "Fmin", "Cmin", "Gmin", "Abmaj", "Bbmaj", "Gmin", "Fmin", "Cmin", "Ebmaj", "Gmin", "Abmaj", "G7"] },
+        { name: "Mellow Bars", chords: ["Amaj9", "Dmaj9", "Amaj9", "Dmaj9", "C#min9", "F#min9", "Bmin9", "E13", "Amaj9", "Dmaj9", "C#min9", "F#min9", "Gmaj9", "E13", "Amaj9", "Amaj9"] }
+    ],
+    "House": [
+        { name: "Classic House Piano", chords: ["Cmin7", "Fmin7", "Gmin7", "Abmaj7", "Cmin7", "Fmin7", "Gmin7", "Abmaj7", "Bbmaj7", "Ebmaj7", "Abmaj7", "G7sus4", "Cmin7", "Fmin7", "Gmin7", "Cmin7"] },
+        { name: "Chicago Groove", chords: ["Amin7", "Dmin7", "G7", "Cmaj7", "Amin7", "Dmin7", "G7", "Cmaj7", "Fmaj7", "Emin7", "Dmin7", "G7", "Cmaj7", "E7", "Amin7", "G7"] },
+        { name: "Ibiza Sunset", chords: ["F#min7", "Emaj7", "Dmaj7", "C#min7", "F#min7", "Emaj7", "Dmaj7", "C#min7", "Bmin7", "E7", "Amaj7", "Dmaj7", "F#min7", "C#7", "Bmin7", "E7"] },
+        { name: "Funky House Bassline", chords: ["Emin7", "A7", "Dmaj7", "Gmaj7", "Emin7", "A7", "Dmaj7", "Gmaj7", "Cmaj7", "Bmin7", "Amin7", "D7", "Gmaj7", "Cmaj7", "F#min7b5", "B7"] },
+        { name: "Tech House Beat", chords: ["Dmin", "Gmin", "Cmaj", "Fmaj", "Dmin", "Gmin", "A7", "Dmin", "Bbmaj", "Cmaj", "Fmaj", "Dmin", "Gmin", "A7", "Bbmaj", "Dmin"] },
+        { name: "Progressive Layers", chords: ["G#min7", "Bmaj7", "Emaj7", "F#maj7", "G#min7", "Bmaj7", "Emaj7", "F#maj7", "C#min7", "Emaj7", "Bmaj7", "F#maj7", "G#min7", "C#min7", "Emaj7", "F#7"] },
+        { name: "Soulful Vocals", chords: ["Bbmin9", "Eb9", "Abmaj9", "Dbmaj9", "Bbmin9", "Eb9", "Abmaj9", "Dbmaj9", "Gbmaj9", "Fmin7", "Ebmin7", "Ab7", "Dbmaj9", "Gbmaj9", "Cmin7b5", "F7b9"] },
+        { name: "French Touch", chords: ["Bmin7", "Dmaj7", "Gmaj7", "A7sus4", "Bmin7", "Dmaj7", "Gmaj7", "A7sus4", "Emin7", "F#min7", "Gmaj7", "A7", "Dmaj7", "Gmaj7", "Emin7", "A7"] },
+        { name: "Afro House Rhythm", chords: ["Amin", "G/B", "C", "F", "Amin", "G/B", "C", "E7", "Amin", "G", "F", "C", "Dmin", "Emin", "F", "G"] },
+        { name: "Piano House Anthem", chords: ["Dbmaj7", "Cmin7", "Bbmin7", "Abmaj7", "Ebmin7", "Ab7", "Dbmaj7", "Gbmaj7", "Bbmin7", "Cmin7", "Dbmaj7", "Eb7", "Abmaj7", "Fmin7", "Bbmin7", "Eb7"] }
+    ],
+    "J-K-Pop": [
+        { name: "Bubblegum Pop", chords: ["C", "G/B", "Amin", "G", "F", "C/E", "Dmin", "G", "C", "E7", "Amin", "G", "F", "G", "C", "G"] },
+        { name: "Power Chorus", chords: ["Fmaj", "Gmaj", "Emin", "Amin", "Fmaj", "Gmaj", "Cmaj", "C7", "Fmaj", "Gmaj", "E7/G#", "Amin", "Dmin", "G", "C", "G"] },
+        { name: "Dramatic Ballad", chords: ["Bmin", "F#min/A#", "Gmaj", "D/F#", "Emin", "D/F#", "Gmaj", "A7sus4", "Bmin", "A", "G", "D", "Emin", "F#min", "G", "A"] },
+        { name: "Upbeat Dance Track", chords: ["C#min", "Amaj", "Emaj", "Bmaj", "C#min", "Amaj", "G#min", "Amaj", "F#min", "G#min", "Amaj", "Bmaj", "C#min", "A", "E", "B"] },
+        { name: "Anime Opening", chords: ["Amin", "Fmaj", "Gmaj", "Cmaj", "Amin", "Fmaj", "Gmaj", "E7", "Fmaj", "Gmaj", "Cmaj", "G/B", "Amin", "G", "F", "E7"] },
+        { name: "K-Pop B-Side", chords: ["Dbmaj7", "Ab/C", "Bbmin7", "Abmaj", "Gbmaj7", "Db/F", "Ebmin7", "Ab7sus4", "Db", "Fmin", "Bbmin", "Gb", "Ebmin", "Ab", "Db", "Ab"] },
+        { name: "City Pop Groove", chords: ["Amaj7", "Dmaj7", "C#min7", "F#min7", "Bmin7", "E7", "Amaj7", "E7#5", "Dmaj7", "E/D", "C#min7", "F#7", "Bmin7", "E7", "Amaj7", "Amaj7"] },
+        { name: "Sentai Theme", chords: ["Gmin", "Cmin", "Fmaj", "Bbmaj", "Gmin", "Cmin", "D7", "Gmin", "Ebmaj", "Bbmaj", "Cmin", "D7", "Ebmaj", "Fmaj", "D7/F#", "Gmin"] },
+        { name: "Visual Novel OST", chords: ["G", "B7", "Emin", "C", "G/D", "D", "C", "G", "Amin", "D", "G", "Emin", "C", "D", "G", "D"] },
+        { name: "Idol Group Anthem", chords: ["Eb", "Bb/D", "Cmin", "Gmin", "Ab", "Eb/G", "Fmin", "Bb7", "Eb", "G7", "Cmin", "Fmin", "Ab", "Bb", "Eb", "Bb"] }
     ]
 };

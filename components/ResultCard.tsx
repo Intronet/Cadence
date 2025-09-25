@@ -21,7 +21,7 @@ export const PadGrid: React.FC<PadGridProps> = ({ chords, onPadMouseDown, onPadM
       <div className="grid grid-cols-4 gap-2">
         {chords.map((chord, index) => {
           return (
-            <div key={`${chord}-${index}`} className="bg-indigo-500/80 rounded-[4px] p-[2px] shadow-lg">
+            <div key={`${chord}-${index}`} className="bg-indigo-500 rounded-md p-[2px] shadow-lg">
               <Pad 
                 chordName={chord} 
                 onMouseDown={onPadMouseDown} 
