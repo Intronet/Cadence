@@ -241,31 +241,6 @@ export const Toolkit: React.FC<ToolkitProps> = ({
     };
   }, []);
 
-
-  const onPadDragStart = (e: React.DragEvent<HTMLDivElement>, chordName: string) => {
-    let finalChordName = chordName;
-    let finalOctave = octave;
-
-    if (voicingMode === 'manual') {
-      const actualInversion = Math.abs(inversionLevel);
-      const isThirdInvPossible = hasSeventh(chordName);
-      const cappedInversion = isThirdInvPossible ? actualInversion : Math.min(actualInversion, 2);
-      finalChordName = updateChord(chordName, { inversion: cappedInversion });
-      finalOctave = octave + (inversionLevel < 0 ? -1 : 0);
-    }
-
-    const dragData = {
-      chordName: finalChordName,
-      octave: finalOctave,
-    };
-    
-    const dragDataJson = JSON.stringify(dragData);
-
-    // Use only text/plain for maximum browser compatibility, especially with Firefox.
-    e.dataTransfer.setData("text/plain", dragDataJson);
-    e.dataTransfer.effectAllowed = "copy";
-  };
-
   const handleVerticalResizeMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
     setIsResizing(true);
@@ -523,7 +498,6 @@ export const Toolkit: React.FC<ToolkitProps> = ({
                                 onMouseUp={onPadMouseUp}
                                 onMouseEnter={onPadMouseEnter}
                                 onMouseLeave={onPadMouseLeave}
-                                onDragStart={(e) => onPadDragStart(e, chord)}
                                 isLoaded={isPianoLoaded}
                                 keyLabel={keyLabels[index]}
                                 isPressedByKeyboard={activeKeyboardPadIndices.has(index)}

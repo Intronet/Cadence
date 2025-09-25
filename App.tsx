@@ -1,11 +1,3 @@
-
-
-
-
-
-
-
-
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { GoogleGenAI, Type } from '@google/genai';
 import { Header } from './components/Header';
@@ -308,6 +300,7 @@ const App: React.FC = () => {
   
   const [currentPatternId, setCurrentPatternId] = useState(patterns[0].id);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isRecordingArmed, setIsRecordingArmed] = useState(false);
   const [bpm, setBpm] = useState(120);
   const [playheadPosition, setPlayheadPosition] = useState(0);
   const [playingChordId, setPlayingChordId] = useState<string | null>(null);
@@ -792,7 +785,19 @@ const App: React.FC = () => {
     }
   }, [activePadChordNotes]);
 
-  const handlePadMouseDown = (chordName: string) => {
+  const addChordToSequencer = (chordName: string, start: number, octaveOverride?: number) => {
+    const newChord: SequenceChord = { 
+      id: generateId(), 
+      chordName, 
+      start, 
+      duration: 4, 
+      octave: octaveOverride !== undefined ? octaveOverride : octave
+    };
+    updatePattern(currentPatternId, { sequence: [...sequence, newChord] });
+  };
+
+  const handlePadTrigger = (chordName: string) => {
+    // 1. Play sound
     const notes = getNotesForVoicing(chordName);
     scrollToLowestNote(notes);
     startChordSound(notes);
@@ -800,6 +805,23 @@ const App: React.FC = () => {
     const parsed = parseChord(chordName);
     const cleanName = parsed ? `${parsed.root}${parsed.quality}` : chordName;
     setManualDisplayText({ name: cleanName, notes: getChordNoteStrings(chordName, 0).map(n => n.replace(/[0-9]/g, '')).join(' ') });
+    
+    // 2. Record if armed
+    if (isRecordingArmed) {
+      let finalChordName = chordName;
+      let finalOctave = octave;
+
+      if (voicingMode === 'manual') {
+        const actualInversion = Math.abs(inversionLevel);
+        const isThirdInvPossible = hasSeventh(chordName);
+        const cappedInversion = !isThirdInvPossible && actualInversion >= 3 ? 2 : actualInversion;
+        finalChordName = updateChord(chordName, { inversion: cappedInversion });
+        finalOctave = octave + (inversionLevel < 0 ? -1 : 0);
+      }
+      
+      const startStep = Math.round(playheadPosition * 4); // Convert beats to 16th steps
+      addChordToSequencer(finalChordName, startStep, finalOctave);
+    }
   };
 
   const handlePadMouseEnter = (chordName: string) => {
@@ -889,6 +911,8 @@ const App: React.FC = () => {
         if (padIndex !== undefined && padIndex < displayedChords.length) {
             e.preventDefault();
             const chordName = displayedChords[padIndex];
+            
+            // Play sound and manage state
             const notes = getNotesForVoicing(chordName);
             scrollToLowestNote(notes);
             startChordSound(notes);
@@ -897,6 +921,23 @@ const App: React.FC = () => {
             const parsed = parseChord(chordName);
             const cleanName = parsed ? `${parsed.root}${parsed.quality}` : chordName;
             setManualDisplayText({ name: cleanName, notes: getChordNoteStrings(chordName, 0).map(n => n.replace(/[0-9]/g, '')).join(' ') });
+
+             // Record if armed
+            if (isRecordingArmed) {
+              let finalChordName = chordName;
+              let finalOctave = octave;
+
+              if (voicingMode === 'manual') {
+                const actualInversion = Math.abs(inversionLevel);
+                const isThirdInvPossible = hasSeventh(chordName);
+                const cappedInversion = !isThirdInvPossible && actualInversion >= 3 ? 2 : actualInversion;
+                finalChordName = updateChord(chordName, { inversion: cappedInversion });
+                finalOctave = octave + (inversionLevel < 0 ? -1 : 0);
+              }
+
+              const startStep = Math.round(playheadPosition * 4); // Convert beats to 16th steps
+              addChordToSequencer(finalChordName, startStep, finalOctave);
+            }
         }
     };
 
@@ -931,18 +972,8 @@ const App: React.FC = () => {
         window.removeEventListener('keydown', handleKeyDown);
         window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [displayedChords, getNotesForVoicing, scrollToLowestNote]);
+  }, [displayedChords, getNotesForVoicing, scrollToLowestNote, isRecordingArmed, octave, inversionLevel, voicingMode, playheadPosition]);
 
-  const addChordToSequencer = (chordName: string, start: number, octaveOverride?: number) => {
-    const newChord: SequenceChord = { 
-      id: generateId(), 
-      chordName, 
-      start, 
-      duration: 4, 
-      octave: octaveOverride !== undefined ? octaveOverride : octave
-    };
-    updatePattern(currentPatternId, { sequence: [...sequence, newChord] });
-  };
   const updateSequencerChord = (id: string, newProps: Partial<SequenceChord>) => {
     const newSequence = sequence.map(c => c.id === id ? { ...c, ...newProps } : c);
     updatePattern(currentPatternId, { sequence: newSequence });
@@ -995,6 +1026,7 @@ const App: React.FC = () => {
 
   const handleStop = () => {
     setIsPlaying(false);
+    setIsRecordingArmed(false);
     Tone.Transport.stop();
     setPlayheadPosition(0);
     setPlayingChordId(null);
@@ -1592,6 +1624,8 @@ const App: React.FC = () => {
           onHumanizeTimingChange={setHumanizeTiming}
           humanizeDynamics={humanizeDynamics}
           onHumanizeDynamicsChange={setHumanizeDynamics}
+          isRecordingArmed={isRecordingArmed}
+          onToggleRecording={() => setIsRecordingArmed(v => !v)}
         />
         <Sequencer
           sequence={sequence}
@@ -1678,7 +1712,7 @@ const App: React.FC = () => {
                 setChordSetIndex={setChordSetIndex}
                 categories={categories}
                 chordSets={chordSets}
-                onPadMouseDown={handlePadMouseDown}
+                onPadMouseDown={handlePadTrigger}
                 onPadMouseUp={stopActivePadNotes}
                 onPadMouseEnter={handlePadMouseEnter}
                 onPadMouseLeave={clearHoveredNotes}

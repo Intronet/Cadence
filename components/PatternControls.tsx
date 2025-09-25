@@ -13,6 +13,7 @@ import { DrumIcon } from './icons/DrumIcon';
 import { DrumEditorIcon } from './icons/DrumEditorIcon';
 import { HumanizeControl } from './HumanizeControl';
 import { BassIcon } from './icons/BassIcon';
+import { RecordIcon } from './icons/RecordIcon';
 
 interface ArrangementViewProps {
   patterns: Pattern[];
@@ -57,6 +58,8 @@ interface ArrangementViewProps {
   onHumanizeTimingChange: (value: number) => void;
   humanizeDynamics: number;
   onHumanizeDynamicsChange: (value: number) => void;
+  isRecordingArmed: boolean;
+  onToggleRecording: () => void;
 }
 
 const PlayIcon = (props: React.SVGProps<SVGSVGElement>) => (
@@ -143,7 +146,8 @@ export const ArrangementView: React.FC<ArrangementViewProps> = ({
   isPlaying, onPlayPause, onStop, onPanic, onClearProject, playheadPosition,
   masterVolume, onMasterVolumeChange, isMuted, onMuteToggle,
   isChordMachineOpen, onToggleChordMachine,
-  humanizeTiming, onHumanizeTimingChange, humanizeDynamics, onHumanizeDynamicsChange
+  humanizeTiming, onHumanizeTimingChange, humanizeDynamics, onHumanizeDynamicsChange,
+  isRecordingArmed, onToggleRecording
 }) => {
   const [draggedPatternId, setDraggedPatternId] = useState<string | null>(null);
 
@@ -246,6 +250,9 @@ export const ArrangementView: React.FC<ArrangementViewProps> = ({
             
             {/* Transport */}
             <div className="flex items-center gap-2">
+                <button onClick={onToggleRecording} className={`${baseButtonClasses} w-12 h-10 flex items-center justify-center ${isRecordingArmed ? 'bg-red-500 text-white record-armed' : 'bg-gray-700 text-gray-300'}`} title="Arm for Recording">
+                  <RecordIcon className="w-6 h-6" />
+                </button>
                 <button onClick={onPlayPause} className={`${primaryButtonClasses} w-12 h-10 flex items-center justify-center`} title={isPlaying ? "Pause (Space)" : "Play (Space)"}>
                     {isPlaying ? <PauseIcon className="w-6 h-6" /> : <PlayIcon className="w-6 h-6" />}
                 </button>
@@ -333,6 +340,14 @@ export const ArrangementView: React.FC<ArrangementViewProps> = ({
         </div>
       </div>
        <style>{`
+        @keyframes pulse-red {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+          50% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+        }
+        .record-armed {
+          animation: pulse-red 1.5s infinite;
+        }
+
         .range-slider::-webkit-slider-thumb {
           -webkit-appearance: none;
           appearance: none;
