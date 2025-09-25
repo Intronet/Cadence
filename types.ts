@@ -80,9 +80,12 @@ export interface SequenceChord {
   articulation?: Articulation | null;
 }
 
+export type BassNoteType = 'root' | 'third' | 'fifth' | 'seventh';
+
 export interface SequenceBassNote {
   id: string;
-  noteName: string; // e.g., "C2"
+  noteType: BassNoteType;
+  velocity: number; // 0-1
   start: number; // in 16th note steps
   duration: number; // in 16th note steps
 }

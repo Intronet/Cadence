@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import * as Tone from 'tone';
+import { BassNoteType } from './types';
 
 // NOTE: The following is a conceptual new file `utils/music.ts`
 // It is included here to adhere to the platform's file modification constraints.
@@ -357,6 +358,31 @@ export const initAudio = async () => {
   await Tone.loaded();
   return { sampler, drumPlayers };
 };
+
+export const getNoteInChord = (chordName: string, noteType: BassNoteType): string | null => {
+    const parsed = parseChord(chordName);
+    if (!parsed) return null;
+
+    const useSharps = KEY_SIGNATURES[parsed.root] !== 'flats' && parsed.root.slice(-1) !== 'b';
+
+    const quality = parsed.quality.toLowerCase();
+    const intervals: { [key in BassNoteType]: number } = {
+        'root': 0,
+        'third': quality.includes('min') ? 3 : 4,
+        'fifth': (quality.includes('dim') || quality.includes('b5')) ? 6 : 7,
+        'seventh': quality.includes('maj7') ? 11 : 10
+    };
+    
+    // Don't return a 7th if the chord doesn't have one
+    if (noteType === 'seventh' && !hasSeventh(chordName)) {
+       // Fallback to the 5th or root
+       return getNoteInChord(chordName, 'fifth') ?? getNoteInChord(chordName, 'root');
+    }
+
+    const interval = intervals[noteType];
+    return transposeNote(parsed.root, interval, useSharps);
+}
+
 
 const getChordNotes = (chord: string, octaveOffset: number): { note: string, octave: number }[] => {
   const parsed = parseChord(chord);

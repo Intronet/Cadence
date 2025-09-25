@@ -355,6 +355,29 @@ export const Toolkit: React.FC<ToolkitProps> = ({
     window.addEventListener('mouseup', handleMouseUp);
   };
 
+  const handlePadDragStart = (e: React.DragEvent<HTMLDivElement>, chordName: string) => {
+    let finalOctave = octave;
+    let chordNameToDrag = chordName;
+
+    if (voicingMode === 'manual') {
+        const actualInversion = Math.abs(inversionLevel);
+        const isThirdInvPossible = hasSeventh(chordName);
+        const cappedInversion = !isThirdInvPossible && actualInversion >= 3 ? 2 : actualInversion;
+        chordNameToDrag = updateChord(chordName, { inversion: cappedInversion });
+        finalOctave = octave + (inversionLevel < 0 ? -1 : 0);
+    }
+  
+    // The dropped data for the sequencer
+    const dropData = {
+      type: 'chord',
+      chordName: chordNameToDrag,
+      octave: finalOctave
+    };
+    
+    e.dataTransfer.setData("text/plain", JSON.stringify(dropData));
+    e.dataTransfer.effectAllowed = "copy";
+  };
+
   return (
     <div className="relative bg-gray-800 rounded-[4px] border border-gray-700 p-3 h-full mt-2">
       <div 
@@ -498,6 +521,7 @@ export const Toolkit: React.FC<ToolkitProps> = ({
                                 onMouseUp={onPadMouseUp}
                                 onMouseEnter={onPadMouseEnter}
                                 onMouseLeave={onPadMouseLeave}
+                                onDragStart={(e) => handlePadDragStart(e, chord)}
                                 isLoaded={isPianoLoaded}
                                 keyLabel={keyLabels[index]}
                                 isPressedByKeyboard={activeKeyboardPadIndices.has(index)}

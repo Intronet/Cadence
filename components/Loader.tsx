@@ -6,7 +6,7 @@ interface PadProps {
   onMouseUp: () => void;
   onMouseEnter: (chordName: string) => void;
   onMouseLeave: () => void;
-  // FIX: Add optional onDragStart prop to support dragging.
+// FIX: Add optional onDragStart prop to support dragging.
   onDragStart?: (e: React.DragEvent<HTMLDivElement>) => void;
   isLoaded: boolean;
   keyLabel?: string;

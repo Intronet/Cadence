@@ -7,7 +7,7 @@ interface PadGridProps {
   onPadMouseUp: () => void;
   onPadMouseEnter: (chordName: string) => void;
   onPadMouseLeave: () => void;
-  onPadDragStart: (e: React.DragEvent<HTMLDivElement>, chordName: string) => void;
+  onPadDragStart?: (e: React.DragEvent<HTMLDivElement>, chordName: string) => void;
   isPianoLoaded: boolean;
   inversionLevel: number;
   voicingMode: 'off' | 'manual' | 'auto';
@@ -28,7 +28,7 @@ export const PadGrid: React.FC<PadGridProps> = ({ chords, onPadMouseDown, onPadM
                 onMouseUp={onPadMouseUp} 
                 onMouseEnter={onPadMouseEnter}
                 onMouseLeave={onPadMouseLeave}
-                onDragStart={(e) => onPadDragStart(e, chord)}
+                onDragStart={onPadDragStart ? (e) => onPadDragStart(e, chord) : undefined}
                 isLoaded={isPianoLoaded}
                 keyLabel={keyLabels[index]}
                 isPressedByKeyboard={activeKeyboardPadIndices.has(index)}

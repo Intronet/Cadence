@@ -1,3 +1,9 @@
+
+
+
+
+
+
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { GoogleGenAI, Type } from '@google/genai';
 import { Header } from './components/Header';
@@ -25,10 +31,11 @@ import {
   transposeChord,
   findLowestNote,
   generateDiatonicChords,
-  hasSeventh
+  hasSeventh,
+  getNoteInChord
 } from './index';
 // FIX: Aliased Pattern to AppPattern to avoid name collision with Tone.js's Pattern type.
-import { ROOT_NOTE_OPTIONS, SCALE_MODE_OPTIONS, ChordSet, SequenceChord, Pattern as AppPattern, DrumSound, DrumPatternPreset, SequenceBassNote, Articulation, ArpeggioRate, StrumDirection, RhythmName } from './types';
+import { ROOT_NOTE_OPTIONS, SCALE_MODE_OPTIONS, ChordSet, SequenceChord, Pattern as AppPattern, DrumSound, DrumPatternPreset, SequenceBassNote, Articulation, ArpeggioRate, StrumDirection, RhythmName, BassNoteType } from './types';
 import { Piano, PianoHandle } from './components/Piano';
 import { HoverDisplay } from './components/HoverDisplay';
 import { Sequencer } from './components/Sequencer';
@@ -312,7 +319,7 @@ const App: React.FC = () => {
   // FIX: Added generic type argument to Tone.Part to match its usage.
   const chordPartRef = useRef<Tone.Part<{ time: number; duration: number; chord: SequenceChord }> | null>(null);
   // FIX: Added generic type argument to Tone.Part to match its usage.
-  const bassPartRef = useRef<Tone.Part<{ time: number; duration: number; noteName: string; id: string }> | null>(null);
+  const bassPartRef = useRef<Tone.Part<{ time: number; duration: number; noteName: string; id: string; velocity: number; }> | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const prevSongRootRef = useRef<string>(songRootNote);
 
@@ -441,7 +448,7 @@ const App: React.FC = () => {
   const [activeEditorPreviewNotes, setActiveEditorPreviewNotes] = useState<string[]>([]);
 
   const [isDrumsEnabled, setIsDrumsEnabled] = useState(false);
-  const [isBasslineEnabled, setIsBasslineEnabled] = useState(true);
+  const [isBasslineEnabled, setIsBasslineEnabled] = useState(false);
   const [drumVol, setDrumVol] = useState(-6);
   const [activeDrumStep, setActiveDrumStep] = useState<number | null>(null);
   const drumSequenceRef = useRef<Tone.Sequence<number> | null>(null);
@@ -742,40 +749,6 @@ const App: React.FC = () => {
     return sequence;
   }, [sequence]);
   
-  const generatedBassline = useMemo(() => {
-    if (!isBasslineEnabled) return [];
-
-    return sequence.map(chord => {
-        const parsed = parseChord(chord.chordName);
-        const rootNote = parsed ? (parsed.bass || parsed.root) : null;
-        if (!rootNote) return null;
-
-        const bassOctave = 2 + bassOctaveOffset; // Apply octave offset
-        const bassNoteName = `${rootNote}${bassOctave}`;
-
-        return {
-            id: generateId(),
-            noteName: bassNoteName,
-            start: chord.start,
-            duration: chord.duration,
-        };
-    }).filter((n): n is SequenceBassNote => n !== null);
-  }, [sequence, isBasslineEnabled, bassOctaveOffset]);
-
-  useEffect(() => {
-      const hasChanged = 
-          bassSequence.length !== generatedBassline.length || 
-          bassSequence.some((note, i) => 
-              note.noteName !== generatedBassline[i].noteName ||
-              note.start !== generatedBassline[i].start ||
-              note.duration !== generatedBassline[i].duration
-          );
-
-      if (hasChanged) {
-          updatePattern(currentPatternId, { bassSequence: generatedBassline });
-      }
-  }, [generatedBassline, bassSequence, currentPatternId, updatePattern]);
-
 
   const stopActivePadNotes = useCallback(() => {
     if (activePadChordNotes.length > 0) {
@@ -1132,15 +1105,31 @@ const App: React.FC = () => {
         });
 
         const jsonStr = response.text.trim();
-        // FIX: Add type assertion to the parsed JSON to resolve TypeScript error about 'unknown' type.
-        const generatedProgressions = JSON.parse(jsonStr) as ChordSet[];
-        
-        if (Array.isArray(generatedProgressions) && generatedProgressions.length > 0) {
-            setAiGeneratedChordSets(generatedProgressions);
-            setCategory('AI Generated');
-            setChordSetIndex(0);
+        // FIX: Replaced unsafe type assertion with data validation and sanitization
+        // to prevent type errors when handling the API response.
+        const parsedJson = JSON.parse(jsonStr);
+
+        if (Array.isArray(parsedJson)) {
+            const sanitizedProgressions: ChordSet[] = parsedJson
+                .filter(p => p && typeof p.name === 'string' && Array.isArray(p.chords))
+                .map(p => ({
+                    name: String(p.name),
+                    // FIX: Cast `p.chords` to `unknown[]` before filtering. This allows TypeScript
+                    // to correctly infer the return type of `filter` with a type predicate as `string[]`,
+                    // resolving the type error where the result was inferred as `any[]`.
+                    chords: (p.chords as unknown[]).filter((c: unknown): c is string => typeof c === 'string'),
+                }));
+            
+            if (sanitizedProgressions.length > 0) {
+                setAiGeneratedChordSets(sanitizedProgressions);
+                setCategory('AI Generated');
+                setChordSetIndex(0);
+            } else {
+                 console.error('Invalid format from AI:', parsedJson);
+                 setGenerationError('Received an invalid format from the AI.');
+            }
         } else {
-            console.error('Invalid format from AI:', generatedProgressions);
+            console.error('Invalid format from AI:', parsedJson);
             setGenerationError('Received an invalid format from the AI.');
         }
 
@@ -1367,17 +1356,29 @@ const App: React.FC = () => {
       bassPartRef.current = null;
     }
   
-    if (bassSequence && bassSequence.length > 0) {
-      const partEvents = bassSequence.map(note => ({
-        time: Tone.Time('16n').toSeconds() * note.start,
-        duration: Tone.Time('16n').toSeconds() * note.duration,
-        noteName: note.noteName,
-        id: note.id,
-      }));
-  
-      const part = new Tone.Part<{ time: number; duration: number; noteName: string; id: string }>((time, event) => {
+    if (isBasslineEnabled && bassSequence && bassSequence.length > 0) {
+      const partEvents = bassSequence.map(note => {
+          const chord = sequence.find(c => c.start <= note.start && (c.start + c.duration) > note.start);
+          if (!chord) return null;
+
+          const rootNote = getNoteInChord(chord.chordName, note.noteType);
+          if (!rootNote) return null;
+
+          const bassOctave = 2 + bassOctaveOffset;
+          const noteName = `${rootNote}${bassOctave}`;
+
+          return {
+              time: Tone.Time('16n').toSeconds() * note.start,
+              duration: Tone.Time('16n').toSeconds() * note.duration,
+              noteName: noteName,
+              id: note.id,
+              velocity: note.velocity,
+          };
+      }).filter((n): n is { time: number; duration: number; noteName: string; id: string; velocity: number; } => n !== null);
+
+      const part = new Tone.Part<{ time: number; duration: number; noteName: string; id: string; velocity: number; }>((time, event) => {
         const timeOffset = (Math.random() - 0.5) * humanizeTiming * 0.05;
-        const velocity = 0.9 + (Math.random() - 0.5) * humanizeDynamics * 0.2; // Bass has less dynamic range
+        const velocity = event.velocity + (Math.random() - 0.5) * humanizeDynamics * 0.2;
         bassSampler.triggerAttackRelease(event.noteName, event.duration, time + timeOffset, velocity);
         
         Tone.Draw.schedule(() => {
@@ -1400,7 +1401,7 @@ const App: React.FC = () => {
       bassPartRef.current?.dispose();
       bassPartRef.current = null;
     };
-  }, [bassSequence, humanizeTiming, humanizeDynamics]);
+  }, [bassSequence, sequence, isBasslineEnabled, bassOctaveOffset, humanizeTiming, humanizeDynamics]);
   
 
   useEffect(() => {
@@ -1550,6 +1551,23 @@ const App: React.FC = () => {
     setActiveEditorPreviewNotes([]);
   };
 
+  // Bass sequence modification functions
+  const addBassNote = (note: Omit<SequenceBassNote, 'id'>) => {
+    const newNote: SequenceBassNote = { ...note, id: generateId() };
+    updatePattern(currentPatternId, { bassSequence: [...bassSequence, newNote] });
+  };
+
+  const updateBassNote = (id: string, updates: Partial<SequenceBassNote>) => {
+    const newBassSequence = bassSequence.map(n => n.id === id ? { ...n, ...updates } : n);
+    updatePattern(currentPatternId, { bassSequence: newBassSequence });
+  };
+
+  const removeBassNote = (id: string) => {
+    const newBassSequence = bassSequence.filter(n => n.id !== id);
+    updatePattern(currentPatternId, { bassSequence: newBassSequence });
+  };
+
+
   // Sequencer display logic
   useEffect(() => {
     if (isPlaying && playingChordId) {
@@ -1649,6 +1667,10 @@ const App: React.FC = () => {
           isClickMuted={isSequencerClickMuted}
           onMuteToggle={() => setIsSequencerClickMuted(v => !v)}
           onWidthChange={setSequencerWidth}
+          isBasslineEnabled={isBasslineEnabled}
+          onAddBassNote={addBassNote}
+          onUpdateBassNote={updateBassNote}
+          onRemoveBassNote={removeBassNote}
         />
         <div 
           className="relative flex-1 min-h-0 overflow-y-auto"
@@ -1779,23 +1801,18 @@ const App: React.FC = () => {
                 onDistortionAmountChange={setBassDistortionAmount}
                 isFilterOn={isBassFilterOn}
                 onToggleFilter={setIsBassFilterOn}
-                // FIX: Pass the correct state variable `bassFilterFreq` to the `filterFreq` prop.
                 filterFreq={bassFilterFreq}
                 onFilterFreqChange={setBassFilterFreq}
-                // FIX: Pass the correct state variable `bassFilterDepth` to the `filterDepth` prop.
                 filterDepth={bassFilterDepth}
                 onFilterDepthChange={setBassFilterDepth}
                 isPhaserOn={isBassPhaserOn}
                 onTogglePhaser={setIsBassPhaserOn}
-                // FIX: Pass the correct state variable `bassPhaserFreq` to the `phaserFreq` prop.
                 phaserFreq={bassPhaserFreq}
                 onPhaserFreqChange={setBassPhaserFreq}
-                // FIX: Pass the correct state variable `bassPhaserQ` to the `phaserQ` prop.
                 phaserQ={bassPhaserQ}
                 onPhaserQChange={setBassPhaserQ}
                 isChorusOn={isBassChorusOn}
                 onToggleChorus={setIsBassChorusOn}
-                // FIX: Pass the correct state variable `bassChorusFreq` to the `chorusFreq` prop.
                 chorusFreq={bassChorusFreq}
                 onChorusFreqChange={setBassChorusFreq}
                 chorusDepth={bassChorusDepth}

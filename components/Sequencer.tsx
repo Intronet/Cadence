@@ -1,5 +1,7 @@
+
+
 import React, { useState, useRef, useCallback, MouseEvent, useEffect, useMemo } from 'react';
-import { SequenceChord, SequenceBassNote, Articulation, ArpeggioRate, RhythmName } from '../types';
+import { SequenceChord, SequenceBassNote, Articulation, ArpeggioRate, RhythmName, BassNoteType } from '../types';
 import * as Tone from 'tone';
 import { SpeakerIcon } from './icons/SpeakerIcon';
 import { SpeakerOffIcon } from './icons/SpeakerOffIcon';
@@ -30,14 +32,18 @@ interface SequencerProps {
   isClickMuted: boolean;
   onMuteToggle: () => void;
   onWidthChange: (width: number) => void;
+  isBasslineEnabled: boolean;
+  onAddBassNote: (note: Omit<SequenceBassNote, 'id'>) => void;
+  onUpdateBassNote: (id: string, updates: Partial<SequenceBassNote>) => void;
+  onRemoveBassNote: (id: string) => void;
 }
 
 const DEFAULT_CHORD_DURATION = 4; // A quarter note (4 * 16th steps)
 const TRACK_PADDING = 10; // horizontal padding in px
 const RULER_HEIGHT = 24; // Corresponds to h-6 in tailwind
-const CHORD_BLOCK_HEIGHT = 68; // 10px taller
+const CHORD_BLOCK_HEIGHT = 68;
 const BASS_BLOCK_HEIGHT = 28;
-const TRACK_VERTICAL_PADDING = 4; // Reduced padding for more chord height
+const TRACK_VERTICAL_PADDING = 4;
 
 const CHORD_TRACK_HEIGHT = 82;
 const BASS_TRACK_HEIGHT = 40;
@@ -56,22 +62,85 @@ const Playhead: React.FC<{ position: number; trackPadding: number, height: numbe
 ));
 Playhead.displayName = 'Playhead';
 
+// --- Bass Context Menu ---
+interface BassContextMenuProps {
+  x: number;
+  y: number;
+  note: SequenceBassNote;
+  onClose: () => void;
+  onUpdate: (id: string, updates: Partial<SequenceBassNote>) => void;
+  onRemove: (id: string) => void;
+}
+const BassContextMenu: React.FC<BassContextMenuProps> = ({ x, y, note, onClose, onUpdate, onRemove }) => {
+    const menuRef = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+        const handleClickOutside = (e: globalThis.MouseEvent) => {
+            if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+                onClose();
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [onClose]);
+
+    const handleSelect = (noteType: BassNoteType) => {
+        onUpdate(note.id, { noteType });
+        onClose();
+    };
+
+    const MenuItem: React.FC<{ onClick: () => void; children: React.ReactNode; isSelected?: boolean }> = ({ onClick, children, isSelected }) => (
+        <button onMouseDown={onClick} className={`w-full text-left px-3 py-1.5 text-sm rounded-[4px] flex justify-between items-center ${isSelected ? 'font-bold text-white bg-indigo-600' : 'text-gray-200 hover:bg-gray-600'}`}>
+            {children}
+            {isSelected && <span className="text-sky-300">✓</span>}
+        </button>
+    );
+
+    return (
+        <div ref={menuRef} style={{ top: `${y}px`, left: `${x}px` }} className="fixed bg-gray-800 border border-gray-600 rounded-[4px] shadow-lg p-1 w-48 z-30 animate-fade-in-fast">
+            <div className="text-xs text-gray-400 px-3 py-1 border-b border-gray-700 mb-1">Edit Bass Note</div>
+            {(['root', 'third', 'fifth', 'seventh'] as BassNoteType[]).map(type => (
+                <MenuItem key={type} onClick={() => handleSelect(type)} isSelected={note.noteType === type}>
+                    {type.charAt(0).toUpperCase() + type.slice(1)}
+                </MenuItem>
+            ))}
+            <div className="h-px bg-gray-700 my-1"/>
+            <div className="px-3 py-1 text-sm text-gray-500 cursor-not-allowed">Velocity (soon)</div>
+            <div className="px-3 py-1 text-sm text-gray-500 cursor-not-allowed">Effects (soon)</div>
+            <div className="h-px bg-gray-700 my-1"/>
+            <MenuItem onClick={() => { onRemove(note.id); onClose(); }}>Delete Note</MenuItem>
+        </div>
+    );
+};
+
+
 // --- BassBlock Component ---
 interface BassBlockProps {
   note: SequenceBassNote;
   stepWidth: number;
   stepsPerLane: number;
   isPlaying: boolean;
+  onDragStart: (note: SequenceBassNote, isResizing: boolean, e: React.MouseEvent<HTMLDivElement>) => void;
+  onContextMenu: (e: React.MouseEvent, note: SequenceBassNote) => void;
 }
-const BassBlock: React.FC<BassBlockProps> = ({ note, stepWidth, stepsPerLane, isPlaying }) => {
+const BassBlock: React.FC<BassBlockProps> = ({ note, stepWidth, stepsPerLane, isPlaying, onDragStart, onContextMenu }) => {
   const startInLanePx = (note.start % stepsPerLane) * stepWidth;
   const widthPx = note.duration * stepWidth;
 
+  const handleMouseDown = useCallback((e: MouseEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    const target = e.target as HTMLElement;
+    const isResizeHandle = target.classList.contains('resize-handle');
+    onDragStart(note, isResizeHandle, e);
+  }, [note, onDragStart]);
+
+  const noteTypeLabel = note.noteType.charAt(0).toUpperCase() + note.noteType.slice(1);
+
   return (
     <div
+      data-has-context-menu="true"
       className={`absolute rounded-[4px] flex items-center justify-center text-white text-xs font-medium select-none shadow-md transition-colors duration-150 z-10 border
-        ${isPlaying ? 'bg-[#a5d1fe] border-blue-200' : 'bg-blue-400 border-[#a5d1fe]'}
-        cursor-default
+        ${isPlaying ? 'bg-sky-400 border-sky-200' : 'bg-blue-500 border-sky-300'}
+        cursor-grab active:cursor-grabbing
       `}
       style={{
         bottom: `${TRACK_VERTICAL_PADDING}px`,
@@ -80,9 +149,12 @@ const BassBlock: React.FC<BassBlockProps> = ({ note, stepWidth, stepsPerLane, is
         height: `${BASS_BLOCK_HEIGHT}px`,
         touchAction: 'none',
       }}
-      title={note.noteName}
+      title={`${noteTypeLabel} Note`}
+      onMouseDown={handleMouseDown}
+      onContextMenu={(e) => onContextMenu(e, note)}
     >
-      <span className="truncate px-2 pointer-events-none">{note.noteName}</span>
+      <span className="truncate px-2 pointer-events-none">{noteTypeLabel}</span>
+      <div className="resize-handle absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize" />
     </div>
   );
 };
@@ -116,10 +188,7 @@ const ChordBlock: React.FC<ChordBlockProps> = ({
   const handleMouseDown = useCallback((e: MouseEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
     
-    // Prevent starting a drag when clicking the icon
-    if ((e.target as HTMLElement).closest('.articulation-icon-btn')) {
-        return;
-    }
+    if ((e.target as HTMLElement).closest('.articulation-icon-btn')) return;
 
     onChordSelect(chord.id, e);
     if (!isClickMuted) {
@@ -151,10 +220,10 @@ const ChordBlock: React.FC<ChordBlockProps> = ({
         touchAction: 'none',
       }}
       onMouseDown={handleMouseDown}
-      onMouseUp={onChordMouseUp} // Stop sound on simple click-release
+      onMouseUp={onChordMouseUp}
       onDoubleClick={() => onDoubleClick(chord)}
       onContextMenu={(e) => onContextMenu(e, chord)}
-      title={`${chord.chordName}\nDrag to move.\nDrag edge to resize.\nHold {Ctrl} for precision.\nRight-click for articulations.\nClick icon to edit articulation.`}
+      title={`${chord.chordName}\nDrag to move.\nDrag edge to resize.\nHold {Ctrl} for precision.\nRight-click for options.`}
     >
       {hasArticulation && (
         <button 
@@ -174,16 +243,17 @@ const ChordBlock: React.FC<ChordBlockProps> = ({
 };
 
 
-// --- Context Menu Component ---
+// --- Chord Context Menu Component ---
 interface ContextMenuProps {
   x: number;
   y: number;
   chord: SequenceChord;
   onClose: () => void;
   onSetArticulation: (id: string, articulation: Articulation | null) => void;
+  onRemove: (id: string) => void;
 }
 
-const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, chord, onClose, onSetArticulation }) => {
+const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, chord, onClose, onSetArticulation, onRemove }) => {
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -197,10 +267,7 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, chord, onClose, onSetAr
   }, [onClose]);
 
 
-  const menuStyle: React.CSSProperties = {
-    top: `${y}px`,
-    left: `${x}px`,
-  };
+  const menuStyle: React.CSSProperties = { top: `${y}px`, left: `${x}px`, };
 
   const handleSelect = (articulation: Articulation | null) => {
     onSetArticulation(chord.id, articulation);
@@ -224,7 +291,6 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, chord, onClose, onSetAr
   return (
     <div ref={menuRef} style={menuStyle} className="fixed bg-gray-800 border border-gray-600 rounded-[4px] shadow-lg p-1 w-48 z-30 animate-fade-in-fast">
         <div className="text-xs text-gray-400 px-3 py-1 border-b border-gray-700 mb-1 truncate">{chord.chordName}</div>
-        
         <div className="px-3 py-1.5 text-sm text-gray-200">
           <span>Arpeggio</span>
           <div className="flex items-center justify-end gap-1 mt-1">
@@ -243,20 +309,18 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, chord, onClose, onSetAr
             ))}
           </div>
         </div>
-
         <MenuItem onMouseDown={() => handleSelect({ type: 'strum', direction: 'up', speed: 0.5 })} isSelected={chord.articulation?.type === 'strum'}>Strumming</MenuItem>
-
         <div className="h-px bg-gray-700 my-1"/>
-        
         <div className="px-3 pt-1.5 pb-1 text-sm text-gray-200">Rhythms</div>
         {RHYTHM_PRESETS.map(preset => (
             <MenuItem key={preset.value} onMouseDown={() => handleSelect({ type: 'rhythm', name: preset.value, gate: 0.9 })} isSelected={chord.articulation?.type === 'rhythm' && chord.articulation.name === preset.value}>
                 {preset.name}
             </MenuItem>
         ))}
-
         <div className="h-px bg-gray-700 my-1"/>
         <MenuItem onMouseDown={() => handleSelect(null)} isSelected={!chord.articulation}>None</MenuItem>
+        <div className="h-px bg-gray-700 my-1"/>
+        <MenuItem onMouseDown={() => { onRemove(chord.id); onClose(); }}>Delete Chord</MenuItem>
     </div>
   );
 };
@@ -267,35 +331,34 @@ export const Sequencer: React.FC<SequencerProps> = ({
   sequence, bassSequence, onAddChord, onUpdateChord, onRemoveChord, onChordDoubleClick,
   onPlayChord, onChordSelect, onDeselect, onChordMouseUp, onInteraction, playheadPosition, 
   playingChordId, playingBassNoteId, selectedChordIds, bars, timeSignature, onSeek, isClickMuted, onMuteToggle,
-  onWidthChange
+  onWidthChange, isBasslineEnabled, onAddBassNote, onUpdateBassNote, onRemoveBassNote
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const ghostBlockRef0 = useRef<HTMLDivElement>(null);
-  const ghostBlockRef1 = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(0);
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; chord: SequenceChord } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; item: SequenceChord | SequenceBassNote; type: 'chord' | 'bass' } | null>(null);
   const [editingArticulationId, setEditingArticulationId] = useState<{ chordId: string; anchorEl: HTMLElement } | null>(null);
-  const [draggingState, setDraggingState] = useState<{
+  const dragInfoRef = useRef<{
       id: string;
-      start: number;
-      duration: number;
+      type: 'chord' | 'bass';
       isResizing: boolean;
       startX: number;
       originalStart: number;
       originalDuration: number;
+      precise: boolean;
+      ghostElement: HTMLDivElement | null;
   } | null>(null);
-  const wasEverPreciseRef = useRef(false);
+  const creationInfoRef = useRef<{
+      startStep: number;
+      startX: number;
+      ghostElement: HTMLDivElement | null;
+  } | null>(null);
 
   const is8BarMode = bars === 8;
   const STEPS_PER_BAR = timeSignature === '4/4' ? 16 : 12;
   const BEATS_PER_BAR = timeSignature === '4/4' ? 4 : 3;
   const SUBDIVISION = 4; // 16th notes per beat
-
-  const BAR_COUNT = bars;
-  const TOTAL_STEPS = BAR_COUNT * STEPS_PER_BAR;
-  const BEAT_COUNT = BAR_COUNT * BEATS_PER_BAR;
-  
-  const hasBass = bassSequence.length > 0;
+  const TOTAL_STEPS = bars * STEPS_PER_BAR;
+  const BEAT_COUNT = bars * BEATS_PER_BAR;
 
   useEffect(() => {
     const calculateWidth = (entries: ResizeObserverEntry[]) => {
@@ -313,9 +376,7 @@ export const Sequencer: React.FC<SequencerProps> = ({
         resizeObserver.observe(currentContainer);
     }
     return () => {
-        if (currentContainer) {
-            resizeObserver.unobserve(currentContainer);
-        }
+        if (currentContainer) resizeObserver.unobserve(currentContainer);
     };
   }, [onWidthChange]);
 
@@ -325,170 +386,188 @@ export const Sequencer: React.FC<SequencerProps> = ({
   const beatWidth = stepWidth * SUBDIVISION;
   const barWidth = beatWidth * BEATS_PER_BAR;
 
-  const handleDragStart = useCallback((chord: SequenceChord, isResizing: boolean, e: React.MouseEvent<HTMLDivElement>) => {
-      wasEverPreciseRef.current = e.ctrlKey;
-      setDraggingState({
-          id: chord.id,
-          start: chord.start,
-          duration: chord.duration,
-          isResizing,
-          startX: e.clientX,
-          originalStart: chord.start,
-          originalDuration: chord.duration,
-      });
-  }, []);
+  const getStepFromX = (x: number, laneIndex: 0 | 1): number => {
+      const xInGrid = x - (containerRef.current?.getBoundingClientRect().left ?? 0) - TRACK_PADDING;
+      const stepInLane = Math.floor(xInGrid / stepWidth);
+      const totalStep = (laneIndex * stepsPerLane) + stepInLane;
+      return Math.max(0, Math.min(TOTAL_STEPS - 1, totalStep));
+  };
+  
+  const handleChordDragStart = (chord: SequenceChord, isResizing: boolean, e: React.MouseEvent<HTMLDivElement>) => {
+      dragInfoRef.current = { id: chord.id, type: 'chord', isResizing, startX: e.clientX, originalStart: chord.start, originalDuration: chord.duration, precise: e.ctrlKey || e.metaKey, ghostElement: null };
+      document.body.style.cursor = isResizing ? 'ew-resize' : 'grabbing';
+  };
+  
+  const handleBassDragStart = (note: SequenceBassNote, isResizing: boolean, e: React.MouseEvent<HTMLDivElement>) => {
+      dragInfoRef.current = { id: note.id, type: 'bass', isResizing, startX: e.clientX, originalStart: note.start, originalDuration: note.duration, precise: e.ctrlKey || e.metaKey, ghostElement: null };
+      document.body.style.cursor = isResizing ? 'ew-resize' : 'grabbing';
+  };
 
+  const handleBassTrackMouseDown = (e: MouseEvent<HTMLDivElement>) => {
+      if (e.button !== 0 || stepWidth <= 0 || (e.target as HTMLElement).closest('[data-has-context-menu="true"]')) return;
+      
+      const laneIndex = Number((e.currentTarget as HTMLElement).dataset.lane) as 0 | 1;
+      const startStep = getStepFromX(e.clientX, laneIndex);
+
+      creationInfoRef.current = { startStep, startX: e.clientX, ghostElement: null };
+      document.body.style.cursor = 'crosshair';
+  };
+  
   useEffect(() => {
     const handleMouseMove = (e: globalThis.MouseEvent) => {
-        if (!draggingState || stepWidth <= 0) return;
-        e.preventDefault();
+      if (stepWidth <= 0) return;
 
-        if (e.ctrlKey) {
-            wasEverPreciseRef.current = true;
-        }
+      if (creationInfoRef.current) {
+          const { startStep, startX } = creationInfoRef.current;
+          const currentX = e.clientX;
+          const dx = currentX - startX;
+          const duration = Math.max(1, Math.round(dx / stepWidth));
 
-        const dx = e.clientX - draggingState.startX;
-        const dxInSteps = dx / stepWidth;
-        
-        if (draggingState.isResizing) {
-            const newDuration = draggingState.originalDuration + dxInSteps;
-            const finalDuration = Math.max(1, Math.min(TOTAL_STEPS - draggingState.originalStart, newDuration));
-            setDraggingState(prev => prev ? { ...prev, duration: finalDuration } : null);
-        } else { // Moving
-            const newStart = draggingState.originalStart + dxInSteps;
-            const maxStart = TOTAL_STEPS - draggingState.originalDuration; // Bug fix: use originalDuration
-            const finalStart = Math.max(0, Math.min(maxStart, newStart));
-            setDraggingState(prev => prev ? { ...prev, start: finalStart } : null);
-        }
+          // Lazily create and update ghost element
+          if (!creationInfoRef.current.ghostElement) {
+              const ghost = document.createElement('div');
+              ghost.className = 'absolute bg-blue-500/30 rounded-[4px] pointer-events-none z-20';
+              ghost.style.bottom = `${TRACK_VERTICAL_PADDING}px`;
+              ghost.style.height = `${BASS_BLOCK_HEIGHT}px`;
+              
+              const laneIndex = Math.floor(startStep / stepsPerLane);
+              const laneElement = containerRef.current?.parentElement?.querySelector(`[data-lane-type="bass"][data-lane-index="${laneIndex}"]`);
+              laneElement?.appendChild(ghost);
+              creationInfoRef.current.ghostElement = ghost;
+          }
+
+          const ghost = creationInfoRef.current.ghostElement;
+          if(ghost) {
+            ghost.style.left = `${(startStep % stepsPerLane) * stepWidth + TRACK_PADDING}px`;
+            ghost.style.width = `${duration * stepWidth}px`;
+          }
+      } else if (dragInfoRef.current) {
+          const { id, type, isResizing, startX, originalStart, originalDuration, precise } = dragInfoRef.current;
+          const dx = e.clientX - startX;
+          let dxInSteps = dx / stepWidth;
+          if (!precise) dxInSteps = Math.round(dxInSteps);
+
+          if (isResizing) {
+              const newDuration = Math.max(1, originalDuration + dxInSteps);
+              const maxDuration = TOTAL_STEPS - originalStart;
+              const finalDuration = Math.min(newDuration, maxDuration);
+              if(type === 'chord') onUpdateChord(id, { duration: finalDuration });
+              else onUpdateBassNote(id, { duration: finalDuration });
+          } else {
+              const newStart = originalStart + dxInSteps;
+              const maxStart = TOTAL_STEPS - (type === 'chord' ? sequence.find(c=>c.id === id)!.duration : bassSequence.find(b=>b.id === id)!.duration);
+              const finalStart = Math.max(0, Math.min(newStart, maxStart));
+              if(type === 'chord') onUpdateChord(id, { start: finalStart });
+              else onUpdateBassNote(id, { start: finalStart });
+          }
+      }
     };
 
-    const handleMouseUp = () => {
-        if (!draggingState) return;
-        
-        let { id, start, duration, originalStart, originalDuration } = draggingState;
-        
-        if (!wasEverPreciseRef.current) {
-            start = Math.round(start);
-            duration = Math.round(duration);
-        }
+    const handleMouseUp = (e: globalThis.MouseEvent) => {
+      if (creationInfoRef.current) {
+          const { startStep, startX, ghostElement } = creationInfoRef.current;
+          const dx = e.clientX - startX;
+          const duration = Math.max(1, Math.round(dx / stepWidth));
+          
+          onAddBassNote({ start: startStep, duration, noteType: 'root', velocity: 1 });
+          
+          ghostElement?.remove();
+          creationInfoRef.current = null;
+      }
 
-        if (start !== originalStart || duration !== originalDuration) {
-            onUpdateChord(id, { start, duration });
-        }
-        
-        onChordMouseUp();
-        setDraggingState(null);
-        wasEverPreciseRef.current = false;
+      if (dragInfoRef.current) {
+          const { id, type, originalStart, originalDuration } = dragInfoRef.current;
+          const currentItem = type === 'chord' ? sequence.find(c => c.id === id) : bassSequence.find(b => b.id === id);
+          if (currentItem && (currentItem.start !== originalStart || currentItem.duration !== originalDuration) && !dragInfoRef.current.precise) {
+              const finalStart = Math.round(currentItem.start);
+              const finalDuration = Math.round(currentItem.duration);
+              if (type === 'chord') onUpdateChord(id, { start: finalStart, duration: finalDuration });
+              else onUpdateBassNote(id, { start: finalStart, duration: finalDuration });
+          }
+          dragInfoRef.current = null;
+      }
+      document.body.style.cursor = 'default';
+      onChordMouseUp();
     };
-
-    if (draggingState) {
-        window.addEventListener('mousemove', handleMouseMove);
-        window.addEventListener('mouseup', handleMouseUp);
-    }
-
+    
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
     return () => {
-        window.removeEventListener('mousemove', handleMouseMove);
-        window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [draggingState, stepWidth, onUpdateChord, TOTAL_STEPS, onChordMouseUp]);
+  }, [stepWidth, onUpdateChord, onAddBassNote, onUpdateBassNote, TOTAL_STEPS, sequence, bassSequence, onChordMouseUp, stepsPerLane]);
 
   const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "copy";
+    e.preventDefault(); e.dataTransfer.dropEffect = "copy";
     if (stepWidth === 0) return;
-
     const target = e.currentTarget as HTMLDivElement;
     const lane = Number(target.dataset.lane) || 0;
-    const ghostBlockRef = lane === 0 ? ghostBlockRef0 : ghostBlockRef1;
-    const otherGhostBlockRef = lane === 0 ? ghostBlockRef1 : ghostBlockRef0;
-
-    if (otherGhostBlockRef.current) {
-      otherGhostBlockRef.current.style.display = 'none';
-    }
-    if (!ghostBlockRef.current) return;
+    const ghostBlock = containerRef.current?.parentElement?.querySelector(`#ghost-block-chord`);
+    if(!ghostBlock || !(ghostBlock instanceof HTMLElement)) return;
 
     const rect = target.getBoundingClientRect();
     const x = e.clientX - rect.left - TRACK_PADDING;
     const stepInLane = Math.floor(x / stepWidth);
     const clampedStep = Math.max(0, Math.min(stepsPerLane - DEFAULT_CHORD_DURATION, stepInLane));
     
-    ghostBlockRef.current.style.display = 'block';
-    ghostBlockRef.current.style.left = `${clampedStep * stepWidth + TRACK_PADDING}px`;
-    ghostBlockRef.current.style.width = `${DEFAULT_CHORD_DURATION * stepWidth}px`;
+    ghostBlock.style.display = 'block';
+    ghostBlock.style.left = `${clampedStep * stepWidth + TRACK_PADDING}px`;
+    ghostBlock.style.width = `${DEFAULT_CHORD_DURATION * stepWidth}px`;
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
-    if (ghostBlockRef0.current) ghostBlockRef0.current.style.display = 'none';
-    if (ghostBlockRef1.current) ghostBlockRef1.current.style.display = 'none';
-
+    const ghostBlock = containerRef.current?.parentElement?.querySelector(`#ghost-block-chord`);
+    if(ghostBlock && ghostBlock instanceof HTMLElement) ghostBlock.style.display = 'none';
     if (stepWidth === 0) return;
+
     const target = e.currentTarget as HTMLDivElement;
-    const rect = target.getBoundingClientRect();
-    const x = e.clientX - rect.left - TRACK_PADDING;
-    const stepInLane = Math.floor(x / stepWidth);
     const lane = Number(target.dataset.lane) || 0;
-    const baseStep = lane * stepsPerLane;
-    
-    const totalStep = baseStep + stepInLane;
+    const stepInLane = getStepFromX(e.clientX, lane as 0 | 1) % stepsPerLane;
+    const totalStep = (lane * stepsPerLane) + stepInLane;
     const dropStep = Math.max(0, Math.min(TOTAL_STEPS - DEFAULT_CHORD_DURATION, totalStep));
 
-    // Use only text/plain for maximum browser compatibility.
     const jsonData = e.dataTransfer.getData("text/plain");
-
     if (jsonData) {
       try {
         const data = JSON.parse(jsonData);
         if (data.chordName && typeof data.chordName === 'string') {
           onAddChord(data.chordName, dropStep, data.octave);
         }
-      } catch (error) {
-        console.error("Failed to parse dropped data:", error);
-      }
+      } catch (error) { console.error("Failed to parse dropped data:", error); }
     }
   };
   
   const handleContainerDragLeave = () => {
-    if (ghostBlockRef0.current) ghostBlockRef0.current.style.display = 'none';
-    if (ghostBlockRef1.current) ghostBlockRef1.current.style.display = 'none';
+    const ghostBlock = containerRef.current?.parentElement?.querySelector(`#ghost-block-chord`);
+    if(ghostBlock && ghostBlock instanceof HTMLElement) ghostBlock.style.display = 'none';
   };
   
-  const handleTrackClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (!(e.target as HTMLElement).closest('.chord-block')) {
+  const handleTrackClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!(e.target as HTMLElement).closest('[data-has-context-menu="true"]')) {
       onDeselect();
     }
-    if (stepWidth <= 0 || (e.target as HTMLElement).closest('.chord-block')) return;
+    if (stepWidth <= 0 || (e.target as HTMLElement).closest('[data-has-context-menu="true"]')) return;
 
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left - TRACK_PADDING;
     const lane = Number(e.currentTarget.dataset.lane) || 0;
-    
-    const positionInSteps = (lane * stepsPerLane) + (x / stepWidth);
-    const positionInBeats = positionInSteps / SUBDIVISION;
-    
-    onSeek(Math.max(0, Math.min(BEAT_COUNT, positionInBeats)));
-  }, [stepWidth, onSeek, BEAT_COUNT, stepsPerLane, onDeselect]);
+    const positionInSteps = getStepFromX(e.clientX, lane as 0|1);
+    onSeek(Math.max(0, Math.min(BEAT_COUNT, positionInSteps / SUBDIVISION)));
+  };
 
-  const handleContextMenu = useCallback((e: React.MouseEvent, chord: SequenceChord) => {
+  const handleContextMenu = (e: React.MouseEvent, item: SequenceChord | SequenceBassNote, type: 'chord' | 'bass') => {
     e.preventDefault();
-    setContextMenu({ x: e.clientX, y: e.clientY, chord });
+    setContextMenu({ x: e.clientX, y: e.clientY, item, type });
     setEditingArticulationId(null);
-  }, []);
+  };
   
-  const handleIconClick = useCallback((e: React.MouseEvent, chord: SequenceChord) => {
+  const handleIconClick = (e: React.MouseEvent, chord: SequenceChord) => {
       e.stopPropagation();
       setEditingArticulationId({ chordId: chord.id, anchorEl: e.currentTarget as HTMLElement });
       setContextMenu(null);
-  }, []);
-
-  const handleSetArticulation = (id: string, articulation: Articulation | null) => {
-    onUpdateChord(id, { articulation });
   };
 
-
-  const beatsPerLane = BEATS_PER_BAR * 4;
-  const playheadLane = is8BarMode && playheadPosition >= beatsPerLane ? 1 : 0;
-  const playheadLeftInLane = (playheadPosition % beatsPerLane) * beatWidth;
+  const handleSetArticulation = (id: string, articulation: Articulation | null) => onUpdateChord(id, { articulation });
 
   const renderGrid = (height: number) => (
     <div className="absolute inset-0 pointer-events-none" style={{ left: `${TRACK_PADDING}px`, right: `${TRACK_PADDING}px`, height: `${height}px` }}>
@@ -526,10 +605,12 @@ export const Sequencer: React.FC<SequencerProps> = ({
 
   const renderSequencerLane = (laneIndex: 0 | 1) => {
     const barOffset = laneIndex * 4;
-    const ghostBlockRef = laneIndex === 0 ? ghostBlockRef0 : ghostBlockRef1;
+
+    const totalTrackHeight = RULER_HEIGHT + CHORD_TRACK_HEIGHT + (isBasslineEnabled ? BASS_TRACK_HEIGHT + 24 : 24);
+    const playheadHeight = RULER_HEIGHT + CHORD_TRACK_HEIGHT + (isBasslineEnabled ? BASS_TRACK_HEIGHT : 0);
 
     return (
-      <div className='relative bg-gray-800'>
+      <div className='relative bg-gray-800' ref={laneIndex === 0 ? containerRef : null}>
         <div className="relative flex items-center">
             {renderGrid(RULER_HEIGHT)}
             {renderRuler(barOffset)}
@@ -546,7 +627,6 @@ export const Sequencer: React.FC<SequencerProps> = ({
         </div>
         {/* Chords Track */}
         <div 
-            ref={laneIndex === 0 ? containerRef : null}
             data-lane={laneIndex}
             className="relative w-full bg-gray-900/50"
             style={{ height: `${CHORD_TRACK_HEIGHT}px` }}
@@ -555,117 +635,91 @@ export const Sequencer: React.FC<SequencerProps> = ({
             title={`SEQUENCER:\nDrag chords here, or click to position the playhead.`}
         >
             {renderGrid(CHORD_TRACK_HEIGHT)}
-            {sequence.filter(c => Math.floor(c.start / stepsPerLane) === laneIndex).map(chord => {
-              const isDraggingThisChord = draggingState?.id === chord.id;
-              const displayChord = isDraggingThisChord
-                  ? { ...chord, start: draggingState!.start, duration: draggingState!.duration }
-                  : chord;
-
-              return (
+            {sequence.filter(c => Math.floor(c.start / stepsPerLane) === laneIndex).map(chord => (
                 <ChordBlock 
-                  key={chord.id} 
-                  chord={displayChord} 
-                  stepWidth={stepWidth} 
-                  stepsPerLane={stepsPerLane}
-                  onRemove={onRemoveChord} 
-                  onDoubleClick={onChordDoubleClick} 
-                  onPlayChord={onPlayChord}
-                  onChordSelect={onChordSelect}
-                  onChordMouseUp={onChordMouseUp} 
-                  playingChordId={playingChordId} 
-                  isSelected={selectedChordIds.has(chord.id)}
-                  isClickMuted={isClickMuted}
-                  onDragStart={handleDragStart}
-                  onContextMenu={handleContextMenu}
-                  onIconClick={handleIconClick}
+                  key={chord.id} chord={chord} stepWidth={stepWidth} stepsPerLane={stepsPerLane}
+                  onRemove={onRemoveChord} onDoubleClick={onChordDoubleClick} onPlayChord={onPlayChord}
+                  onChordSelect={onChordSelect} onChordMouseUp={onChordMouseUp} playingChordId={playingChordId} 
+                  isSelected={selectedChordIds.has(chord.id)} isClickMuted={isClickMuted}
+                  onDragStart={handleChordDragStart} onContextMenu={(e, c) => handleContextMenu(e, c, 'chord')} onIconClick={handleIconClick}
                 />
-              );
-            })}
-            <div
-                ref={ghostBlockRef}
-                className="absolute bg-indigo-500/30 rounded-[4px] pointer-events-none"
-                style={{
-                    display: 'none',
-                    height: `${CHORD_BLOCK_HEIGHT}px`,
-                    bottom: `${TRACK_VERTICAL_PADDING}px`,
-                }}
-            />
+            ))}
+            <div id="ghost-block-chord" className="absolute bg-indigo-500/30 rounded-[4px] pointer-events-none" style={{ display: 'none', height: `${CHORD_BLOCK_HEIGHT}px`, bottom: `${TRACK_VERTICAL_PADDING}px` }} />
         </div>
          {/* Bass Track */}
-         {hasBass && (
+         {isBasslineEnabled && (
             <div
+                data-lane-type="bass"
+                data-lane-index={laneIndex}
                 data-lane={laneIndex}
                 className="relative w-full bg-gray-900/50"
                 style={{ height: `${BASS_TRACK_HEIGHT}px` }}
+                onMouseDown={handleBassTrackMouseDown}
                 onClick={handleTrackClick}
+                title="Click and drag to create bass notes. Right-click a note for options."
             >
                 {renderGrid(BASS_TRACK_HEIGHT)}
                 {bassSequence.filter(n => Math.floor(n.start / stepsPerLane) === laneIndex).map(note => (
                     <BassBlock
-                        key={note.id}
-                        note={note}
-                        stepWidth={stepWidth}
-                        stepsPerLane={stepsPerLane}
+                        key={note.id} note={note} stepWidth={stepWidth} stepsPerLane={stepsPerLane}
                         isPlaying={note.id === playingBassNoteId}
+                        onDragStart={handleBassDragStart} onContextMenu={(e, n) => handleContextMenu(e, n, 'bass')}
                     />
                 ))}
             </div>
          )}
-         {/* Bottom Spacer */}
          <div className="h-[24px] bg-gray-800" />
-
-         {playheadLane === laneIndex && stepWidth > 0 && playheadLeftInLane <= gridWidth && (
-              <Playhead position={playheadLeftInLane} trackPadding={TRACK_PADDING} height={RULER_HEIGHT + 5} top={0} />
-        )}
       </div>
     );
   };
-
-  const handleContainerClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    const target = e.target as HTMLElement;
-    if (target === e.currentTarget || target.classList.contains('relative')) {
-        onDeselect();
-    }
-  };
+  
+  const playheadLane = is8BarMode && playheadPosition >= (BEATS_PER_BAR * 4) ? 1 : 0;
+  const playheadLeftInLane = (playheadPosition % (BEATS_PER_BAR * 4)) * beatWidth;
+  const playheadHeight = RULER_HEIGHT + CHORD_TRACK_HEIGHT + (isBasslineEnabled ? BASS_TRACK_HEIGHT : 0);
+  const timeDisplay = useMemo(() => {
+    const stepsPerBar = timeSignature === '4/4' ? 16 : 12;
+    if (!stepsPerBar) return "01:1:1";
+    const totalSixteenths = Math.floor(playheadPosition * 4);
+    const bar = Math.floor(totalSixteenths / stepsPerBar) + 1;
+    const beat = Math.floor((totalSixteenths % stepsPerBar) / 4) + 1;
+    const sixteenth = (totalSixteenths % 4) + 1;
+// FIX: Changed String(bar) to bar.toString() to avoid a "not callable" error, which can occur if the global 'String' identifier is shadowed or misinterpreted.
+    return `${bar.toString().padStart(2, '0')}:${beat}:${sixteenth}`;
+  }, [playheadPosition, timeSignature]);
 
   return (
     <div 
-      className="w-full flex flex-col min-w-[600px]" 
-      onClick={handleContainerClick}
+      className="w-full flex flex-col min-w-[600px] relative" 
+      onClick={(e) => { if (e.target === e.currentTarget) onDeselect(); }}
       onDragLeave={handleContainerDragLeave}
     >
        <style>{`
-        @keyframes fade-in-fast {
-          from { opacity: 0; transform: scale(0.98); }
-          to { opacity: 1; transform: scale(1); }
-        }
+        @keyframes fade-in-fast { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
         .animate-fade-in-fast { animation: fade-in-fast 0.1s ease-out forwards; }
       `}</style>
-      <div className="relative">
-        <React.Fragment key="lane-0">
-          {renderSequencerLane(0)}
-        </React.Fragment>
-
-        {is8BarMode && (
-          <React.Fragment key="lane-1">
-            {renderSequencerLane(1)}
-          </React.Fragment>
-        )}
-
-        {sequence.length === 0 && (
-          <div className="absolute top-1/2 -translate-y-1/2 text-gray-600 font-semibold pointer-events-none" style={{left: barWidth / 2 + 16, transform: 'translate(-50%, -50%)', top: '65px' }}>
+      
+      {renderSequencerLane(0)}
+      {is8BarMode && renderSequencerLane(1)}
+      
+      {sequence.length === 0 && (
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-gray-600 font-semibold pointer-events-none text-center" style={{ top: '65px' }}>
             Drag a chord from the side panel to start
           </div>
-        )}
-      </div>
+      )}
+      
+      {stepWidth > 0 && playheadLeftInLane <= gridWidth && (
+          <Playhead 
+            position={playheadLeftInLane} 
+            trackPadding={TRACK_PADDING} 
+            height={playheadHeight} 
+            top={playheadLane === 1 ? (CHORD_TRACK_HEIGHT + BASS_TRACK_HEIGHT + RULER_HEIGHT + 24) : 0} 
+          />
+      )}
+
        {contextMenu && (
-        <ContextMenu
-          x={contextMenu.x}
-          y={contextMenu.y}
-          chord={contextMenu.chord}
-          onClose={() => setContextMenu(null)}
-          onSetArticulation={handleSetArticulation}
-        />
+          contextMenu.type === 'chord' ?
+            <ContextMenu x={contextMenu.x} y={contextMenu.y} chord={contextMenu.item as SequenceChord} onClose={() => setContextMenu(null)} onSetArticulation={handleSetArticulation} onRemove={onRemoveChord} />
+          : <BassContextMenu x={contextMenu.x} y={contextMenu.y} note={contextMenu.item as SequenceBassNote} onClose={() => setContextMenu(null)} onUpdate={onUpdateBassNote} onRemove={onRemoveBassNote} />
       )}
       {editingArticulationId && chordForArticulationEditor && (
         <ArticulationEditor

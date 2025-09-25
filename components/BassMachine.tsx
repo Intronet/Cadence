@@ -144,9 +144,9 @@ export const BassMachine: React.FC<BassMachineProps> = ({
         {/* Left Column: Main Controls & Instruments */}
         <div className="flex flex-col gap-4">
           <div className="flex items-center justify-between bg-gray-900/50 p-3 rounded-[4px] border border-gray-700">
-            <label htmlFor="auto-bassline-toggle" className="font-semibold text-gray-200">Auto-Bassline</label>
+            <label htmlFor="bass-enabled-toggle" className="font-semibold text-gray-200">Enabled</label>
             <button
-              id="auto-bassline-toggle"
+              id="bass-enabled-toggle"
               onClick={onToggleBasslineEnabled}
               className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 focus:ring-offset-gray-800 ${
                 isBasslineEnabled ? 'bg-indigo-600' : 'bg-gray-600'
